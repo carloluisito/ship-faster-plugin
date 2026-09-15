@@ -38,14 +38,17 @@ export function writeJsonAtomic(file, value) {
     mkdirSync(dirname(file), { recursive: true });
     const tmp = `${file}.${process.pid}.${randomBytes(4).toString('hex')}.tmp`;
     writeFileSync(tmp, JSON.stringify(value, null, 2));
+    let renamed = false;
     try {
       renameSync(tmp, file);
+      renamed = true;
     } catch {
       // Windows refuses to rename over a file another process has open; replace it explicitly once.
       try { unlinkSync(file); } catch {}
-      try { renameSync(tmp, file); } catch { try { unlinkSync(tmp); } catch {} }
+      try { renameSync(tmp, file); renamed = true; } catch {}
     }
-    return true;
+    if (!renamed) try { unlinkSync(tmp); } catch {}
+    return renamed;
   } catch {
     return false;
   }
@@ -70,11 +73,7 @@ export function loadSession(root, sid) {
 }
 
 export function saveSession(root, sid, data) {
-  try {
-    return writeJsonAtomic(sessionFile(root, sid), data);
-  } catch {
-    return false;
-  }
+  return writeJsonAtomic(sessionFile(root, sid), data);
 }
 
 export function pruneSessions(root, { maxAgeDays = 7, deadlineMs = 1000 } = {}) {

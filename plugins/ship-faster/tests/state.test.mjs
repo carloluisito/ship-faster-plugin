@@ -1,6 +1,6 @@
 import { test, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, readdirSync, utimesSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, utimesSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpDir, cleanupAll } from './helpers.mjs';
 import * as s from '../scripts/lib/state.mjs';
@@ -66,4 +66,13 @@ test('session helpers never throw on blocked data directory', () => {
   assert.equal(s.saveSession('/r', 'sid', {}), false);
   assert.deepEqual(s.loadSession('/r', 'sid'), {});
   assert.deepEqual(s.pruneSessions('/r'), { removed: 0 });
+});
+
+test('writeJsonAtomic returns false and cleans up when rename fails on directory target', () => {
+  const dir = tmpDir();
+  const asdir = join(dir, 'asdir.json');
+  mkdirSync(asdir);
+  const result = s.writeJsonAtomic(asdir, { a: 1 });
+  assert.equal(result, false);
+  assert.equal(readdirSync(dir).filter((n) => n.endsWith('.tmp')).length, 0);
 });
