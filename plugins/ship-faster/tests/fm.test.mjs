@@ -106,3 +106,23 @@ test('updateFrontmatter keeps order and body, appends new keys, removes undefine
   const fresh = updateFrontmatter('just body\n', { title: 'T' });
   assert.equal(fresh, '---\ntitle: T\n---\njust body\n');
 });
+
+test('block context quotes only when needed; commas and interior brackets do not require quoting', () => {
+  const data = { summary: 'Verified dev, test, and build commands with durations.', tags: ['a,b'] };
+  const text = serializeFrontmatter(data);
+  assert.match(text, /\nsummary: Verified dev, test, and build commands with durations.\n/);
+  assert.match(text, /\ntags: \["a,b"\]\n/);
+  assert.deepEqual(parseFrontmatter(text + 'body').data, data);
+});
+
+test('parses comment lines inside block lists without errors', () => {
+  const { data, errors } = parseFrontmatter(`---
+checks:
+  - name: test
+  # a comment
+  - name: other
+---
+`);
+  assert.deepEqual(errors, []);
+  assert.deepEqual(data.checks, [{ name: 'test' }, { name: 'other' }]);
+});

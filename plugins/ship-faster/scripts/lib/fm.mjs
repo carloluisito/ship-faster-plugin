@@ -50,7 +50,7 @@ function parseBlock(lines, start, startLineNo, errors) {
   const items = [];
   while (i < lines.length) {
     const line = lines[i];
-    if (!line.trim()) { i++; continue; }
+    if (!line.trim() || line.trim().startsWith('#')) { i++; continue; }
     const lead = line.match(/^\s*/)[0].length;
     if (lead < indent) break;
     if (lead === indent && /^\s*-(\s|$)/.test(line)) {
@@ -62,7 +62,7 @@ function parseBlock(lines, start, startLineNo, errors) {
         i++;
         while (i < lines.length) {
           const l = lines[i];
-          if (!l.trim()) { i++; continue; }
+          if (!l.trim() || l.trim().startsWith('#')) { i++; continue; }
           const ll = l.match(/^\s*/)[0].length;
           if (ll <= indent) break;
           const kv2 = /^\s+([A-Za-z_][\w-]*):(?:\s+(.*))?$/.exec(l);
@@ -127,7 +127,7 @@ function parseScalar(raw) {
   return s;
 }
 
-const NEEDS_QUOTES = /[:#,\[\]{}"'\\]|^\s|\s$|^$|^-?\d+$|^(true|false|null|~)$/;
+const NEEDS_QUOTES = /[:#"'\\]|^\[|^\s|\s$|^$|^-?\d+$|^(true|false|null|~)$/;
 const NEEDS_QUOTES_FLOW = /[\s:#,\[\]{}"'\\]|^$|^-?\d+$|^(true|false|null|~)$/;
 
 function scalarToYaml(v, isFlow = false) {
