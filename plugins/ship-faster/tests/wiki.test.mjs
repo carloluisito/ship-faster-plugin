@@ -44,6 +44,11 @@ test('loadPage and loadWiki parse frontmatter and count lines', () => {
   assert.equal(wiki.exists, true);
   assert.equal(wiki.pages.length, 3);
   assert.equal(loadWiki(tmpDir(), DEFAULTS).exists, false);
+  const emptyRoot = tmpDir();
+  const emptyFile = join(emptyRoot, 'docs', 'wiki', 'empty.md');
+  mkdirSync(join(emptyRoot, 'docs', 'wiki'), { recursive: true });
+  writeFileSync(emptyFile, '');
+  assert.equal(loadPage(emptyRoot, emptyFile).lines, 0);
 });
 
 test('loadWikiCache builds once, reuses when unchanged, rebuilds on mtime change', () => {
@@ -62,4 +67,12 @@ test('loadWikiCache builds once, reuses when unchanged, rebuilds on mtime change
   assert.deepEqual(third.pages[0].covers, ['lib/**']);
   assert.notEqual(third.builtAt, first.builtAt);
   assert.deepEqual(JSON.parse(readFileSync(cacheFile, 'utf8')).pages[0].covers, ['lib/**']);
+});
+
+test('loadWiki exists=true for empty wiki directory', () => {
+  const root = tmpDir();
+  mkdirSync(join(root, 'docs', 'wiki'), { recursive: true });
+  const wiki = loadWiki(root, DEFAULTS);
+  assert.equal(wiki.exists, true);
+  assert.deepEqual(wiki.pages, []);
 });

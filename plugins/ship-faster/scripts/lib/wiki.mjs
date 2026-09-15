@@ -27,19 +27,23 @@ export function listPages(root, config) {
   const dir = wikiDir(root, config);
   if (!existsSync(dir)) return [];
   const index = join(dir, 'index.md');
-  return walk(dir, []).filter((f) => f !== index).sort((a, b) => relPath(root, a).localeCompare(relPath(root, b)));
+  return walk(dir, []).filter((f) => f !== index).sort((a, b) => {
+    const x = relPath(root, a);
+    const y = relPath(root, b);
+    return x < y ? -1 : x > y ? 1 : 0;
+  });
 }
 
 export function loadPage(root, file) {
   const text = readFileSync(file, 'utf8');
   const { data, body, errors } = parseFrontmatter(text);
-  const lines = text.split(/\r?\n/).length - (text.endsWith('\n') ? 1 : 0);
+  const lines = text === '' ? 0 : text.split(/\r?\n/).length - (text.endsWith('\n') ? 1 : 0);
   return { file, rel: relPath(root, file), data, body, errors, lines };
 }
 
 export function loadWiki(root, config) {
   const dir = wikiDir(root, config);
-  const exists = existsSync(join(dir, 'index.md')) || existsSync(dir);
+  const exists = existsSync(dir);
   return { dir, exists, pages: listPages(root, config).map((f) => loadPage(root, f)) };
 }
 
