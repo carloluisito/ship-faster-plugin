@@ -15,7 +15,7 @@ const CI_FILES = [
   [/^\.circleci\/config\.yml$/, 'circle'],
   [/^bitbucket-pipelines\.yml$/, 'bitbucket'],
 ];
-const DOUBLE_STAR = '';
+const DOUBLE_STAR = '\u0001';
 
 function walkFiles(root) {
   const out = [];
