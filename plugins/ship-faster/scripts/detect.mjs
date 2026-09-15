@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import { runMain } from './lib/cli.mjs';
 import { loadConfig } from './lib/config.mjs';
@@ -15,6 +15,7 @@ const CI_FILES = [
   [/^\.circleci\/config\.yml$/, 'circle'],
   [/^bitbucket-pipelines\.yml$/, 'bitbucket'],
 ];
+const DOUBLE_STAR = '';
 
 function walkFiles(root) {
   const out = [];
@@ -101,8 +102,10 @@ export function detect(root) {
   const pyManifests = ['pyproject.toml', 'setup.py', 'setup.cfg', ...list(/^requirements[^/]*\.txt$/)].filter(has);
   if (pyManifests.length) {
     stacks.push({ kind: 'python', manifests: pyManifests });
-    const py = (readText(root, 'pyproject.toml') || '') + (readText(root, 'setup.cfg') || '');
-    if (/\[tool\.mypy\]/.test(py) || has('mypy.ini')) { typecheck.push('mypy'); push('typecheck', 'mypy .'); }
+    const pyproject = readText(root, 'pyproject.toml') || '';
+    const setupCfg = readText(root, 'setup.cfg') || '';
+    const py = pyproject + setupCfg;
+    if (/\[tool\.mypy\]/.test(pyproject) || /^\[mypy\]\s*$/m.test(setupCfg) || has('mypy.ini')) { typecheck.push('mypy'); push('typecheck', 'mypy .'); }
     if (/\[tool\.pyright\]/.test(py) || has('pyrightconfig.json')) { typecheck.push('pyright'); push('typecheck', 'pyright'); }
     if (/\[tool\.ruff/.test(py) || has('ruff.toml')) { lintTools.push('ruff'); push('lint', 'ruff check .'); }
     if (/\[tool\.pytest/.test(py) || has('pytest.ini') || has('conftest.py') || any(/^tests\//)) { testFrameworks.push('pytest'); push('test', 'pytest', 900); }
@@ -182,17 +185,30 @@ export function detect(root) {
   return result;
 }
 
+function pnpmWorkspacePackagePatterns(text) {
+  const out = [];
+  let capturing = false;
+  for (const line of text.split(/\r?\n/)) {
+    if (/^packages:\s*$/.test(line)) { capturing = true; continue; }
+    if (!capturing) continue;
+    const item = /^\s+-\s*['"]?([^'"\s]+)['"]?\s*$/.exec(line);
+    if (item) { out.push(item[1]); continue; }
+    if (/^\S/.test(line)) capturing = false;
+  }
+  return out;
+}
+
 function detectNodeWorkspaces(root, pkg, files, workspaces) {
   let patterns = Array.isArray(pkg.workspaces) ? pkg.workspaces : (pkg.workspaces && Array.isArray(pkg.workspaces.packages) ? pkg.workspaces.packages : []);
   const pnpmWs = readText(root, 'pnpm-workspace.yaml');
-  if (pnpmWs) for (const m of pnpmWs.matchAll(/^\s*-\s*['"]?([^'"\s]+)['"]?\s*$/gm)) patterns.push(m[1]);
+  if (pnpmWs) patterns.push(...pnpmWorkspacePackagePatterns(pnpmWs));
   patterns = patterns.filter((p) => !p.startsWith('!'));
   if (!patterns.length) return;
   const pkgFiles = files.filter((f) => f.endsWith('/package.json'));
   for (const f of pkgFiles) {
     const dir = f.slice(0, -'/package.json'.length);
     const matches = patterns.some((p) => {
-      const re = new RegExp('^' + p.replace(/\/$/, '').replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*\*/g, '.*').replace(/\*/g, '[^/]*') + '$');
+      const re = new RegExp('^' + p.replace(/\/$/, '').replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*\*/g, DOUBLE_STAR).replace(/\*/g, '[^/]*').split(DOUBLE_STAR).join('.*') + '$');
       return re.test(dir);
     });
     if (!matches) continue;

@@ -46,6 +46,7 @@ test('dotnet, python, go, rust, java are detected with their checks', () => {
   const cases = [
     [{ 'App.sln': '', 'src/App/App.csproj': '<Project/>', '.editorconfig': '' }, 'dotnet', ['build', 'format', 'test']],
     [{ 'pyproject.toml': '[tool.pytest.ini_options]\n[tool.ruff]\n[tool.mypy]\n', 'app/main.py': '' }, 'python', ['typecheck', 'lint', 'test']],
+    [{ 'setup.cfg': '[mypy]\nstrict = true\n', 'app.py': '' }, 'python', ['typecheck']],
     [{ 'go.mod': 'module x\n', 'main.go': 'package main\n', '.golangci.yml': '' }, 'go', ['vet', 'lint', 'test', 'build']],
     [{ 'Cargo.toml': '[package]\nname="x"\n', 'src/main.rs': '', 'clippy.toml': '' }, 'rust', ['check', 'lint', 'test']],
     [{ 'build.gradle': '', 'gradlew': '' }, 'java', ['check']],
@@ -56,6 +57,9 @@ test('dotnet, python, go, rust, java are detected with their checks', () => {
     assert.deepEqual(r.stacks.map((s) => s.kind), [kind], kind);
     assert.deepEqual(r.suggestedChecks.map((c) => c.name), checks, kind);
   }
+
+  const setupCfgMypy = detect(makeRepo({ files: { 'setup.cfg': '[mypy]\nstrict = true\n', 'app.py': '' } }).root);
+  assert.deepEqual(setupCfgMypy.suggestedChecks.map((c) => [c.name, c.run]), [['typecheck', 'mypy .']]);
 });
 
 test('pnpm workspaces become workspaces entries', () => {
@@ -68,6 +72,32 @@ test('pnpm workspaces become workspaces entries', () => {
   } });
   const r = detect(root);
   assert.deepEqual(r.workspaces.map((w) => [w.name, w.path]), [['@m/a', 'packages/a'], ['@m/b', 'packages/b']]);
+});
+
+test('pnpm workspace ** matches nested packages while * matches only one level', () => {
+  const files = {
+    'package.json': JSON.stringify({ name: 'mono', private: true }),
+    'pnpm-lock.yaml': '',
+    'packages/a/package.json': JSON.stringify({ name: '@m/a' }),
+    'packages/nested/deep/package.json': JSON.stringify({ name: '@m/deep' }),
+  };
+  const star2 = detect(makeRepo({ files: { ...files, 'pnpm-workspace.yaml': "packages:\n  - 'packages/**'\n" } }).root);
+  assert.deepEqual(star2.workspaces.map((w) => w.path), ['packages/a', 'packages/nested/deep']);
+
+  const star1 = detect(makeRepo({ files: { ...files, 'pnpm-workspace.yaml': "packages:\n  - 'packages/*'\n" } }).root);
+  assert.deepEqual(star1.workspaces.map((w) => w.path), ['packages/a']);
+});
+
+test('pnpm-workspace.yaml only reads patterns under the packages key', () => {
+  const { root } = makeRepo({ files: {
+    'package.json': JSON.stringify({ name: 'mono', private: true }),
+    'pnpm-workspace.yaml': "packages:\n  - 'packages/*'\nonlyBuiltDependencies:\n  - esbuild\n",
+    'pnpm-lock.yaml': '',
+    'packages/a/package.json': JSON.stringify({ name: '@m/a' }),
+    'esbuild/package.json': JSON.stringify({ name: 'esbuild' }),
+  } });
+  const r = detect(root);
+  assert.deepEqual(r.workspaces.map((w) => w.path), ['packages/a']);
 });
 
 test('works without git and via the CLI', () => {
