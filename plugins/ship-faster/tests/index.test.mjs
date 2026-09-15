@@ -70,3 +70,14 @@ test('creates wiki directory and writes index on fresh repository', () => {
   const w2 = writeIndex(root, DEFAULTS);
   assert.equal(w2.written, false);
 });
+
+test('builds recipes-only index with no empty main table', () => {
+  const root = tmpDir();
+  const w = join(root, 'docs', 'wiki');
+  mkdirSync(join(w, 'recipes'), { recursive: true });
+  writeFileSync(join(w, 'recipes', 'x.md'), page('X', 'Recipe summary.', 'Read this recipe.'));
+  const a = buildIndex(root, DEFAULTS);
+  assert.ok(!a.content.includes('\n\n\n'));
+  assert.ok(a.content.includes('# Wiki index\n\n## Recipes\n\n| Recipe |'));
+  assert.ok(!a.content.includes('| Page |'));
+});
