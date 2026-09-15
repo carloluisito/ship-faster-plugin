@@ -1,5 +1,5 @@
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { join, dirname } from 'node:path';
 import { runMain } from './lib/cli.mjs';
 import { loadConfig } from './lib/config.mjs';
 import { normalizePath } from './lib/glob.mjs';
@@ -32,11 +32,14 @@ export function buildIndex(root, config) {
       group: link.startsWith('recipes/') ? 'recipes' : link.startsWith('packages/') ? 'packages' : 'main',
     };
   }).sort((a, b) => (a.link < b.link ? -1 : a.link > b.link ? 1 : 0));
-  let content = HEADER + '\n' + table('Page', rows.filter((r) => r.group === 'main'));
+  const sections = [HEADER];
+  const main = table('Page', rows.filter((r) => r.group === 'main'));
+  if (main) sections.push(main);
   const recipes = table('Recipe', rows.filter((r) => r.group === 'recipes'));
-  if (recipes) content += '\n## Recipes\n\n' + recipes;
+  if (recipes) sections.push('## Recipes\n\n' + recipes);
   const packages = table('Package', rows.filter((r) => r.group === 'packages'));
-  if (packages) content += '\n## Packages\n\n' + packages;
+  if (packages) sections.push('## Packages\n\n' + packages);
+  const content = sections.join('\n');
   const path = join(wikiDir(root, config), 'index.md');
   const current = existsSync(path) ? readFileSync(path, 'utf8').replace(/\r\n/g, '\n') : null;
   return { ok: true, path: normalizePath(path), content, current, changed: current !== content, pages: rows.length };
@@ -44,7 +47,10 @@ export function buildIndex(root, config) {
 
 export function writeIndex(root, config) {
   const r = buildIndex(root, config);
-  if (r.changed) writeFileSync(r.path, r.content);
+  if (r.changed) {
+    mkdirSync(dirname(r.path), { recursive: true });
+    writeFileSync(r.path, r.content);
+  }
   return { ...r, written: r.changed, summary: [r.changed ? `index.md written (${r.pages} pages)` : `index.md up to date (${r.pages} pages)`] };
 }
 

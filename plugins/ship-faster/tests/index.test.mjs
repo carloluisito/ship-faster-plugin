@@ -37,6 +37,7 @@ test('builds grouped, sorted, escaped tables and is byte-stable', () => {
   assert.ok(a.content.includes('| [nofm](nofm.md) | (no frontmatter) |  |'));
   assert.ok(a.content.includes('## Recipes'));
   assert.ok(!a.content.includes('## Packages'));
+  assert.ok(!a.content.includes('\n\n\n'));
   const w1 = writeIndex(root, DEFAULTS);
   assert.equal(w1.written, true);
   assert.equal(readFileSync(join(w, 'index.md'), 'utf8'), a.content);
@@ -56,4 +57,16 @@ test('--check reports an out-of-date index without writing', () => {
   const fix = runScript('index', ['--root', root, '--json']);
   assert.equal(fix.json.written, true);
   assert.equal(runScript('index', ['--root', root, '--check', '--json']).json.ok, true);
+});
+
+test('creates wiki directory and writes index on fresh repository', () => {
+  const root = tmpDir();
+  const indexPath = join(root, 'docs', 'wiki', 'index.md');
+  const w1 = writeIndex(root, DEFAULTS);
+  assert.equal(w1.written, true);
+  assert.equal(w1.pages, 0);
+  assert.ok(readFileSync(indexPath, 'utf8').length > 0);
+  assert.ok(!readFileSync(indexPath, 'utf8').includes('\n\n\n'));
+  const w2 = writeIndex(root, DEFAULTS);
+  assert.equal(w2.written, false);
 });
