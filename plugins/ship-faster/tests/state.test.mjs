@@ -37,6 +37,8 @@ test('projectDir writes project.json once; json helpers round-trip and tolerate 
   writeFileSync(f, '{ corrupt');
   assert.deepEqual(s.readJson(f, { fallback: true }), { fallback: true });
   assert.equal(readdirSync(dir).filter((n) => n.endsWith('.tmp')).length, 0);
+  assert.ok(existsSync(s.preflightDir(root)));
+  assert.ok(existsSync(s.backupDir(root)));
 });
 
 test('sessions save, load, sanitize ids, and prune by age within a deadline', () => {
@@ -53,4 +55,15 @@ test('sessions save, load, sanitize ids, and prune by age within a deadline', ()
   assert.equal(removed, 1);
   assert.ok(!existsSync(old));
   assert.ok(existsSync(s.sessionFile(root, 'abc-123')));
+});
+
+test('session helpers never throw on blocked data directory', () => {
+  const tmp = tmpDir();
+  const blocked = join(tmp, 'blocked');
+  writeFileSync(blocked, '');
+  process.env.CLAUDE_PLUGIN_DATA = join(tmp, 'blocked', 'sub');
+  assert.equal(s.writeJsonAtomic(join(s.dataDir(), 'x.json'), { a: 1 }), false);
+  assert.equal(s.saveSession('/r', 'sid', {}), false);
+  assert.deepEqual(s.loadSession('/r', 'sid'), {});
+  assert.deepEqual(s.pruneSessions('/r'), { removed: 0 });
 });

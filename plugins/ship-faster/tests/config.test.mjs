@@ -47,3 +47,14 @@ test('invalid json yields one error and defaults', () => {
   assert.deepEqual(config, DEFAULTS);
   assert.equal(errors.length, 1);
 });
+
+test('DEFAULTS is deeply frozen', () => {
+  assert.ok(Object.isFrozen(DEFAULTS));
+  assert.ok(Object.isFrozen(DEFAULTS.protectedBranches));
+  assert.ok(Object.isFrozen(DEFAULTS.guard));
+});
+
+test('guard as array yields single error', () => {
+  const { errors } = loadConfig(withConfig(JSON.stringify({ guard: ['a'] })));
+  assert.deepEqual(errors, ['guard must be an object']);
+});

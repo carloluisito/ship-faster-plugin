@@ -21,9 +21,11 @@ export function projectHash(root) {
 
 export function projectDir(root) {
   const dir = join(dataDir(), 'projects', projectHash(root));
-  mkdirSync(dir, { recursive: true });
-  const meta = join(dir, 'project.json');
-  if (!existsSync(meta)) writeJsonAtomic(meta, { root: normalizePath(root), createdAt: new Date().toISOString() });
+  try {
+    mkdirSync(dir, { recursive: true });
+    const meta = join(dir, 'project.json');
+    if (!existsSync(meta)) writeJsonAtomic(meta, { root: normalizePath(root), createdAt: new Date().toISOString() });
+  } catch {}
   return dir;
 }
 
@@ -32,15 +34,20 @@ export function readJson(file, fallback = null) {
 }
 
 export function writeJsonAtomic(file, value) {
-  mkdirSync(dirname(file), { recursive: true });
-  const tmp = `${file}.${process.pid}.${randomBytes(4).toString('hex')}.tmp`;
-  writeFileSync(tmp, JSON.stringify(value, null, 2));
   try {
-    renameSync(tmp, file);
+    mkdirSync(dirname(file), { recursive: true });
+    const tmp = `${file}.${process.pid}.${randomBytes(4).toString('hex')}.tmp`;
+    writeFileSync(tmp, JSON.stringify(value, null, 2));
+    try {
+      renameSync(tmp, file);
+    } catch {
+      // Windows refuses to rename over a file another process has open; replace it explicitly once.
+      try { unlinkSync(file); } catch {}
+      try { renameSync(tmp, file); } catch { try { unlinkSync(tmp); } catch {} }
+    }
+    return true;
   } catch {
-    // Windows refuses to rename over a file another process has open; replace it explicitly once.
-    try { unlinkSync(file); } catch {}
-    try { renameSync(tmp, file); } catch { try { unlinkSync(tmp); } catch {} }
+    return false;
   }
 }
 
@@ -54,38 +61,50 @@ export function sessionFile(root, sid) {
 }
 
 export function loadSession(root, sid) {
-  const v = readJson(sessionFile(root, sid), {});
-  return v && typeof v === 'object' && !Array.isArray(v) ? v : {};
+  try {
+    const v = readJson(sessionFile(root, sid), {});
+    return v && typeof v === 'object' && !Array.isArray(v) ? v : {};
+  } catch {
+    return {};
+  }
 }
 
 export function saveSession(root, sid, data) {
-  writeJsonAtomic(sessionFile(root, sid), data);
+  try {
+    return writeJsonAtomic(sessionFile(root, sid), data);
+  } catch {
+    return false;
+  }
 }
 
 export function pruneSessions(root, { maxAgeDays = 7, deadlineMs = 1000 } = {}) {
-  const dir = join(projectDir(root), 'sessions');
-  const started = Date.now();
-  const cutoff = started - maxAgeDays * 86400_000;
-  let removed = 0;
-  if (!existsSync(dir)) return { removed };
-  for (const name of readdirSync(dir)) {
-    if (Date.now() - started > deadlineMs) break;
-    const file = join(dir, name);
-    try {
-      if (statSync(file).mtimeMs < cutoff) { rmSync(file, { force: true }); removed++; }
-    } catch {}
+  try {
+    const dir = join(projectDir(root), 'sessions');
+    const started = Date.now();
+    const cutoff = started - maxAgeDays * 86400_000;
+    let removed = 0;
+    if (!existsSync(dir)) return { removed };
+    for (const name of readdirSync(dir)) {
+      if (Date.now() - started > deadlineMs) break;
+      const file = join(dir, name);
+      try {
+        if (statSync(file).mtimeMs < cutoff) { rmSync(file, { force: true }); removed++; }
+      } catch {}
+    }
+    return { removed };
+  } catch {
+    return { removed: 0 };
   }
-  return { removed };
 }
 
 export function preflightDir(root) {
   const dir = join(projectDir(root), 'preflight');
-  mkdirSync(dir, { recursive: true });
+  try { mkdirSync(dir, { recursive: true }); } catch {}
   return dir;
 }
 
 export function backupDir(root) {
   const dir = join(projectDir(root), 'backup');
-  mkdirSync(dir, { recursive: true });
+  try { mkdirSync(dir, { recursive: true }); } catch {}
   return dir;
 }

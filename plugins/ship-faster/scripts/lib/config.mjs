@@ -6,7 +6,7 @@ export const DEFAULTS = Object.freeze({
   plansDir: 'docs/plans',
   rulesDir: '.claude/rules',
   defaultBranch: 'auto',
-  protectedBranches: ['main', 'master'],
+  protectedBranches: Object.freeze(['main', 'master']),
   guard: Object.freeze({ forcePush: 'deny', pushProtected: 'deny', noVerify: 'deny', addAll: 'deny' }),
   healthCadenceDays: 14,
   pageMaxLines: 200,
@@ -50,7 +50,7 @@ export function loadConfig(root) {
     else errors.push('protectedBranches must be an array of branch names');
   }
   if ('guard' in raw) {
-    if (raw.guard && typeof raw.guard === 'object') {
+    if (raw.guard && typeof raw.guard === 'object' && !Array.isArray(raw.guard)) {
       for (const [k, v] of Object.entries(raw.guard)) {
         if (!(k in DEFAULTS.guard)) { errors.push(`guard.${k} is not a known rule`); continue; }
         if (GUARD_VALUES.has(v)) config.guard[k] = v;
