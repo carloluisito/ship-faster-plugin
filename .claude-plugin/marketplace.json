@@ -1,0 +1,15 @@
+{
+  "name": "ship-faster",
+  "owner": { "name": "carloluisito", "url": "https://github.com/carloluisito" },
+  "description": "Repo-aware shipping for Claude Code: a router CLAUDE.md, a verified wiki, and preflight, ship, release, and health skills built on it.",
+  "plugins": [
+    {
+      "name": "ship-faster",
+      "source": "./plugins/ship-faster",
+      "version": "0.1.0",
+      "description": "Generates a router CLAUDE.md and a verified, freshness-tracked wiki for any repository, then ships with repo-aware preflight, review, PR, release, and maintenance skills.",
+      "author": { "name": "carloluisito", "url": "https://github.com/carloluisito" },
+      "keywords": ["claude-md", "docs", "wiki", "preflight", "ship", "release", "hooks", "skills"]
+    }
+  ]
+}
