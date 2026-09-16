@@ -67,7 +67,8 @@ projects/<hash16>/health.json         last health run
 cwd-cache/<hash16>.json               working directory → repository root
 ```
 
-Nothing here contains file contents, prompts, or secrets, and nothing leaves your machine.
+Everything here is metadata except `preflight/*.log`, which holds the output of the check commands
+your repository defines, pruned to the ten most recent runs. Nothing leaves your machine.
 `/plugin uninstall ship-faster` deletes this directory; pass `--keep-data` to keep it.
 
 ## Scripts

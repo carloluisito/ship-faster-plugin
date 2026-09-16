@@ -264,8 +264,9 @@ arrives empty or unexpanded, the fallback is `$CLAUDE_CONFIG_DIR/plugins/data/sh
 ```
 
 `hash16` is the first sixteen hex characters of the SHA-256 of the repository root path. Writes
-are atomic (temp file then rename). Corrupt state is treated as empty and replaced. Nothing here
-contains file contents, prompts, or secrets.
+are atomic (temp file then rename). Corrupt state is treated as empty and replaced. Everything here
+is metadata except `preflight/*.log`, which holds the output of the check commands your repository
+defines, pruned to the ten most recent runs. Nothing leaves your machine.
 
 ## 6. Skills
 
@@ -678,11 +679,12 @@ history. Exit 1 on any error.
 ### 9.8 `checks.mjs`
 
 `resolve`: ordered checks from `commands.md`, else from CI (`run:` steps extracted from GitHub,
-GitLab, and Azure pipeline files, single-line and block scalars, with matrix and deploy jobs
-excluded), else from `detect`. Commands whose name or text matches deploy, publish, release, or
-`push` are excluded and reported. `run`: sequential execution with per-check timeout, logs to
-the data directory, JSON result with status (`pass`, `fail`, `timeout`, `skipped`), exit code,
-duration, and the last 60 lines (4 KB cap) of a failure; stops at the first failure unless
+GitLab, and Azure pipeline files, single-line and block scalars; steps containing `${{`
+expressions are excluded; deploy-like commands and step names are excluded; matrix jobs receive
+no special handling), else from `detect`. Commands whose name or text matches deploy, publish,
+release, or `push` are excluded and reported. `run`: sequential execution with per-check timeout,
+logs to the data directory, JSON result with status (`pass`, `fail`, `timeout`, `skipped`), exit
+code, duration, and the last 60 lines (4 KB cap) of a failure; stops at the first failure unless
 `--continue`. Writes `preflight/last.json`.
 
 ### 9.9 `plan.mjs`
@@ -705,8 +707,9 @@ exits 0.
 - Skills never proceed past a failed gate: preflight failure stops `ship` and `release`; a
   `block` review finding stops `ship` before commit; lint errors stop `onboard` and `sync-docs`
   from reporting success.
-- Scripts report errors as JSON on stdout with a non-zero exit so the skill can show the exact
-  cause.
+- Scripts report outcomes as JSON on stdout with `ok: true|false` and exit 0 whenever a JSON
+  document was produced, so skill preprocessing never aborts; `lint` alone exits 1 on lint errors
+  to gate CI (D20).
 - Generated files are only ever written after being shown as a diff (CLAUDE.md) or a listing
   (pages), and the pre-onboard CLAUDE.md is backed up when uncommitted.
 - Nothing leaves the machine from the plugin itself. Network use is limited to `gh` and package
