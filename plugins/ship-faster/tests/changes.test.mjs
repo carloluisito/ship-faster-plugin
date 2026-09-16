@@ -100,3 +100,17 @@ test('changes handles --base, a detached HEAD, and a directory without git', () 
   assert.equal(nogit.ok, false);
   assert.match(nogit.error, /not a git repository/);
 });
+
+test('a base that exists only as a remote-tracking branch is compared through refs/remotes/origin', () => {
+  const { root, git } = makeRepo({ files: { 'a.txt': 'a\n' } });
+  const first = git(['rev-parse', 'HEAD']);
+  git(['update-ref', 'refs/remotes/origin/develop', first]);
+  writeFileSync(join(root, 'b.txt'), 'b\n');
+  git(['add', 'b.txt']);
+  git(['commit', '-q', '-m', 'feat: b']);
+  const r = changes(root, { config: DEFAULTS, base: 'develop' });
+  assert.equal(r.ok, true);
+  assert.equal(r.base, 'develop');
+  assert.deepEqual([r.ahead, r.behind], [1, 0]);
+  assert.equal(r.hasWork, true);
+});

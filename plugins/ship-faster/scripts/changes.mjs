@@ -20,16 +20,18 @@ export function changes(root, { config, base } = {}) {
   const branch = git.currentBranch(root);
   const defaultBranch = config.defaultBranch !== 'auto' ? config.defaultBranch : git.defaultBranch(root);
   const resolvedBase = base || defaultBranch;
-  if (resolvedBase && !git.branchExists(root, resolvedBase) && !git.git(['rev-parse', '--verify', '-q', `refs/remotes/origin/${resolvedBase}`], { cwd: root }).ok) {
-    return { ok: false, error: `base branch ${resolvedBase} does not exist` };
-  }
+  const localBase = resolvedBase ? git.branchExists(root, resolvedBase) : false;
+  const remoteBase = resolvedBase && !localBase ? git.git(['rev-parse', '--verify', '-q', `refs/remotes/origin/${resolvedBase}`], { cwd: root }).ok : false;
+  if (resolvedBase && !localBase && !remoteBase) return { ok: false, error: `base branch ${resolvedBase} does not exist` };
+  const baseRef = localBase ? resolvedBase : remoteBase ? `refs/remotes/origin/${resolvedBase}` : null;
   const protectedSet = new Set(config.protectedBranches);
   if (defaultBranch) protectedSet.add(defaultBranch);
   const dirty = git.dirtyFiles(root).map((d) => ({ path: d.path, status: d.status, risky: riskyReason(d.path), large: isLarge(root, d.path) }));
   const excluded = dirty.filter((d) => d.risky || d.large).map((d) => d.path);
-  const counts = resolvedBase && branch !== resolvedBase ? git.aheadBehind(root, resolvedBase) : { ahead: 0, behind: 0 };
+  const counts = baseRef && branch !== resolvedBase ? git.aheadBehind(root, baseRef) : { ahead: 0, behind: 0 };
+  if (counts === null) return { ok: false, error: `cannot compare with base ${resolvedBase}` };
   const subjects = git.subjects(root, { n: 30 });
-  const ahead = counts ? counts.ahead : 0;
+  const ahead = counts.ahead;
   const result = {
     ok: true,
     branch,
@@ -40,7 +42,7 @@ export function changes(root, { config, base } = {}) {
     upstream: git.upstream(root),
     remote: git.remoteUrl(root),
     ahead,
-    behind: counts ? counts.behind : 0,
+    behind: counts.behind,
     dirty,
     excluded,
     commitStyle: commitStyle(subjects),

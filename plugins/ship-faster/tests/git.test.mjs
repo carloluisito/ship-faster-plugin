@@ -192,8 +192,10 @@ test('lastTag, tagExists, subjects, logSince, aheadBehind, upstream, remoteUrl, 
 test('git() disables core.quotepath so a non-ASCII path round-trips unescaped', () => {
   const name = 'caf\u00e9.txt';
   const { root, git } = makeRepo({ files: { 'a.txt': 'a\n' } });
+  const first = g.head(root);
   writeFileSync(join(root, name), 'c\n');
   git(['add', name]);
   git(['commit', '-q', '-m', 'feat: add non-ascii file']);
   assert.deepEqual(g.log(root, { n: 1 })[0].files, [name]);
+  assert.deepEqual(g.commitsSince(root, first).commits[0].files, [name]);
 });
