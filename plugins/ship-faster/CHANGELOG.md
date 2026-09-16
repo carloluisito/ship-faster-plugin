@@ -20,3 +20,8 @@ versions follow semver.
 - The guard waits at most two seconds for `git status` before it gives up and allows the command.
 - Multi-line CI steps are read as one command, so a step split across lines with `\` or `&&` no longer turns into fragments that fail when run as checks.
 - A preflight run still reports every check when its log file cannot be written.
+- CI steps written as a YAML sequence where one item ends with `&&`, `|`, or `\` join into one command without carrying the next item's `- ` marker.
+- A hook's stdin keeps an error handler after its input has been read, so a late pipe error cannot crash the process.
+- Wiki freshness reads the history in one pass only when three or more pages were verified at different commits; at two, the two direct diffs are cheaper.
+- Files changed by a merge commit itself (an "evil merge") now count as changed since a page's verified commit.
+- The one-pass freshness check ignores malformed `verified` values instead of failing for every page.

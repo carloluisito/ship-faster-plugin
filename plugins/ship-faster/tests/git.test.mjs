@@ -87,3 +87,32 @@ test('git() reports failure without throwing', () => {
   assert.equal(g.head(tmpDir()), null);
   assert.equal(g.defaultBranch(tmpDir()), null);
 });
+
+test('logTopo lists the files an evil merge introduced and nothing for a clean merge', () => {
+  const { root, git } = makeRepo({ files: { 'a.txt': 'a\n' } });
+  const first = g.head(root);
+  git(['checkout', '-q', '-b', 'side']);
+  writeFileSync(join(root, 's.txt'), 's\n');
+  git(['add', 's.txt']);
+  git(['commit', '-q', '-m', 'side']);
+  git(['checkout', '-q', 'main']);
+  writeFileSync(join(root, 'b.txt'), 'b\n');
+  git(['add', 'b.txt']);
+  git(['commit', '-q', '-m', 'b']);
+  git(['merge', '-q', '--no-ff', '-m', 'clean merge', 'side']);
+  const clean = g.logTopo(root, `${first}..HEAD`).find((c) => c.parents.length === 2);
+  assert.deepEqual(clean.files, []);
+  writeFileSync(join(root, 'a.txt'), 'evil\n');
+  git(['add', 'a.txt']);
+  git(['commit', '-q', '--amend', '--no-edit']);
+  const evil = g.logTopo(root, `${first}..HEAD`).find((c) => c.parents.length === 2);
+  assert.deepEqual(evil.files, ['a.txt']);
+});
+
+test('mergeBase ignores arguments that are not hex shas', () => {
+  const { root } = makeRepo({ files: { 'a.txt': 'a\n' } });
+  const first = g.head(root);
+  assert.equal(g.mergeBase(root, [first, '--help']), first);
+  assert.equal(g.mergeBase(root, [first, 'unverified']), first);
+  assert.equal(g.mergeBase(root, ['unverified', 'not a sha']), null);
+});

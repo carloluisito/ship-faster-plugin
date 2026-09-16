@@ -122,3 +122,69 @@ test('no wiki and no git are reported, not thrown', () => {
   assert.equal(r.pages[0].status, 'unverifiable');
   assert.match(r.pages[0].reason, /not a git repository/);
 });
+
+test('a change introduced by the merge commit itself counts as changed since a page verified before it', () => {
+  const { root, git } = makeRepo({ files: { 'a.txt': 'a', 'lib/b.ts': 'b' } });
+  const first = git(['rev-parse', 'HEAD']);
+  git(['checkout', '-q', '-b', 'side']);
+  writeFileSync(join(root, 's.txt'), 's');
+  git(['add', 's.txt']);
+  git(['commit', '-q', '-m', 'side']);
+  const side = git(['rev-parse', 'HEAD']);
+  git(['checkout', '-q', 'main']);
+  writeFileSync(join(root, 'lib', 'b.ts'), 'b2');
+  git(['add', 'lib/b.ts']);
+  git(['commit', '-q', '-m', 'b']);
+  const b = git(['rev-parse', 'HEAD']);
+  git(['merge', '-q', '--no-ff', '-m', 'merge side', 'side']);
+  writeFileSync(join(root, 'a.txt'), 'evil');
+  git(['add', 'a.txt']);
+  git(['commit', '-q', '--amend', '--no-edit']);
+
+  const w = join(root, 'docs', 'wiki');
+  mkdirSync(w, { recursive: true });
+  writeFileSync(join(w, 'index.md'), '# i\n');
+  writeFileSync(join(w, 'from-side.md'), page('From side', ['a.txt'], side));
+  writeFileSync(join(w, 'from-b.md'), page('From b', ['a.txt'], b));
+  writeFileSync(join(w, 'from-first.md'), page('From first', ['s.txt'], first));
+
+  const r = stale(root, { config: DEFAULTS });
+  const by = Object.fromEntries(r.pages.map((p) => [p.rel.replace('docs/wiki/', ''), p]));
+  assert.equal(by['from-side.md'].status, 'stale');
+  assert.deepEqual(by['from-side.md'].changed, ['a.txt']);
+  assert.equal(by['from-b.md'].status, 'stale');
+  assert.deepEqual(by['from-b.md'].changed, ['a.txt']);
+  assert.equal(by['from-first.md'].status, 'stale');
+  assert.deepEqual(by['from-first.md'].changed, ['s.txt']);
+});
+
+test('exactly two distinct verified shas classify exactly', () => {
+  const { root, git } = makeRepo({ files: { 'a/f.ts': 'a1' } });
+  const c1 = git(['rev-parse', 'HEAD']);
+  mkdirSync(join(root, 'b'), { recursive: true });
+  writeFileSync(join(root, 'b', 'f.ts'), 'b');
+  git(['add', 'b/f.ts']);
+  git(['commit', '-q', '-m', 'b']);
+  const c2 = git(['rev-parse', 'HEAD']);
+  mkdirSync(join(root, 'c'), { recursive: true });
+  writeFileSync(join(root, 'c', 'f.ts'), 'c');
+  git(['add', 'c/f.ts']);
+  git(['commit', '-q', '-m', 'c']);
+
+  const w = join(root, 'docs', 'wiki');
+  mkdirSync(w, { recursive: true });
+  writeFileSync(join(w, 'index.md'), '# i\n');
+  writeFileSync(join(w, 'a.md'), page('A', ['a/**'], c1));
+  writeFileSync(join(w, 'b.md'), page('B', ['b/**'], c1));
+  writeFileSync(join(w, 'c.md'), page('C', ['c/**'], c2));
+  writeFileSync(join(w, 'd.md'), page('D', ['b/**'], c2));
+
+  const r = stale(root, { config: DEFAULTS });
+  const by = Object.fromEntries(r.pages.map((p) => [p.rel.replace('docs/wiki/', ''), p]));
+  assert.equal(by['a.md'].status, 'fresh');
+  assert.equal(by['b.md'].status, 'stale');
+  assert.deepEqual(by['b.md'].changed, ['b/f.ts']);
+  assert.equal(by['c.md'].status, 'stale');
+  assert.deepEqual(by['c.md'].changed, ['c/f.ts']);
+  assert.equal(by['d.md'].status, 'fresh');
+});

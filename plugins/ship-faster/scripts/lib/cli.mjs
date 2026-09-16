@@ -36,6 +36,7 @@ export function readStdinJson(timeoutMs = 1500) {
       try {
         process.stdin.pause();
         process.stdin.removeAllListeners();
+        process.stdin.on('error', () => {});
         if (typeof process.stdin.unref === 'function') process.stdin.unref();
       } catch {}
       resolve(value);

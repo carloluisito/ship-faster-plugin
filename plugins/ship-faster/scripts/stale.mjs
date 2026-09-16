@@ -25,7 +25,8 @@ function filesAfter(commits, index, sha) {
 
 function batchChangedSince(root, shas) {
   const resolved = new Map();
-  if (shas.length < 2) return resolved;
+  // Two shas cost two direct diffs; walking the history only pays off from three.
+  if (shas.length < 3) return resolved;
   const base = git.mergeBase(root, shas);
   if (!base) return resolved;
   const commits = git.logTopo(root, `${base}..HEAD`, { n: LOG_LIMIT });

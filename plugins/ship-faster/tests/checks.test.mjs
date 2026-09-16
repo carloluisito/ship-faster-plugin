@@ -243,3 +243,15 @@ test('zero resolved checks is an honest failure, not a silent pass', () => {
   const last = JSON.parse(readFileSync(join(preflightDir(root), 'last.json'), 'utf8'));
   assert.equal(last.passed, false);
 });
+
+test('a sequence item continued with a trailing operator joins without its dash', () => {
+  const GITLAB = `test:
+  script:
+    - npm run lint &&
+    - npm run build
+    - npm test
+`;
+  const r = resolveChecks(makeRepo({ files: { '.gitlab-ci.yml': GITLAB } }).root, { config: DEFAULTS });
+  assert.equal(r.source, 'ci');
+  assert.deepEqual(r.checks.map((c) => c.run), ['npm run lint && npm run build', 'npm test']);
+});

@@ -117,12 +117,17 @@ export function log(cwd, { n = 500 } = {}) {
 }
 
 export function logTopo(cwd, range, { n = 2000 } = {}) {
-  const r = git(['log', '--topo-order', `-n${n}`, '--pretty=format:__C__%H%x1f%P', '--name-only', range], { cwd, timeoutMs: 10000 });
+  // combined diffs list only what a merge commit changed relative to every parent: an evil merge
+  // shows its files, a clean merge shows nothing its side commits do not already report.
+  const r = git(['log', '--topo-order', `-n${n}`, '--diff-merges=combined', '--pretty=format:__C__%H%x1f%P', '--name-only', range], { cwd, timeoutMs: 10000 });
   return r.ok ? parseLog(r.stdout, (parents) => ({ parents: parents.split(' ').filter(Boolean) })) : [];
 }
 
+const SHA = /^[0-9a-f]{4,40}$/i;
+
 export function mergeBase(cwd, shas) {
-  if (!Array.isArray(shas) || shas.length === 0) return null;
-  const v = out(['merge-base', '--octopus', ...shas], cwd, 5000);
+  const valid = (Array.isArray(shas) ? shas : []).map(String).filter((s) => SHA.test(s));
+  if (valid.length === 0) return null;
+  const v = out(['merge-base', '--octopus', ...valid], cwd, 5000);
   return v && /^[0-9a-f]{40}$/.test(v) ? v : null;
 }

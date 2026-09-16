@@ -8,14 +8,20 @@ process.env.CLAUDE_PLUGIN_DATA = tmpDir('sf-bench-data-');
 const files = {};
 for (let i = 0; i < 40; i++) files[`src/mod${i}/index.ts`] = `${i}`;
 const { root, git } = makeRepo({ files });
-const first = git(['rev-parse', 'HEAD']);
+const shas = [];
+for (let i = 0; i < 30; i++) {
+  writeFileSync(join(root, 'src', `mod${i}`, 'index.ts'), `${i} touched`);
+  git(['add', `src/mod${i}/index.ts`]);
+  git(['commit', '-q', '-m', `touch mod${i}`]);
+  shas.push(git(['rev-parse', 'HEAD']));
+}
 const w = join(root, 'docs', 'wiki');
 mkdirSync(w, { recursive: true });
 writeFileSync(join(w, 'index.md'), '# i\n');
 for (let i = 0; i < 30; i++) {
-  writeFileSync(join(w, `page-${String(i).padStart(2, '0')}.md`), serializeFrontmatter({ title: `Page ${i}`, summary: 's', read_when: 'r', covers: [`src/mod${i}/**`], verified: first, updated: '2026-09-16' }) + '# p\n');
+  writeFileSync(join(w, `page-${String(i).padStart(2, '0')}.md`), serializeFrontmatter({ title: `Page ${i}`, summary: 's', read_when: 'r', covers: [`src/mod${i}/**`], verified: shas[i], updated: '2026-09-16' }) + '# p\n');
 }
-git(['add', '-A']);
+git(['add', 'docs']);
 git(['commit', '-q', '-m', 'wiki']);
 
 function run(script, input) {
