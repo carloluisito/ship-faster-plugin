@@ -4,6 +4,10 @@ git init -q -b main .
 git config user.email eval@example.com
 git config user.name eval
 mkdir -p src docs/wiki
+cat > .gitignore <<'EOF'
+node_modules/
+scaffold.sh
+EOF
 cat > package.json <<'EOF'
 {
   "name": "counter",
@@ -60,7 +64,7 @@ cat > docs/wiki/index.md <<'EOF'
 |---|---|---|
 | [Commands](commands.md) | You need to run the tests. | Verified test command. |
 EOF
-git add package.json src/counter.js counter.test.js docs/wiki
+git add .gitignore package.json src/counter.js counter.test.js docs/wiki
 git commit -q -m "feat: counter"
 sha=$(git rev-parse HEAD)
 sed -i "s/^verified: unverified$/verified: $sha/" docs/wiki/commands.md
