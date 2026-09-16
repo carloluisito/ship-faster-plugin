@@ -76,8 +76,8 @@ export function changedSince(cwd, sha) {
   return splitZ(r.stdout).map(normalizePath);
 }
 
-export function dirtyFiles(cwd) {
-  const r = git(['status', '--porcelain=v1', '-z', '--untracked-files=all'], { cwd, timeoutMs: 5000 });
+export function dirtyFiles(cwd, { timeoutMs = 5000 } = {}) {
+  const r = git(['status', '--porcelain=v1', '-z', '--untracked-files=all'], { cwd, timeoutMs });
   if (!r.ok) return [];
   const parts = splitZ(r.stdout);
   const result = [];

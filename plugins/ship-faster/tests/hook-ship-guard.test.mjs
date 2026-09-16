@@ -30,6 +30,9 @@ test('push rules', () => {
   assert.equal(ev('git push -uf origin main').rule, 'forcePush');
   assert.equal(ev('git push -n origin main').decision, null);
   assert.equal(ev('git push origin --tags').decision, null);
+  assert.equal(ev('git push origin main --tags').rule, 'pushProtected');
+  assert.equal(ev('git push --tags origin main').rule, 'pushProtected');
+  assert.equal(ev('git push --force --tags origin main').rule, 'forcePush');
   assert.equal(ev('git push origin v1.2.3', { isTag: (_, n) => n === 'v1.2.3' }).decision, null);
   assert.equal(ev('git push origin release', {}, { ...DEFAULTS, protectedBranches: ['release'] }).rule, 'pushProtected');
   assert.equal(ev('git push origin develop', { defaultBranch: () => 'develop' }).rule, 'pushProtected');

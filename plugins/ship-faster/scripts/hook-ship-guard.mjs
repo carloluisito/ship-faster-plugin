@@ -16,7 +16,7 @@ const defaultGitApi = {
   currentBranch: (root) => gitLib.currentBranch(root),
   defaultBranch: (root) => gitLib.defaultBranch(root),
   isTag: (root, name) => gitLib.git(['show-ref', '--verify', '--quiet', `refs/tags/${name}`], { cwd: root }).ok,
-  dirtyFiles: (root) => gitLib.dirtyFiles(root),
+  dirtyFiles: (root) => gitLib.dirtyFiles(root, { timeoutMs: 2000 }),
 };
 
 function gitInvocation(tokens) {
@@ -58,11 +58,12 @@ function positionalArgs(args) {
 
 function checkPush(args, ctx) {
   if (args.includes('-n') || args.includes('--dry-run')) return null;
-  if (args.includes('--tags')) return null;
   let force = args.some((a) => a === '-f' || a === '--force' || a.startsWith('--force-with-lease') || a === '--force-if-includes' || shortHas(a, 'f'));
+  const hasTags = args.includes('--tags');
   const hasRepo = args.some((a) => a === '--repo' || a.startsWith('--repo='));
   const positional = positionalArgs(args);
   const refspecs = hasRepo ? positional : positional.slice(1);
+  if (hasTags && refspecs.length === 0) return null;
   if (refspecs.some((r) => r.startsWith('+'))) force = true;
 
   const rule = force && ctx.config.guard.forcePush !== 'allow' ? 'forcePush' : 'pushProtected';

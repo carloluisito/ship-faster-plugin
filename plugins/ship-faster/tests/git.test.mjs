@@ -37,6 +37,9 @@ test('changedSince, dirtyFiles, trackedFiles, log', () => {
   writeFileSync(join(root, 'new.txt'), 'n\n');
   const dirty = g.dirtyFiles(root).map((d) => d.path).sort();
   assert.deepEqual(dirty, ['a.txt', 'new.txt']);
+  const impatient = g.dirtyFiles(root, { timeoutMs: 1 });
+  assert.ok(Array.isArray(impatient));
+  assert.ok(impatient.length === 0 || impatient.map((d) => d.path).sort().join() === 'a.txt,new.txt');
   assert.deepEqual(g.trackedFiles(root).sort(), ['a.txt', 'c.md', 'src/b.ts']);
   const log = g.log(root, { n: 10 });
   assert.equal(log.length, 2);
