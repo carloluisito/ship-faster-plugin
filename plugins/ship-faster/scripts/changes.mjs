@@ -21,14 +21,18 @@ export function changes(root, { config, base } = {}) {
   const defaultBranch = config.defaultBranch !== 'auto' ? config.defaultBranch : git.defaultBranch(root);
   const resolvedBase = base || defaultBranch;
   const localBase = resolvedBase ? git.branchExists(root, resolvedBase) : false;
-  const remoteBase = resolvedBase && !localBase ? git.git(['rev-parse', '--verify', '-q', `refs/remotes/origin/${resolvedBase}`], { cwd: root }).ok : false;
+  const remoteBase = resolvedBase ? git.git(['rev-parse', '--verify', '-q', `refs/remotes/origin/${resolvedBase}`], { cwd: root }).ok : false;
   if (resolvedBase && !localBase && !remoteBase) return { ok: false, error: `base branch ${resolvedBase} does not exist` };
   const baseRef = localBase ? resolvedBase : remoteBase ? `refs/remotes/origin/${resolvedBase}` : null;
   const protectedSet = new Set(config.protectedBranches);
   if (defaultBranch) protectedSet.add(defaultBranch);
   const dirty = git.dirtyFiles(root).map((d) => ({ path: d.path, status: d.status, risky: riskyReason(d.path), large: isLarge(root, d.path) }));
   const excluded = dirty.filter((d) => d.risky || d.large).map((d) => d.path);
-  const counts = baseRef && branch !== resolvedBase ? git.aheadBehind(root, baseRef) : { ahead: 0, behind: 0 };
+  const upstreamRef = git.upstream(root);
+  const onBase = branch !== null && branch === resolvedBase;
+  const counts = onBase
+    ? upstreamRef ? git.aheadBehind(root, '@{u}') : remoteBase ? git.aheadBehind(root, `refs/remotes/origin/${resolvedBase}`) : { ahead: 0, behind: 0 }
+    : baseRef && branch !== resolvedBase ? git.aheadBehind(root, baseRef) : { ahead: 0, behind: 0 };
   if (counts === null) return { ok: false, error: `cannot compare with base ${resolvedBase}` };
   const subjects = git.subjects(root, { n: 30 });
   const ahead = counts.ahead;
@@ -39,7 +43,7 @@ export function changes(root, { config, base } = {}) {
     defaultBranch,
     base: resolvedBase || null,
     onProtected: branch !== null && protectedSet.has(branch),
-    upstream: git.upstream(root),
+    upstream: upstreamRef,
     remote: git.remoteUrl(root),
     ahead,
     behind: counts.behind,

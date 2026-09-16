@@ -114,3 +114,23 @@ test('a base that exists only as a remote-tracking branch is compared through re
   assert.deepEqual([r.ahead, r.behind], [1, 0]);
   assert.equal(r.hasWork, true);
 });
+
+test('on the base branch itself, changes counts commits ahead of the remote-tracking ref', () => {
+  const { root, git } = makeRepo({ files: { 'a.txt': 'a\n' } });
+  const first = git(['rev-parse', 'HEAD']);
+  git(['update-ref', 'refs/remotes/origin/main', first]);
+  writeFileSync(join(root, 'b.txt'), 'b\n');
+  git(['add', 'b.txt']);
+  git(['commit', '-q', '-m', 'feat: b']);
+  const r = changes(root, { config: DEFAULTS });
+  assert.equal(r.ok, true);
+  assert.equal(r.branch, 'main');
+  assert.equal(r.base, 'main');
+  assert.equal(r.onProtected, true);
+  assert.deepEqual([r.ahead, r.behind], [1, 0]);
+  assert.equal(r.hasWork, true);
+  const noRemote = makeRepo({ files: { 'c.txt': 'c\n' } });
+  const r2 = changes(noRemote.root, { config: DEFAULTS });
+  assert.equal(r2.ok, true);
+  assert.equal(r2.ahead, 0);
+});
