@@ -9,7 +9,7 @@ import { REQUIRED_FIELDS, loadWiki } from './lib/wiki.mjs';
 const EMPTY = () => ({ fresh: 0, stale: 0, dirty: 0, unverifiable: 0, invalid: 0 });
 const LOG_LIMIT = 2000;
 
-function filesAfter(commits, index, sha) {
+function reachableFrom(commits, index, sha) {
   const reachable = new Set();
   const stack = [sha];
   while (stack.length) {
@@ -18,14 +18,21 @@ function filesAfter(commits, index, sha) {
     reachable.add(cur);
     for (const parent of commits[index.get(cur)].parents) stack.push(parent);
   }
+  return reachable;
+}
+
+function unionExcluding(commits, skip, pageRel) {
   const files = new Set();
-  for (const c of commits) if (!reachable.has(c.sha)) for (const f of c.files) files.add(f);
+  for (const c of commits) {
+    if (skip(c) || c.files.includes(pageRel)) continue;
+    for (const f of c.files) files.add(f);
+  }
   return [...files];
 }
 
-function batchChangedSince(root, shas) {
+function batchHistory(root, shas) {
   const resolved = new Map();
-  // Two shas cost two direct diffs; walking the history only pays off from three.
+  // Two shas cost two direct log calls; walking the history once only pays off from three.
   if (shas.length < 3) return resolved;
   const base = git.mergeBase(root, shas);
   if (!base) return resolved;
@@ -34,7 +41,8 @@ function batchChangedSince(root, shas) {
   const index = new Map(commits.map((c, i) => [c.sha, i]));
   for (const sha of shas) {
     if (sha !== base && !index.has(sha)) continue;
-    resolved.set(sha, filesAfter(commits, index, sha));
+    const reachable = reachableFrom(commits, index, sha);
+    resolved.set(sha, (pageRel) => unionExcluding(commits, (c) => reachable.has(c.sha), pageRel));
   }
   return resolved;
 }
@@ -59,25 +67,34 @@ export function stale(root, { config, session = null, changed = [] } = {}) {
   }
   const isRepo = git.isRepo(root);
   const head = isRepo ? git.head(root) : null;
-  const dirty = isRepo ? git.dirtyFiles(root).map((d) => d.path) : [];
+  const dirtyEntries = isRepo ? git.dirtyFiles(root) : [];
+  const dirtyStatus = new Map(dirtyEntries.map((d) => [d.path, d.status]));
+  const dirty = dirtyEntries.map((d) => d.path);
   const extra = [...changed.map(normalizePath)];
   if (session) {
     const rec = loadSession(root, session);
     for (const entry of Object.values(rec.pages || {})) for (const f of entry.files || []) extra.push(normalizePath(f));
   }
   const uncommitted = [...new Set([...dirty, ...extra])];
-  const batched = isRepo ? batchChangedSince(root, verifiedShas(wiki.pages, head)) : new Map();
+  const batched = isRepo ? batchHistory(root, verifiedShas(wiki.pages, head)) : new Map();
   // merge-base resolved every sha it was given, so a batched sha needs no existence check of its own.
   const commitExistsCache = new Map([...batched.keys()].map((sha) => [sha, true]));
   const commitExists = (sha) => {
     if (!commitExistsCache.has(sha)) commitExistsCache.set(sha, sha === head ? true : git.commitExists(root, sha));
     return commitExistsCache.get(sha);
   };
-  const diffCache = new Map();
-  const changedSince = (sha) => {
-    if (!diffCache.has(sha)) diffCache.set(sha, sha === head ? [] : batched.has(sha) ? batched.get(sha) : git.changedSince(root, sha));
-    return diffCache.get(sha);
+  const historyCache = new Map();
+  const changedSince = (sha, pageRel) => {
+    if (sha === head) return [];
+    if (batched.has(sha)) return batched.get(sha)(pageRel);
+    if (!historyCache.has(sha)) historyCache.set(sha, git.commitsSince(root, sha, { n: LOG_LIMIT }));
+    const history = historyCache.get(sha);
+    if (history === null) return null;
+    // A history too long to walk falls back to the plain diff, which cannot apply the alongside rule.
+    if (history.truncated) return git.changedSince(root, sha);
+    return unionExcluding(history.commits, () => false, pageRel);
   };
+  const editedAlongside = (rel) => dirtyStatus.has(rel) && dirtyStatus.get(rel) !== '??';
 
   const pages = wiki.pages.map((p) => {
     const rel = p.rel;
@@ -90,11 +107,11 @@ export function stale(root, { config, session = null, changed = [] } = {}) {
     const verified = String(data.verified);
     if (!isRepo) return { rel, status: 'unverifiable', verified, changed: [], reason: 'not a git repository' };
     if (verified === 'unverified' || !commitExists(verified)) return { rel, status: 'unverifiable', verified, changed: [], reason: verified === 'unverified' ? 'never verified' : 'verified commit is not in history' };
-    const diff = changedSince(verified);
+    const diff = changedSince(verified, rel);
     if (diff === null) return { rel, status: 'unverifiable', verified, changed: [], reason: 'git diff failed' };
     const matched = filterPaths(covers, diff);
     if (matched.length) return { rel, status: 'stale', verified, changed: matched.slice(0, 50), reason: `${matched.length} covered file(s) changed since ${verified.slice(0, 7)}` };
-    const dirtyMatched = filterPaths(covers, uncommitted);
+    const dirtyMatched = editedAlongside(rel) ? [] : filterPaths(covers, uncommitted);
     if (dirtyMatched.length) return { rel, status: 'dirty', verified, changed: dirtyMatched.slice(0, 50), reason: `${dirtyMatched.length} covered file(s) changed in the working tree or this session` };
     return { rel, status: 'fresh', verified, changed: [], reason: '' };
   });

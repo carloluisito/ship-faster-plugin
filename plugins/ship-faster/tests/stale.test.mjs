@@ -188,3 +188,76 @@ test('exactly two distinct verified shas classify exactly', () => {
   assert.deepEqual(by['c.md'].changed, ['c/f.ts']);
   assert.equal(by['d.md'].status, 'fresh');
 });
+
+test('a covered change committed together with the page keeps the page fresh; committed without it makes the page stale', () => {
+  const { root, git } = makeRepo({ files: { 'src/a.ts': 'a', 'lib/b.ts': 'b' } });
+  const w = join(root, 'docs', 'wiki');
+  mkdirSync(w, { recursive: true });
+  writeFileSync(join(w, 'index.md'), '# i\n');
+  const verifiedAt = git(['rev-parse', 'HEAD']);
+  writeFileSync(join(w, 'together.md'), page('Together', ['src/**'], verifiedAt));
+  writeFileSync(join(w, 'alone.md'), page('Alone', ['lib/**'], verifiedAt));
+  writeFileSync(join(root, 'src', 'a.ts'), 'a2');
+  git(['add', 'docs/wiki/index.md', 'docs/wiki/together.md', 'docs/wiki/alone.md', 'src/a.ts']);
+  git(['commit', '-q', '-m', 'ship: code and docs together']);
+  writeFileSync(join(root, 'lib', 'b.ts'), 'b2');
+  git(['add', 'lib/b.ts']);
+  git(['commit', '-q', '-m', 'change b without touching its page']);
+
+  const r = stale(root, { config: DEFAULTS });
+  const by = Object.fromEntries(r.pages.map((p) => [p.rel.replace('docs/wiki/', ''), p]));
+  assert.equal(by['together.md'].status, 'fresh');
+  assert.equal(by['alone.md'].status, 'stale');
+  assert.deepEqual(by['alone.md'].changed, ['lib/b.ts']);
+
+  writeFileSync(join(root, 'src', 'a.ts'), 'a3');
+  git(['add', 'src/a.ts']);
+  git(['commit', '-q', '-m', 'change a later without the page']);
+  const later = stale(root, { config: DEFAULTS });
+  assert.equal(later.pages.find((p) => p.rel.endsWith('together.md')).status, 'stale');
+});
+
+test('the alongside rule also holds on the one-pass path with three distinct verified shas', () => {
+  const { root, git } = makeRepo({ files: { 'a/f.ts': 'a', 'b/f.ts': 'b', 'c/f.ts': 'c' } });
+  const w = join(root, 'docs', 'wiki');
+  mkdirSync(w, { recursive: true });
+  writeFileSync(join(w, 'index.md'), '# i\n');
+  const shas = [];
+  for (const dir of ['a', 'b', 'c']) {
+    shas.push(git(['rev-parse', 'HEAD']));
+    writeFileSync(join(w, `${dir}.md`), page(dir.toUpperCase(), [`${dir}/**`], shas[shas.length - 1]));
+    writeFileSync(join(root, dir, 'f.ts'), `${dir}2`);
+    git(['add', `docs/wiki/${dir}.md`, `${dir}/f.ts`]);
+    git(['commit', '-q', '-m', `${dir} with page`]);
+  }
+  writeFileSync(join(root, 'c', 'f.ts'), 'c3');
+  git(['add', 'c/f.ts']);
+  git(['commit', '-q', '-m', 'c alone']);
+  const r = stale(root, { config: DEFAULTS });
+  const by = Object.fromEntries(r.pages.map((p) => [p.rel.replace('docs/wiki/', ''), p]));
+  assert.equal(by['a.md'].status, 'fresh');
+  assert.equal(by['b.md'].status, 'fresh');
+  assert.equal(by['c.md'].status, 'stale');
+  assert.deepEqual(by['c.md'].changed, ['c/f.ts']);
+});
+
+test('a tracked page with uncommitted edits is not dirty for covered working-tree changes; an untracked page still is', () => {
+  const { root, git } = makeRepo({ files: { 'src/a.ts': 'a', 'lib/b.ts': 'b' } });
+  const headSha = git(['rev-parse', 'HEAD']);
+  const w = join(root, 'docs', 'wiki');
+  mkdirSync(w, { recursive: true });
+  writeFileSync(join(w, 'index.md'), '# i\n');
+  writeFileSync(join(w, 'tracked.md'), page('Tracked', ['src/**'], headSha));
+  git(['add', 'docs/wiki/index.md', 'docs/wiki/tracked.md']);
+  git(['commit', '-q', '-m', 'wiki']);
+  const committed = git(['rev-parse', 'HEAD']);
+  writeFileSync(join(w, 'tracked.md'), page('Tracked', ['src/**'], committed) + 'Edited alongside.\n');
+  writeFileSync(join(w, 'new.md'), page('New', ['lib/**'], committed));
+  writeFileSync(join(root, 'src', 'a.ts'), 'a2');
+  writeFileSync(join(root, 'lib', 'b.ts'), 'b2');
+  const r = stale(root, { config: DEFAULTS });
+  const by = Object.fromEntries(r.pages.map((p) => [p.rel.replace('docs/wiki/', ''), p]));
+  assert.equal(by['tracked.md'].status, 'fresh');
+  assert.equal(by['new.md'].status, 'dirty');
+  assert.deepEqual(by['new.md'].changed, ['lib/b.ts']);
+});

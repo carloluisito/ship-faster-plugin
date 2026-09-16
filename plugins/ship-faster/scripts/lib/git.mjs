@@ -123,6 +123,14 @@ export function logTopo(cwd, range, { n = 2000 } = {}) {
   return r.ok ? parseLog(r.stdout, (parents) => ({ parents: parents.split(' ').filter(Boolean) })) : [];
 }
 
+export function commitsSince(cwd, sha, { n = 2000 } = {}) {
+  if (!commitExists(cwd, sha)) return null;
+  const r = git(['log', '--topo-order', `-n${n}`, '--diff-merges=combined', '--pretty=format:__C__%H%x1f%P', '--name-only', `${sha}..HEAD`], { cwd, timeoutMs: 10000 });
+  if (!r.ok) return null;
+  const commits = parseLog(r.stdout, (parents) => ({ parents: parents.split(' ').filter(Boolean) }));
+  return { commits, truncated: commits.length >= n };
+}
+
 const SHA = /^[0-9a-f]{4,40}$/i;
 
 export function mergeBase(cwd, shas) {

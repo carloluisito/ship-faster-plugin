@@ -116,3 +116,22 @@ test('mergeBase ignores arguments that are not hex shas', () => {
   assert.equal(g.mergeBase(root, [first, 'unverified']), first);
   assert.equal(g.mergeBase(root, ['unverified', 'not a sha']), null);
 });
+
+test('commitsSince lists commits after a sha with their files, null for a bad sha, truncated at n', () => {
+  const { root, git } = makeRepo({ files: { 'a.txt': 'a\n' } });
+  const first = g.head(root);
+  writeFileSync(join(root, 'b.txt'), 'b\n');
+  git(['add', 'b.txt']);
+  git(['commit', '-q', '-m', 'b']);
+  writeFileSync(join(root, 'c.txt'), 'c\n');
+  git(['add', 'c.txt']);
+  git(['commit', '-q', '-m', 'c']);
+  const r = g.commitsSince(root, first);
+  assert.equal(r.truncated, false);
+  assert.deepEqual(r.commits.map((c) => c.files), [['c.txt'], ['b.txt']]);
+  assert.deepEqual(r.commits[1].parents, [first]);
+  assert.deepEqual(g.commitsSince(root, g.head(root)), { commits: [], truncated: false });
+  assert.equal(g.commitsSince(root, 'deadbeef'), null);
+  assert.equal(g.commitsSince(root, 'unverified'), null);
+  assert.equal(g.commitsSince(root, first, { n: 1 }).truncated, true);
+});

@@ -13,6 +13,9 @@ versions follow semver.
 - Scripts: detect, footprints, stale, index, lint, checks, plan, with a shared zero-dependency library.
 - Optional `.claude/ship-faster.json` configuration.
 
+### Changed
+- A wiki page committed together with the covered files it describes stays fresh: only commits that change covered files without touching the page make it stale, and a page with uncommitted edits of its own is not marked dirty by covered working-tree changes. Pages no longer go stale the moment `ship` commits them.
+
 ### Fixed
 - The guard no longer waves through `git push origin main --tags`: pushing tags alongside a branch is still checked against the protected branches.
 - Hooks exit as soon as they have read their input, instead of lingering when the caller leaves the input pipe open.
