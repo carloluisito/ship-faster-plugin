@@ -3,6 +3,9 @@ set -euo pipefail
 git init -q -b main .
 git config user.email eval@example.com
 git config user.name eval
+cat > .gitignore <<'EOF'
+scaffold.sh
+EOF
 mkdir -p src config docs/wiki
 cat > package.json <<'EOF'
 { "name": "token-client", "version": "1.0.0", "scripts": { "test": "node --test" } }
@@ -66,7 +69,7 @@ cat > docs/wiki/index.md <<'EOF'
 |---|---|---|
 | [Overview](overview.md) | You are new to the repository. | A small HTTP client that refreshes a bearer token when it expires. |
 EOF
-git add package.json config/env.js src/client.js docs/wiki/overview.md docs/wiki/index.md
+git add package.json .gitignore config/env.js src/client.js docs/wiki/overview.md docs/wiki/index.md
 git commit -q -m "feat: token client with refresh"
 sha=$(git rev-parse HEAD)
 sed -i "s/^verified: unverified$/verified: $sha/" docs/wiki/overview.md

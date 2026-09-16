@@ -3,6 +3,9 @@ set -euo pipefail
 git init -q -b main .
 git config user.email eval@example.com
 git config user.name eval
+cat > .gitignore <<'EOF'
+scaffold.sh
+EOF
 mkdir -p src/routes src/lib tests docs/wiki/recipes
 cat > package.json <<'EOF'
 { "name": "tiny-api", "version": "0.3.0", "type": "module", "scripts": { "test": "node --test tests/" } }
@@ -193,5 +196,5 @@ cat > docs/wiki/index.md <<'EOF'
 |---|---|---|
 | [Add an endpoint](recipes/add-endpoint.md) | You need to add an HTTP endpoint. | Add a route branch, its storage call, and its test. |
 EOF
-git add package.json src/lib/db.js src/routes/users.js tests/users.test.js docs/wiki
+git add package.json .gitignore src/lib/db.js src/routes/users.js tests/users.test.js docs/wiki
 git commit -q -m "feat: users api with wiki"

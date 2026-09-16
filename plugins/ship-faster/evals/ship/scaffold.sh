@@ -9,6 +9,7 @@ cat > package.json <<'EOF'
 EOF
 cat > .gitignore <<'EOF'
 node_modules/
+scaffold.sh
 EOF
 cat > src/greet.js <<'EOF'
 export function greet(name) { return `Hello, ${name}`; }

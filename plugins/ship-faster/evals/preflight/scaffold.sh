@@ -3,6 +3,9 @@ set -euo pipefail
 git init -q -b main .
 git config user.email eval@example.com
 git config user.name eval
+cat > .gitignore <<'EOF'
+scaffold.sh
+EOF
 mkdir -p src scripts docs/wiki
 cat > package.json <<'EOF'
 { "name": "lint-fixture", "version": "1.0.0", "type": "module", "scripts": { "test": "node --test", "lint": "node scripts/lint.js" } }
@@ -74,5 +77,5 @@ cat > docs/wiki/index.md <<'EOF'
 |---|---|---|
 | [Commands](commands.md) | You need to run the tests or the linter. | Verified test and lint commands. |
 EOF
-git add package.json src/app.js scripts/lint.js app.test.js docs/wiki/commands.md docs/wiki/index.md
+git add package.json .gitignore src/app.js scripts/lint.js app.test.js docs/wiki/commands.md docs/wiki/index.md
 git commit -q -m "feat: app with a failing lint rule"

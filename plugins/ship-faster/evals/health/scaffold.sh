@@ -3,6 +3,9 @@ set -euo pipefail
 git init -q -b main .
 git config user.email eval@example.com
 git config user.name eval
+cat > .gitignore <<'EOF'
+scaffold.sh
+EOF
 mkdir -p src tests docs/wiki docs/plans
 cat > package.json <<'EOF'
 { "name": "hygiene-fixture", "version": "1.0.0", "type": "module", "scripts": { "test": "node --test tests/" } }
@@ -26,7 +29,7 @@ pages: []
 ## Goal
 Never happened.
 EOF
-git add package.json src/legacy.js docs/plans/2020-01-01-old-idea.md
+git add package.json .gitignore src/legacy.js docs/plans/2020-01-01-old-idea.md
 GIT_AUTHOR_DATE="2020-01-01T00:00:00Z" GIT_COMMITTER_DATE="2020-01-01T00:00:00Z" git commit -q -m "chore: legacy shim and an old plan"
 cat > tests/legacy.test.js <<'EOF'
 import { test } from 'node:test';

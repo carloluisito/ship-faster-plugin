@@ -3,6 +3,9 @@ set -euo pipefail
 git init -q -b main .
 git config user.email eval@example.com
 git config user.name eval
+cat > .gitignore <<'EOF'
+scaffold.sh
+EOF
 mkdir -p src docs/wiki
 cat > package.json <<'EOF'
 { "name": "adder", "version": "1.0.0", "type": "module", "scripts": { "test": "node --test" } }
@@ -81,7 +84,7 @@ cat > docs/wiki/index.md <<'EOF'
 | [Commands](commands.md) | You need to run the tests. | Verified test command. |
 | [Overview](overview.md) | You are new to the repository. | A one-function library. |
 EOF
-git add package.json src/add.js add.test.js docs/wiki
+git add package.json .gitignore src/add.js add.test.js docs/wiki
 git commit -q -m "feat: adder with docs"
 sha=$(git rev-parse HEAD)
 sed -i "s/^verified: unverified$/verified: $sha/" docs/wiki/commands.md docs/wiki/overview.md

@@ -3,6 +3,9 @@ set -euo pipefail
 git init -q -b main .
 git config user.email eval@example.com
 git config user.name eval
+cat > .gitignore <<'EOF'
+scaffold.sh
+EOF
 mkdir -p src/lib docs/wiki
 cat > package.json <<'EOF'
 { "name": "logger-fixture", "version": "1.0.0", "type": "module", "scripts": { "test": "node --test" } }
@@ -68,7 +71,7 @@ cat > docs/wiki/index.md <<'EOF'
 | [Conventions](conventions.md) | You are writing or reviewing code in src/. | Logging and error handling rules for this service. |
 | [Gotchas](gotchas.md) | Something behaves in a way the code does not explain. | Constraints learned the hard way. |
 EOF
-git add package.json src/lib/log.js src/api.js docs/wiki/conventions.md docs/wiki/gotchas.md docs/wiki/index.md
+git add package.json .gitignore src/lib/log.js src/api.js docs/wiki/conventions.md docs/wiki/gotchas.md docs/wiki/index.md
 git commit -q -m "feat: api with structured logging"
 git checkout -q -b feat/timing
 cat > src/api.js <<'EOF'
