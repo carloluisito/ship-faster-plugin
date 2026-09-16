@@ -26,7 +26,7 @@ Scope defaults to `all`.
 | `diff` | `node "${CLAUDE_PLUGIN_ROOT}/scripts/stale.mjs" --session all --since <base> --json` | every page with `inScope: true` |
 | `session` | `node "${CLAUDE_PLUGIN_ROOT}/scripts/stale.mjs" --session all --json` | pages with status `dirty` |
 
-If `since.error` is set, say so and use the `all` rule. Nothing to act on and `uncovered` empty: report "all pages fresh" with the counts and stop.
+If `since.error` is set, or `git.currentBranch` equals `<base>` (on the base branch there is no branch diff; committed changes there need the `all` rule), say so and use the `all` rule. Nothing to act on and `uncovered` empty: report "all pages fresh" with the counts and stop.
 
 ## 2. Re-verify each page in scope
 
