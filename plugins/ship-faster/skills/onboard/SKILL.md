@@ -83,7 +83,7 @@ Sections of an existing CLAUDE.md whose claims the verifier marks false are clas
 
 ## 8. Rules files
 
-For each area with at least one path-scoped rule (a `gotchas.md` entry or a `conventions.md` rule whose evidence names files under one directory), write `<rulesDir>/<area>.md` from `${CLAUDE_PLUGIN_ROOT}/templates/rules-file.md`: `paths:` globs matching those files, one imperative line per rule pointing at the gotcha id or the page, 25 lines maximum. Never write a rules file without `paths`.
+For each area with at least one path-scoped rule (a `gotchas.md` entry or a `conventions.md` rule whose evidence names files under one directory), write `<rulesDir>/<area>.md` from `${CLAUDE_PLUGIN_ROOT}/templates/rules-file.md`: `paths:` globs matching those files, one imperative line per rule pointing at the gotcha id or the page, 25 lines maximum. Never write a rules file without `paths`. Writing under `.claude/` can need the user's approval; when a Write is denied, save the drafts under `<dataDir>/rules-drafts/`, say so in the report, and ask the user to approve writing them.
 
 ## 9. Stamp and index
 

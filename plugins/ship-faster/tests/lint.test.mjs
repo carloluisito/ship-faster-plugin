@@ -102,3 +102,14 @@ test('warnings: missing path, missing script, verified not in history; index-too
   writeIndex(root, DEFAULTS);
   assert.ok(lint(root, { config: DEFAULTS }).errors.some((e) => e.rule === 'index-too-long'));
 });
+
+test('a path:line citation is checked as a path and only warns when the file is missing', () => {
+  const { root } = makeRepo({ files: { 'src/a.ts': 'a\n' } });
+  const w = join(root, 'docs', 'wiki');
+  mkdirSync(w, { recursive: true });
+  const fm = serializeFrontmatter({ title: 'Cite', summary: 's', read_when: 'r', covers: ['src/**'], verified: 'unverified', updated: '2026-09-16' });
+  writeFileSync(join(w, 'cite.md'), fm + '# Cite\n\nSee `src/a.ts:12` and `src/a.ts:12-14`, but not `src/missing.ts:3`.\n');
+  const r = lint(root, { config: DEFAULTS });
+  const missing = r.warnings.filter((x) => x.rule === 'path-missing');
+  assert.deepEqual(missing.map((x) => x.message), ['path does not exist: src/missing.ts:3']);
+});
