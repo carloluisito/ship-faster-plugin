@@ -21,7 +21,7 @@ git push origin <tag>
 
 ## Protected
 
-The release commit cannot land directly. Ask: "Open a release PR for <tag>?" On yes:
+The release commit cannot land directly. Ask: "Open a release PR for <tag>?" Say in the same question that step 2 resets the local default branch to `origin/<default>`, discarding local commits on it that were never pushed (the reflog keeps them). On yes:
 
 1. `git switch -c release/<version>` (the release commit moves with you).
 2. `git branch -f <default> origin/<default>` (the default branch goes back to the remote).
@@ -33,6 +33,8 @@ The release commit cannot land directly. Ask: "Open a release PR for <tag>?" On 
 8. The tag points at the pre-merge commit: `git tag -d <tag>`, then recreate it on the merged commit with the same command as step 8 of SKILL.md, then `git push origin <tag>`.
 
 ## GitHub release
+
+Only after the push of step 9 happened. Ask: "Create the GitHub release <tag>?" On no, or in a non-interactive run, print the command for the branch below and stop.
 
 Look for a workflow triggered by tags: Grep `.github/workflows/*.yml` for `tags:` under `push:`.
 
