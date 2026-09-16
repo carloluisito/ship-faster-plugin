@@ -3,7 +3,7 @@ title: Layout
 summary: The marketplace at the root, the plugin under plugins/ship-faster, and where each new skill, hook, script, or test goes.
 read_when: You need to find where something lives or decide where a new file belongs.
 covers: [.claude-plugin/marketplace.json, plugins/ship-faster/.claude-plugin/plugin.json, plugins/ship-faster/hooks/hooks.json, plugins/ship-faster/tests/run.mjs, plugins/ship-faster/tests/validate.mjs, .gitignore]
-verified: f94b1eb57b3d6e4a26d5b49b816ce6392a8633a5
+verified: f686438135832ac8b9d79670bbd0b0a81c1bde8d
 updated: 2026-09-16
 ---
 # Layout
