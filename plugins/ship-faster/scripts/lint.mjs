@@ -138,7 +138,7 @@ function scanBody(root, file, rel, text, { err, warn, topLevel, files, pkgScript
       const script = /^(?:npm|pnpm|yarn) run ([\w:.-]+)/.exec(tok);
       if (script && pkgScripts && !(script[1] in pkgScripts)) warn(rel, no, 'script-missing', `package.json has no script "${script[1]}"`);
       if (!tok.includes('/') || /\s|[*?{}<>$]|^https?:|^\.\.?$/.test(tok) || tok.length > 120 || tok.startsWith('-')) continue;
-      const p = normalizePath(tok).replace(/^\.\//, '').replace(/\/$/, '');
+      const p = normalizePath(tok).replace(/:\d+(?:-\d+)?$/, '').replace(/^\.\//, '').replace(/\/$/, '');
       if (!topLevel.has(p.split('/')[0])) continue;
       if (fileSet.has(p) || existsSync(join(root, p))) continue;
       warn(rel, no, 'path-missing', `path does not exist: ${tok}`);

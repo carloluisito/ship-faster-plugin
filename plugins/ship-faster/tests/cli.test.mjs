@@ -58,6 +58,13 @@ test('readStdinJson lets the process exit when the stdin pipe is never closed', 
   assert.equal(out.trim(), 'null');
 });
 
+test('readStdinJson keeps an error listener on stdin after it settles', () => {
+  const mod = pathToFileURL(join(SCRIPTS, 'lib', 'cli.mjs')).href;
+  const script = `import { readStdinJson } from '${mod}'; await readStdinJson(200); console.log(process.stdin.listenerCount('error'));`;
+  const r = spawnSync(process.execPath, ['--input-type=module', '-e', script], { input: '{}', encoding: 'utf8' });
+  assert.ok(Number(r.stdout.trim()) >= 1, `expected an error listener after settling, got "${r.stdout.trim()}"`);
+});
+
 function capture(fn) {
   const chunks = [];
   const orig = process.stdout.write;

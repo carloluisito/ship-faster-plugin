@@ -87,3 +87,66 @@ test('git() reports failure without throwing', () => {
   assert.equal(g.head(tmpDir()), null);
   assert.equal(g.defaultBranch(tmpDir()), null);
 });
+
+test('logTopo lists the files an evil merge introduced and nothing for a clean merge', () => {
+  const { root, git } = makeRepo({ files: { 'a.txt': 'a\n' } });
+  const first = g.head(root);
+  git(['checkout', '-q', '-b', 'side']);
+  writeFileSync(join(root, 's.txt'), 's\n');
+  git(['add', 's.txt']);
+  git(['commit', '-q', '-m', 'side']);
+  git(['checkout', '-q', 'main']);
+  writeFileSync(join(root, 'b.txt'), 'b\n');
+  git(['add', 'b.txt']);
+  git(['commit', '-q', '-m', 'b']);
+  git(['merge', '-q', '--no-ff', '-m', 'clean merge', 'side']);
+  const clean = g.logTopo(root, `${first}..HEAD`).find((c) => c.parents.length === 2);
+  assert.deepEqual(clean.files, []);
+  writeFileSync(join(root, 'a.txt'), 'evil\n');
+  git(['add', 'a.txt']);
+  git(['commit', '-q', '--amend', '--no-edit']);
+  const evil = g.logTopo(root, `${first}..HEAD`).find((c) => c.parents.length === 2);
+  assert.deepEqual(evil.files, ['a.txt']);
+});
+
+test('mergeBase ignores arguments that are not hex shas', () => {
+  const { root } = makeRepo({ files: { 'a.txt': 'a\n' } });
+  const first = g.head(root);
+  assert.equal(g.mergeBase(root, [first, '--help']), first);
+  assert.equal(g.mergeBase(root, [first, 'unverified']), first);
+  assert.equal(g.mergeBase(root, ['unverified', 'not a sha']), null);
+});
+
+test('commitsSince lists commits after a sha with their files, null for a bad sha, truncated at n', () => {
+  const { root, git } = makeRepo({ files: { 'a.txt': 'a\n' } });
+  const first = g.head(root);
+  writeFileSync(join(root, 'b.txt'), 'b\n');
+  git(['add', 'b.txt']);
+  git(['commit', '-q', '-m', 'b']);
+  writeFileSync(join(root, 'c.txt'), 'c\n');
+  git(['add', 'c.txt']);
+  git(['commit', '-q', '-m', 'c']);
+  const r = g.commitsSince(root, first);
+  assert.equal(r.truncated, false);
+  assert.deepEqual(r.commits.map((c) => c.files), [['c.txt'], ['b.txt']]);
+  assert.deepEqual(r.commits[1].parents, [first]);
+  assert.deepEqual(g.commitsSince(root, g.head(root)), { commits: [], truncated: false });
+  assert.equal(g.commitsSince(root, 'deadbeef'), null);
+  assert.equal(g.commitsSince(root, 'unverified'), null);
+  assert.equal(g.commitsSince(root, first, { n: 1 }).truncated, true);
+});
+
+test('changedBetween lists the branch diff against the merge base and null for a bad ref', () => {
+  const { root, git } = makeRepo({ files: { 'a.txt': 'a\n' } });
+  writeFileSync(join(root, 'main.txt'), 'm\n');
+  git(['add', 'main.txt']);
+  git(['commit', '-q', '-m', 'main moves']);
+  git(['checkout', '-q', '-b', 'feat', 'HEAD~1']);
+  writeFileSync(join(root, 'feat.txt'), 'f\n');
+  git(['add', 'feat.txt']);
+  git(['commit', '-q', '-m', 'feat']);
+  assert.deepEqual(g.changedBetween(root, 'main'), ['feat.txt']);
+  assert.equal(g.changedBetween(root, 'no-such-ref'), null);
+  assert.equal(g.changedBetween(root, '--output=/tmp/x'), null);
+  assert.equal(g.changedBetween(root, ''), null);
+});

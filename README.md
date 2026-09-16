@@ -15,6 +15,10 @@ Restart Claude Code after installing: hooks register at session start.
 
 The plugin itself lives in [`plugins/ship-faster`](./plugins/ship-faster/README.md).
 
+## What you get
+
+`/ship-faster:onboard` writes a router `CLAUDE.md`, a verified wiki under `docs/wiki/`, and path-scoped rules under `.claude/rules/`. `/ship-faster:sync-docs` keeps the wiki true as the code changes, and `/ship-faster:lesson` records what was learned the moment it is learned. This repository is onboarded with its own plugin: read [`CLAUDE.md`](./CLAUDE.md) and [`docs/wiki/index.md`](./docs/wiki/index.md).
+
 ## Develop
 
 ```

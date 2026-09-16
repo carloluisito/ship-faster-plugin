@@ -23,6 +23,8 @@ jobs:
           node-version: ${{ matrix.node }}
       - run: node plugins/ship-faster/tests/validate.mjs
       - run: node plugins/ship-faster/tests/run.mjs
+      - run: node plugins/ship-faster/scripts/lint.mjs
+      - run: node plugins/ship-faster/scripts/index.mjs --check
 
   official-validate:
     runs-on: ubuntu-latest

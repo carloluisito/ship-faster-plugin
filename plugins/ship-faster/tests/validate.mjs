@@ -1,11 +1,29 @@
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { parseFrontmatter } from '../scripts/lib/fm.mjs';
 
 const SEMVER = /^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$/;
+const SKILL_FIELDS = new Set(['name', 'description', 'when_to_use', 'disable-model-invocation', 'user-invocable', 'allowed-tools', 'disallowed-tools', 'argument-hint', 'arguments', 'model', 'context', 'agent', 'background', 'hooks', 'paths', 'effort', 'shell', 'metadata', 'license', 'compatibility']);
+const AGENT_FIELDS = new Set(['name', 'description', 'model', 'tools', 'disallowedTools', 'maxTurns', 'permissionMode', 'skills', 'hooks', 'memory', 'background', 'isolation', 'color', 'effort', 'mcpServers', 'initialPrompt', 'omitClaudeMd']);
+const MODELS = new Set(['haiku', 'sonnet', 'opus', 'fable', 'inherit']);
+const TOOLS = new Set(['Read', 'Glob', 'Grep', 'Bash', 'Write', 'Edit', 'MultiEdit', 'NotebookEdit', 'WebFetch', 'WebSearch', 'Agent', 'Skill', 'TodoWrite', 'LS']);
+const PROMPT_FIELDS = new Set(['schema_version', 'name', 'description', 'tags', 'plugins', 'runs', 'model', 'max_turns', 'timeout_seconds', 'allowed_tools', 'append_system_prompt', 'env', 'expected_outcome']);
+const GRADER_TYPES = new Set(['regex', 'tool_used', 'tool_order', 'file_exists', 'llm', 'baseline']);
+const SKILL_NAMES = new Set(['onboard', 'sync-docs', 'lesson', 'kickoff', 'preflight', 'ship', 'release', 'health', 'review']);
+const TEMPLATES = ['claude-md.md', 'package-claude-md.md', 'plan.md', 'rules-file.md', 'gotcha-entry.md', ...['overview', 'architecture', 'layout', 'commands', 'conventions', 'testing', 'gotchas', 'dependencies', 'ops', 'recipe', 'package'].map((p) => `pages/${p}.md`)];
 
 function readJson(file) {
   return JSON.parse(readFileSync(file, 'utf8'));
+}
+
+function fm(text) {
+  const { data, errors } = parseFrontmatter(text);
+  return { data, errors };
+}
+
+function dirs(path) {
+  return existsSync(path) ? readdirSync(path).filter((n) => statSync(join(path, n)).isDirectory()) : [];
 }
 
 export function validate(repoRoot, overrides = {}) {
@@ -35,9 +53,13 @@ export function validate(repoRoot, overrides = {}) {
     if (!existsSync(join(pluginDir, f))) errors.push(`plugins/ship-faster/${f} missing`);
   }
 
+  const agents = new Set(existsSync(join(pluginDir, 'agents')) ? readdirSync(join(pluginDir, 'agents')).filter((f) => f.endsWith('.md')).map((f) => f.replace(/\.md$/, '')) : []);
+  const skills = new Set(dirs(join(pluginDir, 'skills')));
   validateHooks(pluginDir, errors);
-  validateSkills(pluginDir, errors, warnings);
+  validateSkills(pluginDir, errors, warnings, { agents, skills });
   validateAgents(pluginDir, errors);
+  validateEvals(pluginDir, errors, skills);
+  for (const t of TEMPLATES) if (!existsSync(join(pluginDir, 'templates', t))) errors.push(`templates/${t} missing`);
   return { errors, warnings };
 }
 
@@ -59,37 +81,61 @@ function validateHooks(pluginDir, errors) {
   }
 }
 
-function frontmatter(text) {
-  const m = /^---\r?\n([\s\S]*?)\r?\n---\r?\n/.exec(text);
-  if (!m) return null;
-  const data = {};
-  for (const line of m[1].split(/\r?\n/)) {
-    const kv = /^([\w-]+):\s*(.*)$/.exec(line);
-    if (kv) data[kv[1]] = kv[2].trim();
+function checkReferences(pluginDir, baseDir, text, label, errors, { agents, skills }) {
+  for (const m of text.matchAll(/\$\{CLAUDE_PLUGIN_ROOT\}\/([\w./-]+)/g)) {
+    if (!existsSync(join(pluginDir, m[1]))) errors.push(`${label}: \${CLAUDE_PLUGIN_ROOT}/${m[1]} does not exist`);
   }
-  return data;
+  for (const m of text.matchAll(/\$\{CLAUDE_SKILL_DIR\}\/([\w./-]+)/g)) {
+    if (!existsSync(join(baseDir, m[1]))) errors.push(`${label}: \${CLAUDE_SKILL_DIR}/${m[1]} does not exist`);
+  }
+  // `/ship-faster:<name>` is a skill invocation; a bare `ship-faster:<name>` is an agent (or skill) reference.
+  // Skill names come from the spec so a skill may point at one that a later task creates.
+  for (const m of text.matchAll(/(\/?)ship-faster:([a-z][\w-]*)\b(?!:)/g)) {
+    const [, slash, name] = m;
+    const isSkill = SKILL_NAMES.has(name) || skills.has(name);
+    if (slash && !isSkill) errors.push(`${label}: /ship-faster:${name} names no skill`);
+    if (!slash && !agents.has(name) && !isSkill) errors.push(`${label}: ship-faster:${name} names no agent or skill`);
+  }
 }
 
-function validateSkills(pluginDir, errors, warnings) {
+function validateSkills(pluginDir, errors, warnings, refs) {
   const dir = join(pluginDir, 'skills');
-  if (!existsSync(dir)) return;
-  for (const name of readdirSync(dir)) {
+  for (const name of dirs(dir)) {
     const skillDir = join(dir, name);
-    if (!statSync(skillDir).isDirectory()) continue;
     const file = join(skillDir, 'SKILL.md');
-    if (!existsSync(file)) { errors.push(`skills/${name}: SKILL.md missing`); continue; }
+    const label = `skills/${name}`;
+    if (!existsSync(file)) { errors.push(`${label}: SKILL.md missing`); continue; }
     const text = readFileSync(file, 'utf8');
-    const fm = frontmatter(text);
-    if (!fm) { errors.push(`skills/${name}: no frontmatter`); continue; }
-    if (fm.name !== name) errors.push(`skills/${name}: frontmatter name "${fm.name}" must equal directory name`);
-    if (!fm.description) errors.push(`skills/${name}: description missing`);
-    if (text.split(/\r?\n/).length > 500) errors.push(`skills/${name}: SKILL.md over 500 lines`);
-    const combined = (fm.description || '') + (fm.when_to_use || '');
-    if (combined.length > 1536) errors.push(`skills/${name}: description + when_to_use over 1536 characters`);
+    const { data, errors: fmErrors } = fm(text);
+    if (!data) { errors.push(`${label}: no frontmatter`); continue; }
+    for (const e of fmErrors) errors.push(`${label}: frontmatter line ${e.line}: ${e.message}`);
+    for (const key of Object.keys(data)) if (!SKILL_FIELDS.has(key)) errors.push(`${label}: unknown frontmatter field "${key}"`);
+    if (data.name !== name) errors.push(`${label}: frontmatter name "${data.name}" must equal directory name`);
+    if (!data.description) errors.push(`${label}: description missing`);
+    if (data['disable-model-invocation'] !== true && !data.when_to_use) errors.push(`${label}: model-invocable skill needs when_to_use`);
+    if (!data['allowed-tools']) errors.push(`${label}: allowed-tools missing`);
+    if (text.split(/\r?\n/).length > 500) errors.push(`${label}: SKILL.md over 500 lines`);
+    const combined = String(data.description || '') + String(data.when_to_use || '');
+    if (combined.length > 1536) errors.push(`${label}: description + when_to_use over 1536 characters`);
+    if ('context' in data && data.context !== 'fork') errors.push(`${label}: context must be fork`);
+    if (data.context === 'fork') {
+      const m = /^ship-faster:([\w-]+)$/.exec(String(data.agent || ''));
+      if (!m || !refs.agents.has(m[1])) errors.push(`${label}: agent must be ship-faster:<agent> naming an existing agent, got ${data.agent}`);
+    }
+    if ('background' in data && typeof data.background !== 'boolean') errors.push(`${label}: background must be true or false`);
+    for (const line of text.split(/\r?\n/)) {
+      if (/!`/.test(line) && !/\|\| true`\s*$/.test(line)) errors.push(`${label}: preprocessing line must end in || true: ${line.trim()}`);
+    }
+    checkReferences(pluginDir, skillDir, text, label, errors, refs);
+    const refDir = join(skillDir, 'reference');
+    if (existsSync(refDir)) {
+      for (const rf of readdirSync(refDir).filter((f) => f.endsWith('.md'))) {
+        checkReferences(pluginDir, skillDir, readFileSync(join(refDir, rf), 'utf8'), `${label}/reference/${rf}`, errors, refs);
+      }
+    }
     for (const link of text.matchAll(/\]\((?!https?:)([^)#]+)\)/g)) {
-      const target = link[1].replace(/\$\{CLAUDE_SKILL_DIR\}\/?/, '').replace(/\$\{CLAUDE_PLUGIN_ROOT\}\/?/, '');
-      const base = link[1].includes('CLAUDE_PLUGIN_ROOT') ? pluginDir : skillDir;
-      if (!existsSync(resolve(base, target))) warnings.push(`skills/${name}: link target missing: ${link[1]}`);
+      if (link[1].includes('${')) continue;
+      if (!existsSync(resolve(skillDir, link[1]))) warnings.push(`${label}: link target missing: ${link[1]}`);
     }
   }
 }
@@ -97,15 +143,70 @@ function validateSkills(pluginDir, errors, warnings) {
 function validateAgents(pluginDir, errors) {
   const dir = join(pluginDir, 'agents');
   if (!existsSync(dir)) return;
-  const models = new Set(['haiku', 'sonnet', 'opus', 'fable', 'inherit']);
   for (const file of readdirSync(dir).filter((f) => f.endsWith('.md'))) {
-    const fm = frontmatter(readFileSync(join(dir, file), 'utf8'));
+    const label = `agents/${file}`;
     const name = file.replace(/\.md$/, '');
-    if (!fm) { errors.push(`agents/${file}: no frontmatter`); continue; }
-    if (fm.name !== name) errors.push(`agents/${file}: frontmatter name "${fm.name}" must equal file name`);
-    if (!fm.description) errors.push(`agents/${file}: description missing`);
-    if (fm.model && !models.has(fm.model) && !/^claude-/.test(fm.model)) errors.push(`agents/${file}: unknown model ${fm.model}`);
-    if (fm.name && fm.name.includes(':')) errors.push(`agents/${file}: name may not contain ":"`);
+    const text = readFileSync(join(dir, file), 'utf8');
+    const { data, errors: fmErrors } = fm(text);
+    if (!data) { errors.push(`${label}: no frontmatter`); continue; }
+    for (const e of fmErrors) errors.push(`${label}: frontmatter line ${e.line}: ${e.message}`);
+    for (const key of Object.keys(data)) if (!AGENT_FIELDS.has(key)) errors.push(`${label}: unknown frontmatter field "${key}"`);
+    if (data.name !== name) errors.push(`${label}: frontmatter name "${data.name}" must equal file name`);
+    if (String(data.name || '').includes(':')) errors.push(`${label}: name may not contain ":"`);
+    if (!data.description) errors.push(`${label}: description missing`);
+    if (!data.model || (!MODELS.has(data.model) && !/^claude-/.test(String(data.model)))) errors.push(`${label}: unknown model ${data.model}`);
+    if (typeof data.tools !== 'string' || !data.tools.trim()) errors.push(`${label}: tools must be a comma-separated string`);
+    else for (const t of data.tools.split(',').map((s) => s.trim())) if (!TOOLS.has(t)) errors.push(`${label}: unknown tool ${t}`);
+    if (!Number.isInteger(data.maxTurns) || data.maxTurns <= 0) errors.push(`${label}: maxTurns must be a positive integer`);
+  }
+}
+
+function validateEvals(pluginDir, errors, skills) {
+  const dir = join(pluginDir, 'evals');
+  for (const skill of skills) {
+    if (!existsSync(join(dir, skill, 'prompt.md'))) errors.push(`evals/${skill}/prompt.md missing: every skill needs an eval case`);
+  }
+  for (const name of dirs(dir)) {
+    if (name === 'results' || name === 'mocks') continue;
+    const caseDir = join(dir, name);
+    const label = `evals/${name}`;
+    const promptFile = join(caseDir, 'prompt.md');
+    if (!existsSync(promptFile)) { errors.push(`${label}: prompt.md missing`); continue; }
+    const text = readFileSync(promptFile, 'utf8');
+    const { data, body, errors: fmErrors } = parseFrontmatter(text);
+    if (!data) errors.push(`${label}: prompt.md has no frontmatter`);
+    for (const e of fmErrors) errors.push(`${label}: prompt.md frontmatter line ${e.line}: ${e.message}`);
+    if (data) {
+      for (const key of Object.keys(data)) if (!PROMPT_FIELDS.has(key)) errors.push(`${label}: unknown prompt.md field "${key}"`);
+      if ('max_turns' in data && !(Number.isInteger(data.max_turns) && data.max_turns >= 1 && data.max_turns <= 200)) errors.push(`${label}: max_turns must be an integer from 1 to 200`);
+      if ('timeout_seconds' in data && !(Number.isInteger(data.timeout_seconds) && data.timeout_seconds >= 1 && data.timeout_seconds <= 3600)) errors.push(`${label}: timeout_seconds must be an integer from 1 to 3600`);
+      if ('allowed_tools' in data && !Array.isArray(data.allowed_tools)) errors.push(`${label}: allowed_tools must be a list`);
+    }
+    if (!String(body || '').trim()) errors.push(`${label}: prompt body is empty`);
+    const gradersDir = join(caseDir, 'graders');
+    const graders = existsSync(gradersDir) ? readdirSync(gradersDir).filter((f) => f.endsWith('.md')) : [];
+    if (!graders.length) errors.push(`${label}: no graders/*.md`);
+    for (const g of graders) {
+      const glabel = `${label}/graders/${g}`;
+      const { data: gd, body: gbody, errors: gErrors } = parseFrontmatter(readFileSync(join(gradersDir, g), 'utf8'));
+      if (!gd) { errors.push(`${glabel}: no frontmatter`); continue; }
+      for (const e of gErrors) errors.push(`${glabel}: frontmatter line ${e.line}: ${e.message}`);
+      if (!GRADER_TYPES.has(gd.type)) errors.push(`${glabel}: grader type ${gd.type} is not one of ${[...GRADER_TYPES].join(', ')}`);
+      if ('weight' in gd && !(typeof gd.weight === 'number' && gd.weight > 0)) errors.push(`${glabel}: weight must be a positive number`);
+      if ('arm' in gd && gd.arm !== 'with-only' && gd.arm !== 'both') errors.push(`${glabel}: arm must be with-only or both`);
+      if (gd.type === 'llm' && !String(gbody || '').trim()) errors.push(`${glabel}: llm grader has no criteria body`);
+      if (gd.type === 'regex' && (!gd.pattern || !gd.target)) errors.push(`${glabel}: regex grader needs pattern and target`);
+      if (gd.type === 'tool_used' && !gd.tool) errors.push(`${glabel}: tool_used grader needs tool`);
+      if (gd.type === 'file_exists' && !gd.path) errors.push(`${glabel}: file_exists grader needs path`);
+    }
+    const caseFile = join(caseDir, 'case.yaml');
+    if (existsSync(caseFile)) {
+      const yaml = readFileSync(caseFile, 'utf8');
+      if (!/^schema_version:\s*"1\.1"\s*$/m.test(yaml)) errors.push(`${label}: case.yaml needs schema_version: "1.1"`);
+      if (!/^name:\s*\S/m.test(yaml)) errors.push(`${label}: case.yaml needs name`);
+      const s = /^\s+scaffold_script:\s*(\S+)\s*$/m.exec(yaml);
+      if (s && !existsSync(join(caseDir, s[1]))) errors.push(`${label}: scaffold_script ${s[1]} does not exist in the case directory`);
+    }
   }
 }
 

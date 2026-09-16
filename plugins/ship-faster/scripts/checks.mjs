@@ -54,9 +54,9 @@ function extractCi(root, ciFiles) {
           if (nmBlock) { blockName = nmBlock[1].trim().replace(/^["']|["']$/g, ''); previous = null; continue; }
           if (/^\s*[\w-]+:(\s|$)/.test(l)) { previous = null; continue; }
           const text = l.trim();
-          if (previous && CONTINUED.test(previous.run)) { previous.run = `${previous.run.replace(/\\$/, '').trimEnd()} ${text}`; continue; }
           const item = sequence ? text.replace(/^-\s+/, '') : text;
           if (!item) continue;
+          if (previous && CONTINUED.test(previous.run)) { previous.run = `${previous.run.replace(/\\$/, '').trimEnd()} ${item}`; continue; }
           previous = { run: item, stepName };
           found.push(previous);
         }
