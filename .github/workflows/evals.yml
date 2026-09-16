@@ -1,0 +1,53 @@
+name: evals
+
+on:
+  workflow_dispatch:
+    inputs:
+      runs:
+        description: Runs per case (the schedule uses the cases' default of 3)
+        default: "1"
+      case:
+        description: Case name glob (empty runs every case)
+        default: ""
+  schedule:
+    - cron: "17 6 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  evals:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: sudo apt-get update && sudo apt-get install -y bubblewrap socat
+      - run: npm install -g @anthropic-ai/claude-code@2.1.273
+      - run: claude plugin validate --strict plugins/ship-faster
+      - name: Run the eval suite
+        run: |
+          set -o pipefail
+          extra=""
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            extra="--runs ${{ github.event.inputs.runs }}"
+            if [ -n "${{ github.event.inputs.case }}" ]; then extra="$extra --case ${{ github.event.inputs.case }}"; fi
+          fi
+          claude plugin eval plugins/ship-faster \
+            --trust-plugin --scaffold --ablation none --no-publish \
+            --allow-tools Bash Write Edit \
+            --model claude-sonnet-5 --judge-model claude-haiku-4-5 \
+            --threshold 0.8 --max-cost-usd 40 \
+            --json evals-result.json $extra | tee evals-summary.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: evals-${{ github.run_id }}
+          path: |
+            evals-result.json
+            evals-summary.txt
+            plugins/ship-faster/evals/results/

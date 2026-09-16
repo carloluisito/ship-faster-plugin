@@ -19,6 +19,15 @@ versions follow semver.
 - Templates for CLAUDE.md, per-package CLAUDE.md, every wiki page type, recipes, plans, rules files, and gotcha entries.
 - Scripts `page.mjs` (stamp `verified`/`updated`) and `claude-md.mjs` (sections, splice, backup); `stale.mjs --since` and `--session all`; `detect.mjs --brief`, `config`, and `dataDir`.
 - Eval cases for `onboard`, `sync-docs`, and `lesson` under `evals/`, with scaffold scripts that build fixture repositories.
+- `kickoff` skill: a grounded plan under `docs/plans/` (goal, complete scope, ordered touchpoints, tests, docs impact, risks quoting gotchas, verification) and the branch for it.
+- `preflight` skill: runs the repository's checks inside the `check-runner` agent and reports the table, the failure tail, the log path, and a diagnosis.
+- `ship` skill: branch, preflight, docs sync, rules review, plan check, commit by name, push and PR with a verification table, optional squash-merge; the guard hook blocks force pushes, protected-branch pushes, `--no-verify`, and `git add -A`.
+- `release` skill: docs checkpoint, Keep a Changelog section, version bump across manifests (plugin.json and marketplace entry together), preflight, `release: vX.Y.Z` commit, tag via `claude plugin tag` in plugin repositories, guarded publish and GitHub release.
+- `health` skill: coded findings across dependencies, tests, docs, hygiene, CI, and plans from `health-auditor` agents, with `--fix safe` behind preflight.
+- `review` skill: findings against the repository's own conventions, gotchas, decisions, and recipes through the `rules-reviewer` agent.
+- Agents `check-runner`, `rules-reviewer`, and `health-auditor`.
+- Scripts `changes.mjs`, `version.mjs`, `changelog.mjs`, `review.mjs`, `health.mjs`; the PR body template.
+- Eval cases for every skill and a manual plus weekly eval workflow.
 
 ### Changed
 - A wiki page committed together with the covered files it describes stays fresh: only commits that change covered files without touching the page make it stale, and a page with uncommitted edits of its own is not marked dirty by covered working-tree changes. Pages no longer go stale the moment `ship` commits them.
