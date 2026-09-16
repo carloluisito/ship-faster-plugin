@@ -163,6 +163,66 @@ jobs:
   assert.ok(!r.excluded.some((e) => e.run === 'echo hi && npm run build'));
 });
 
+test('a block scalar joins line continuations instead of splitting them into bogus checks', () => {
+  const COVERAGE_CI = `name: ci
+on: push
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Test with coverage
+        run: |
+          pytest \\
+            --cov=src
+`;
+  const cov = resolveChecks(makeRepo({ files: { '.github/workflows/ci.yml': COVERAGE_CI } }).root, { config: DEFAULTS });
+  assert.deepEqual(cov.checks.map((c) => ({ name: c.name, run: c.run })), [{ name: 'Test with coverage', run: 'pytest --cov=src' }]);
+
+  const CHAIN_CI = `name: ci
+on: push
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          npm run lint &&
+          npm run build
+`;
+  const chain = resolveChecks(makeRepo({ files: { '.github/workflows/ci.yml': CHAIN_CI } }).root, { config: DEFAULTS });
+  assert.deepEqual(chain.checks.map((c) => c.run), ['npm run lint && npm run build']);
+
+  const FLAG_CI = `name: ci
+on: push
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          docker run \\
+            -v /a:/b \\
+            node:20 npm test
+`;
+  const flag = resolveChecks(makeRepo({ files: { '.github/workflows/ci.yml': FLAG_CI } }).root, { config: DEFAULTS });
+  assert.deepEqual(flag.checks.map((c) => c.run), ['docker run -v /a:/b node:20 npm test']);
+});
+
+test('a finished run survives an unwritable log directory', () => {
+  const { root } = makeRepo({ files: { 'a.txt': '' } });
+  const blocked = join(tmpDir(), 'blocked');
+  writeFileSync(blocked, '');
+  process.env.CLAUDE_PLUGIN_DATA = join(blocked, 'sub');
+  const checks = [
+    { name: 'ok', run: 'node -e "process.exit(0)"', timeout: 30, source: 'test' },
+    { name: 'bad', run: 'node -e "process.exit(3)"', timeout: 30, source: 'test' },
+  ];
+  const r = runChecks(root, { config: DEFAULTS, checks, continueOnFail: true });
+  assert.equal(r.ok, true);
+  assert.equal(r.passed, false);
+  assert.deepEqual(r.checks.map((c) => c.status), ['pass', 'fail']);
+  assert.equal(r.checks[1].exitCode, 3);
+  assert.ok(r.checks.every((c) => c.log === null), 'a failed log write leaves log null');
+});
+
 test('a wiki checks list with no valid run stays source wiki with nothing to run', () => {
   const { root } = makeRepo({ files: { 'a.txt': '' } });
   const w = join(root, 'docs', 'wiki');

@@ -10,6 +10,7 @@ import { preflightDir, writeJsonAtomic } from './lib/state.mjs';
 import { loadWiki } from './lib/wiki.mjs';
 import { detect } from './detect.mjs';
 
+const CONTINUED = /(\\|&&|\|)$/;
 const INSTALL = /^(npm (ci|install|i)\b|pnpm (install|i)\b|yarn( install)?$|pip3? install|poetry install|dotnet restore|go mod download|cargo fetch|bundle install)/;
 const UNSAFE = /\b(deploy|publish|release|push|upload)\b|docker (build|push)|terraform apply|kubectl apply|aws s3/i;
 
@@ -39,18 +40,25 @@ function extractCi(root, ciFiles) {
       const value = m[3].trim();
       if (value === '' || /^[|>][-+]?$/.test(value)) {
         let blockName = null;
+        let sequence = null;
+        let previous = null;
         for (let j = i + 1; j < lines.length; j++) {
           const l = lines[j];
           if (!l.trim()) continue;
           if (l.match(/^\s*/)[0].length <= indent) break;
-          const cmd = /^\s*command:\s*(.+)$/.exec(l);
-          if (cmd) { found.push({ run: cmd[1].trim(), stepName: blockName }); i = j; continue; }
-          const nmBlock = /^\s*name:\s*(.+)$/.exec(l);
-          if (nmBlock) { blockName = nmBlock[1].trim().replace(/^["']|["']$/g, ''); i = j; continue; }
-          if (/^\s*[\w-]+:(\s|$)/.test(l)) { i = j; continue; }
-          const item = l.trim().replace(/^-\s*/, '');
-          if (item) found.push({ run: item, stepName });
+          if (sequence === null) sequence = /^\s*-\s/.test(l);
           i = j;
+          const cmd = /^\s*command:\s*(.+)$/.exec(l);
+          if (cmd) { found.push({ run: cmd[1].trim(), stepName: blockName }); previous = null; continue; }
+          const nmBlock = /^\s*name:\s*(.+)$/.exec(l);
+          if (nmBlock) { blockName = nmBlock[1].trim().replace(/^["']|["']$/g, ''); previous = null; continue; }
+          if (/^\s*[\w-]+:(\s|$)/.test(l)) { previous = null; continue; }
+          const text = l.trim();
+          if (previous && CONTINUED.test(previous.run)) { previous.run = `${previous.run.replace(/\\$/, '').trimEnd()} ${text}`; continue; }
+          const item = sequence ? text.replace(/^-\s+/, '') : text;
+          if (!item) continue;
+          previous = { run: item, stepName };
+          found.push(previous);
         }
       } else {
         found.push({ run: value.replace(/^["']|["']$/g, ''), stepName });
@@ -128,9 +136,10 @@ export function runChecks(root, { config, checks, continueOnFail = false } = {})
     const output = `${r.stdout || ''}${r.stderr || ''}`;
     const timedOut = Boolean(r.error && r.error.code === 'ETIMEDOUT');
     const status = timedOut ? 'timeout' : r.status === 0 ? 'pass' : 'fail';
-    const log = join(dir, `${at}-${String(i + 1).padStart(2, '0')}-${c.name.replace(/[^\w.-]+/g, '_')}.log`);
-    writeFileSync(log, `$ ${c.run}\n${output}`);
-    results.push({ name: c.name, run: c.run, status, exitCode: r.status ?? null, durationMs, tail: status === 'pass' ? '' : tailOf(output), log: normalizePath(log) });
+    const file = join(dir, `${at}-${String(i + 1).padStart(2, '0')}-${c.name.replace(/[^\w.-]+/g, '_')}.log`);
+    let log = normalizePath(file);
+    try { writeFileSync(file, `$ ${c.run}\n${output}`); } catch { log = null; }
+    results.push({ name: c.name, run: c.run, status, exitCode: r.status ?? null, durationMs, tail: status === 'pass' ? '' : tailOf(output), log });
     if (status !== 'pass' && !continueOnFail) stop = true;
   }
   const passed = checks.length > 0 && results.every((r) => r.status === 'pass');
@@ -149,7 +158,7 @@ export function runChecks(root, { config, checks, continueOnFail = false } = {})
     summary,
   };
   writeJsonAtomic(join(dir, 'last.json'), result);
-  prune(dir);
+  try { prune(dir); } catch {}
   return result;
 }
 
