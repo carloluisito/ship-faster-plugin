@@ -80,7 +80,7 @@ test('timeouts are reported and old logs are pruned to ten runs', () => {
   assert.equal(r.passed, false);
   const fast = [{ name: 'f', run: 'node -e 0', timeout: 30, source: 'test' }];
   for (let i = 0; i < 12; i++) runChecks(root, { config: DEFAULTS, checks: fast });
-  const stamps = new Set(readdirSync(preflightDir(root)).filter((n) => n.endsWith('.log')).map((n) => n.split('-f.log')[0]));
+  const stamps = new Set(readdirSync(preflightDir(root)).filter((n) => n.endsWith('.log')).map((n) => n.slice(0, 24)));
   assert.ok(stamps.size <= 10, `expected at most 10 runs of logs, got ${stamps.size}`);
 });
 
@@ -92,4 +92,94 @@ test('cli resolve and run', () => {
   assert.equal(run.json.ok, true);
   assert.equal(run.json.passed, true);
   assert.equal(run.code, 0);
+});
+
+test('a name: on a non-run step, and a top-level name:, do not leak onto the next check', () => {
+  const DEPLOY_CI = `name: Deploy
+on: push
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - run: npm test
+`;
+  const { root } = makeRepo({ files: { '.github/workflows/deploy.yml': DEPLOY_CI } });
+  const r = resolveChecks(root, { config: DEFAULTS });
+  assert.equal(r.source, 'ci');
+  const test = r.checks.find((c) => c.run === 'npm test');
+  assert.ok(test, 'expected npm test to be an included check');
+  assert.notEqual(test.name, 'Checkout');
+  assert.match(test.name, /^check-\d+$/);
+});
+
+test('circleci mapping-form run: is read as name/command, not literal lines', () => {
+  const CIRCLE_CI = `version: 2.1
+jobs:
+  build:
+    steps:
+      - checkout
+      - run:
+          name: Run tests
+          command: npm test
+`;
+  const { root } = makeRepo({ files: { '.circleci/config.yml': CIRCLE_CI } });
+  const r = resolveChecks(root, { config: DEFAULTS });
+  assert.equal(r.source, 'ci');
+  assert.deepEqual(r.checks.map((c) => ({ name: c.name, run: c.run })), [{ name: 'Run tests', run: 'npm test' }]);
+  const allRuns = [...r.checks, ...r.excluded].map((c) => c.run);
+  assert.ok(!allRuns.some((run) => /name:|command:/.test(run)));
+});
+
+test('UNSAFE only matches whole words', () => {
+  const PRERELEASE_CI = `name: ci
+on: push
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - run: npm run test:prerelease
+      - run: npm run deploy
+`;
+  const { root } = makeRepo({ files: { '.github/workflows/ci.yml': PRERELEASE_CI } });
+  const r = resolveChecks(root, { config: DEFAULTS });
+  assert.ok(r.checks.some((c) => c.run === 'npm run test:prerelease'));
+  assert.ok(r.excluded.some((e) => e.run === 'npm run deploy'));
+});
+
+test('echo is excluded only when the whole line is an echo', () => {
+  const ECHO_CI = `name: ci
+on: push
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo hi && npm run build
+`;
+  const { root } = makeRepo({ files: { '.github/workflows/ci.yml': ECHO_CI } });
+  const r = resolveChecks(root, { config: DEFAULTS });
+  assert.ok(r.checks.some((c) => c.run === 'echo hi && npm run build'));
+  assert.ok(!r.excluded.some((e) => e.run === 'echo hi && npm run build'));
+});
+
+test('a wiki checks list with no valid run stays source wiki with nothing to run', () => {
+  const { root } = makeRepo({ files: { 'a.txt': '' } });
+  const w = join(root, 'docs', 'wiki');
+  mkdirSync(w, { recursive: true });
+  writeFileSync(join(w, 'commands.md'), serializeFrontmatter({ title: 'Commands', summary: 's', read_when: 'r', covers: ['a.txt'], verified: 'abc', updated: '2026-09-16', checks: [{ name: 'broken' }] }) + '# C\n');
+  const r = resolveChecks(root, { config: DEFAULTS });
+  assert.equal(r.source, 'wiki');
+  assert.deepEqual(r.checks, []);
+  assert.equal(r.excluded.length, 1);
+  assert.equal(r.excluded[0].why, 'invalid check entry: missing run');
+});
+
+test('zero resolved checks is an honest failure, not a silent pass', () => {
+  const { root } = makeRepo({ files: { 'a.txt': '' } });
+  const r = runChecks(root, { config: DEFAULTS, checks: [] });
+  assert.equal(r.passed, false);
+  assert.match(r.summary[0], /no checks resolved/);
+  const last = JSON.parse(readFileSync(join(preflightDir(root), 'last.json'), 'utf8'));
+  assert.equal(last.passed, false);
 });

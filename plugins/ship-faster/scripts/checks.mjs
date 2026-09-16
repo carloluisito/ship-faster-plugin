@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { existsSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { runMain } from './lib/cli.mjs';
 import { loadConfig } from './lib/config.mjs';
@@ -11,12 +11,12 @@ import { loadWiki } from './lib/wiki.mjs';
 import { detect } from './detect.mjs';
 
 const INSTALL = /^(npm (ci|install|i)\b|pnpm (install|i)\b|yarn( install)?$|pip3? install|poetry install|dotnet restore|go mod download|cargo fetch|bundle install)/;
-const UNSAFE = /deploy|publish|release|\bpush\b|upload|docker (build|push)|terraform apply|kubectl apply|aws s3/i;
+const UNSAFE = /\b(deploy|publish|release|push|upload)\b|docker (build|push)|terraform apply|kubectl apply|aws s3/i;
 
 function classify(run, stepName) {
   if (run.includes('${{')) return 'uses a CI expression that cannot be resolved locally';
   if (INSTALL.test(run)) return 'install step';
-  if (/^echo\b/.test(run)) return 'echo only';
+  if (/^echo\b[^&|;]*$/.test(run)) return 'echo only';
   if (UNSAFE.test(run) || (stepName && UNSAFE.test(stepName))) return 'deploy-like command is never run locally';
   return null;
 }
@@ -30,17 +30,24 @@ function extractCi(root, ciFiles) {
     let stepName = null;
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
-      const nm = /^\s*-?\s*name:\s*(.+)$/.exec(line);
+      if (/^\s*-\s/.test(line)) stepName = null;
+      const nm = /^(?:\s*-\s*|\s+)name:\s*(.+)$/.exec(line);
       if (nm) { stepName = nm[1].trim().replace(/^["']|["']$/g, ''); continue; }
       const m = /^(\s*)(?:-\s*)?(run|script|bash|pwsh):\s*(.*)$/.exec(line);
       if (!m) continue;
       const indent = m[1].length;
       const value = m[3].trim();
       if (value === '' || /^[|>][-+]?$/.test(value)) {
+        let blockName = null;
         for (let j = i + 1; j < lines.length; j++) {
           const l = lines[j];
           if (!l.trim()) continue;
           if (l.match(/^\s*/)[0].length <= indent) break;
+          const cmd = /^\s*command:\s*(.+)$/.exec(l);
+          if (cmd) { found.push({ run: cmd[1].trim(), stepName: blockName }); i = j; continue; }
+          const nmBlock = /^\s*name:\s*(.+)$/.exec(l);
+          if (nmBlock) { blockName = nmBlock[1].trim().replace(/^["']|["']$/g, ''); i = j; continue; }
+          if (/^\s*[\w-]+:(\s|$)/.test(l)) { i = j; continue; }
           const item = l.trim().replace(/^-\s*/, '');
           if (item) found.push({ run: item, stepName });
           i = j;
@@ -60,10 +67,17 @@ export function resolveChecks(root, { config } = {}) {
   const wiki = loadWiki(root, config);
   const commands = wiki.pages.find((p) => p.rel.endsWith('/commands.md') && p.data && Array.isArray(p.data.checks));
   if (commands) {
-    const valid = commands.data.checks.filter((c) => c && typeof c.run === 'string' && c.run.trim());
-    if (valid.length) {
-      return { ok: true, source: 'wiki', excluded: [], checks: valid.map((c, i) => ({ name: String(c.name || `check-${i + 1}`), run: c.run.trim(), timeout: Number.isInteger(c.timeout) && c.timeout > 0 ? c.timeout : timeout, source: 'wiki' })) };
-    }
+    const wikiChecks = [];
+    const wikiExcluded = [];
+    commands.data.checks.forEach((c, i) => {
+      const name = String((c && c.name) || `check-${i + 1}`);
+      if (c && typeof c.run === 'string' && c.run.trim()) {
+        wikiChecks.push({ name, run: c.run.trim(), timeout: Number.isInteger(c.timeout) && c.timeout > 0 ? c.timeout : timeout, source: 'wiki' });
+      } else {
+        wikiExcluded.push({ name, run: (c && typeof c.run === 'string') ? c.run : '', why: 'invalid check entry: missing run' });
+      }
+    });
+    return { ok: true, source: 'wiki', checks: wikiChecks, excluded: wikiExcluded };
   }
   const facts = detect(root);
   const excluded = [];
@@ -104,7 +118,8 @@ export function runChecks(root, { config, checks, continueOnFail = false } = {})
   const results = [];
   let stop = false;
   let totalMs = 0;
-  for (const c of checks) {
+  for (let i = 0; i < checks.length; i++) {
+    const c = checks[i];
     if (stop) { results.push({ name: c.name, run: c.run, status: 'skipped', exitCode: null, durationMs: 0, tail: '', log: null }); continue; }
     const started = Date.now();
     const r = spawnSync(c.run, { shell: true, cwd: root, encoding: 'utf8', timeout: (c.timeout || config.checkTimeoutSeconds) * 1000, maxBuffer: 64 * 1024 * 1024, env: { ...process.env, NO_COLOR: '1', FORCE_COLOR: '0' }, windowsHide: true });
@@ -113,13 +128,16 @@ export function runChecks(root, { config, checks, continueOnFail = false } = {})
     const output = `${r.stdout || ''}${r.stderr || ''}`;
     const timedOut = Boolean(r.error && r.error.code === 'ETIMEDOUT');
     const status = timedOut ? 'timeout' : r.status === 0 ? 'pass' : 'fail';
-    const log = join(dir, `${at}-${c.name.replace(/[^\w.-]+/g, '_')}.log`);
+    const log = join(dir, `${at}-${String(i + 1).padStart(2, '0')}-${c.name.replace(/[^\w.-]+/g, '_')}.log`);
     writeFileSync(log, `$ ${c.run}\n${output}`);
     results.push({ name: c.name, run: c.run, status, exitCode: r.status ?? null, durationMs, tail: status === 'pass' ? '' : tailOf(output), log: normalizePath(log) });
     if (status !== 'pass' && !continueOnFail) stop = true;
   }
-  const passed = results.every((r) => r.status === 'pass');
+  const passed = checks.length > 0 && results.every((r) => r.status === 'pass');
   const first = results.find((r) => r.status !== 'pass' && r.status !== 'skipped');
+  const summary = checks.length === 0
+    ? [`preflight: no checks resolved (source: ${source})`]
+    : [passed ? `preflight: PASS (${results.length} checks, ${(totalMs / 1000).toFixed(1)}s)` : `preflight: FAIL at ${first ? first.name : '?'} (${first ? first.status + (first.exitCode !== null ? ' exit ' + first.exitCode : '') : ''}, ${(totalMs / 1000).toFixed(1)}s)${first && first.log ? ` log: ${first.log}` : ''}`];
   const result = {
     ok: true,
     passed,
@@ -128,7 +146,7 @@ export function runChecks(root, { config, checks, continueOnFail = false } = {})
     head: git.head(root),
     checks: results,
     lastJson: normalizePath(join(dir, 'last.json')),
-    summary: [passed ? `preflight: PASS (${results.length} checks, ${(totalMs / 1000).toFixed(1)}s)` : `preflight: FAIL at ${first ? first.name : '?'} (${first ? first.status + (first.exitCode !== null ? ' exit ' + first.exitCode : '') : ''}, ${(totalMs / 1000).toFixed(1)}s)${first && first.log ? ` log: ${first.log}` : ''}`],
+    summary,
   };
   writeJsonAtomic(join(dir, 'last.json'), result);
   prune(dir);
