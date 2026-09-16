@@ -91,3 +91,19 @@ test('outside git the sha is unverified; the CLI runs verify and touch', () => {
   assert.equal(none.json.ok, false);
   assert.match(none.json.error, /at least one page/);
 });
+
+test('rejections report normalized paths, and containment ignores drive-letter case on Windows', () => {
+  const { root } = makeRepo({ files: { 'src/a.ts': 'a', 'other.md': '# o\n' } });
+  const w = join(root, 'docs', 'wiki');
+  mkdirSync(w, { recursive: true });
+  writeFileSync(join(w, 'p.md'), page('P'));
+  const r = verifyPages(root, ['docs\\wiki\\..\\..\\other.md'], { config: DEFAULTS });
+  assert.equal(r.pages[0].ok, false);
+  assert.equal(r.pages[0].rel, 'docs/wiki/../../other.md');
+  const absolute = join(root, 'docs', 'wiki', 'p.md');
+  const flipDrive = (p) => (/^[A-Za-z]:/.test(p) ? (p[0] === p[0].toLowerCase() ? p[0].toUpperCase() : p[0].toLowerCase()) + p.slice(1) : p);
+  const given = process.platform === 'win32' ? flipDrive(absolute) : absolute;
+  const ok = verifyPages(root, [given], { config: DEFAULTS });
+  assert.equal(ok.ok, true, JSON.stringify(ok.pages));
+  assert.equal(ok.pages[0].rel, 'docs/wiki/p.md');
+});

@@ -15,11 +15,13 @@ export function today() {
 function stamp(root, rels, patchFor, { config } = {}) {
   config = config || loadConfig(root).config;
   const wiki = normalizePath(resolve(wikiDir(root, config)));
+  const fold = (p) => (process.platform === 'win32' ? p.toLowerCase() : p);
+  const inside = (abs) => fold(abs).startsWith(fold(wiki) + '/');
   const pages = [];
   for (const given of rels) {
     const file = isAbsolute(given) ? given : join(root, ...normalizePath(given).split('/'));
     const abs = normalizePath(resolve(file));
-    if (!abs.startsWith(wiki + '/')) { pages.push({ rel: given, ok: false, error: `not inside ${config.wikiDir}` }); continue; }
+    if (!inside(abs)) { pages.push({ rel: normalizePath(given), ok: false, error: `not inside ${config.wikiDir}` }); continue; }
     const rel = relPath(root, file);
     if (rel.endsWith('/index.md')) { pages.push({ rel, ok: false, error: 'index.md is generated and has no frontmatter' }); continue; }
     if (!existsSync(file)) { pages.push({ rel, ok: false, error: 'not found' }); continue; }
