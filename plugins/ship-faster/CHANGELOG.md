@@ -5,7 +5,10 @@ versions follow semver.
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-09-17
+
 ### Added
+- `changelog.mjs insert --file <path>` writes to a changelog other than the root one, so `release` in a plugin repository updates the plugin's own `CHANGELOG.md`.
 - SessionStart hook: wiki location, stale page count, active plan, overdue health audit, onboard suggestion.
 - PreToolUse guard: denies force pushes and direct pushes to protected branches, `--no-verify`, and risky `git add -A`.
 - PostToolUse drift marker and UserPromptSubmit report: pages covering edited files are recorded and reported once per session.
@@ -29,10 +32,14 @@ versions follow semver.
 - Scripts `changes.mjs`, `version.mjs`, `changelog.mjs`, `review.mjs`, `health.mjs`; the PR body template.
 - Eval cases for every skill and a manual plus weekly eval workflow.
 
-### Changed
-- A wiki page committed together with the covered files it describes stays fresh: only commits that change covered files without touching the page make it stale, and a page with uncommitted edits of its own is not marked dirty by covered working-tree changes. Pages no longer go stale the moment `ship` commits them.
-
 ### Fixed
+- `ship` and `release` can launch the agents they rely on: `Agent` is now in their allowed tools.
+- `review` launches a reviewer when the only changes are untracked files, and a renamed file reaches the reviewer as a rename instead of a deletion plus a new file.
+- `ship` leaves the plan file out of the commit when marking the plan shipped fails, and says so.
+- `release` asks before creating the GitHub release, and before opening a release PR it warns that the local default branch will be reset to the remote (unpushed commits stay in the reflog).
+- On the default branch itself, the branch inventory counts commits ahead of and behind the upstream (or `origin/<default>`) instead of always reporting zero.
+- `version.mjs detect` finds a plugin repository's last release under its `<plugin>--v` tag prefix instead of looking for `v*` tags.
+- The guard treats a push whose clustered short flags include `-n` as a dry run and lets it through.
 - The guard no longer waves through `git push origin main --tags`: pushing tags alongside a branch is still checked against the protected branches.
 - Hooks exit as soon as they have read their input, instead of lingering when the caller leaves the input pipe open.
 - A wiki whose pages were verified at many different commits no longer makes session start slow: the staleness check now reads the history once instead of once per commit.
@@ -44,3 +51,6 @@ versions follow semver.
 - Wiki freshness reads the history in one pass only when three or more pages were verified at different commits; at two, the two direct diffs are cheaper.
 - Files changed by a merge commit itself (an "evil merge") now count as changed since a page's verified commit.
 - The one-pass freshness check ignores malformed `verified` values instead of failing for every page.
+
+### Changed
+- A wiki page committed together with the covered files it describes stays fresh: only commits that change covered files without touching the page make it stale, and a page with uncommitted edits of its own is not marked dirty by covered working-tree changes. Pages no longer go stale the moment `ship` commits them.
