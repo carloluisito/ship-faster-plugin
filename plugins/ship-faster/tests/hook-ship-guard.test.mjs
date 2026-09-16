@@ -93,6 +93,23 @@ test('an allow level makes no git calls, and isTag is cached per target', () => 
   assert.equal(calls, 1);
 });
 
+test('--repo option supplies the remote so all positionals are refspecs', () => {
+  assert.equal(ev('git push --repo origin main').rule, 'pushProtected');
+  assert.equal(ev('git push --repo=origin main').rule, 'pushProtected');
+  assert.equal(ev('git push --repo origin feat/x').decision, null);
+});
+
+test('git add dry-run also matches a combined short flag', () => {
+  const risky = { dirtyFiles: () => [{ path: '.env', status: '??' }] };
+  assert.equal(ev('git add -nA', risky).decision, null);
+});
+
+test('env and sudo -g are detected regardless of prefix order', () => {
+  assert.equal(ev('env GIT_TRACE=1 git push origin main').rule, 'pushProtected');
+  assert.equal(ev('sudo -g wheel git push origin main').rule, 'pushProtected');
+  assert.equal(ev('echo git push origin main').decision, null);
+});
+
 test('hook process: real repo, json output shape, silence for other tools and bad input', () => {
   const { root } = makeRepo({ files: { 'a.txt': '' } });
   writeFileSync(join(root, '.env'), 'SECRET=1');

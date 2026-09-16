@@ -20,15 +20,19 @@ const defaultGitApi = {
 
 function gitInvocation(tokens) {
   let i = 0;
-  while (i < tokens.length && /^[A-Za-z_][A-Za-z0-9_]*=/.test(tokens[i])) i++;
-  while (i < tokens.length && WRAPPERS.has(tokens[i])) {
-    const wrapper = tokens[i];
-    i++;
-    while (i < tokens.length && tokens[i].startsWith('-')) {
-      const flag = tokens[i];
+  while (i < tokens.length) {
+    if (/^[A-Za-z_][A-Za-z0-9_]*=/.test(tokens[i])) { i++; continue; }
+    if (WRAPPERS.has(tokens[i])) {
+      const wrapper = tokens[i];
       i++;
-      if ((wrapper === 'sudo' && flag === '-u') || (wrapper === 'nice' && flag === '-n')) i++;
+      while (i < tokens.length && tokens[i].startsWith('-')) {
+        const flag = tokens[i];
+        i++;
+        if ((wrapper === 'sudo' && (flag === '-u' || flag === '-g')) || (wrapper === 'nice' && flag === '-n')) i++;
+      }
+      continue;
     }
+    break;
   }
   if (tokens[i] !== 'git') return null;
   i++;
@@ -55,8 +59,9 @@ function checkPush(args, ctx) {
   if (args.includes('-n') || args.includes('--dry-run')) return null;
   if (args.includes('--tags')) return null;
   let force = args.some((a) => a === '-f' || a === '--force' || a.startsWith('--force-with-lease') || a === '--force-if-includes' || shortHas(a, 'f'));
+  const hasRepo = args.some((a) => a === '--repo' || a.startsWith('--repo='));
   const positional = positionalArgs(args);
-  const refspecs = positional.slice(1);
+  const refspecs = hasRepo ? positional : positional.slice(1);
   if (refspecs.some((r) => r.startsWith('+'))) force = true;
 
   const rule = force && ctx.config.guard.forcePush !== 'allow' ? 'forcePush' : 'pushProtected';
@@ -93,7 +98,7 @@ function checkPush(args, ctx) {
 }
 
 function checkAdd(args, ctx) {
-  if (args.includes('-n') || args.includes('--dry-run')) return null;
+  if (args.includes('-n') || args.includes('--dry-run') || args.some((a) => shortHas(a, 'n'))) return null;
   const flag = args.find((a) => a === '-A' || a === '--all' || a === '.' || a === ':/' || shortHas(a, 'A'));
   if (!flag) return null;
   if (ctx.config.guard.addAll === 'allow') return null;
