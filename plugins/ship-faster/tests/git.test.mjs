@@ -150,3 +150,50 @@ test('changedBetween lists the branch diff against the merge base and null for a
   assert.equal(g.changedBetween(root, '--output=/tmp/x'), null);
   assert.equal(g.changedBetween(root, ''), null);
 });
+
+test('lastTag, tagExists, subjects, logSince, aheadBehind, upstream, remoteUrl, isAncestor', () => {
+  const { root, git } = makeRepo({ files: { 'a.txt': 'a\n' } });
+  const first = g.head(root);
+  assert.equal(g.lastTag(root), null);
+  git(['tag', '-a', 'v0.1.0', '-m', 'v0.1.0']);
+  writeFileSync(join(root, 'b.txt'), 'b\n');
+  git(['add', 'b.txt']);
+  git(['commit', '-q', '-m', 'feat: add b']);
+  const second = g.head(root);
+  writeFileSync(join(root, 'c.txt'), 'c\n');
+  git(['add', 'c.txt']);
+  git(['commit', '-q', '-m', 'fix: add c']);
+  assert.deepEqual(g.lastTag(root), { tag: 'v0.1.0', sha: first });
+  assert.equal(g.lastTag(root, { match: 'ship-faster--v*' }), null);
+  git(['tag', 'ship-faster--v0.1.0', second]);
+  assert.deepEqual(g.lastTag(root, { match: 'ship-faster--v*' }), { tag: 'ship-faster--v0.1.0', sha: second });
+  assert.equal(g.tagExists(root, 'v0.1.0'), true);
+  assert.equal(g.tagExists(root, 'v9.9.9'), false);
+  assert.deepEqual(g.subjects(root, { n: 2 }), ['fix: add c', 'feat: add b']);
+  const since = g.logSince(root, 'v0.1.0');
+  assert.deepEqual(since.map((c) => c.subject), ['fix: add c', 'feat: add b']);
+  assert.deepEqual(since[1].parents, [first]);
+  assert.equal(g.logSince(root, null).length, 3);
+  assert.deepEqual(g.logSince(root, 'no-such-ref'), []);
+  git(['checkout', '-q', '-b', 'feat', 'v0.1.0']);
+  writeFileSync(join(root, 'f.txt'), 'f\n');
+  git(['add', 'f.txt']);
+  git(['commit', '-q', '-m', 'feat: f']);
+  assert.deepEqual(g.aheadBehind(root, 'main'), { ahead: 1, behind: 2 });
+  assert.equal(g.aheadBehind(root, 'no-such-ref'), null);
+  assert.equal(g.upstream(root), null);
+  assert.equal(g.remoteUrl(root), null);
+  git(['remote', 'add', 'origin', 'https://example.com/acme/repo.git']);
+  assert.equal(g.remoteUrl(root), 'https://example.com/acme/repo.git');
+  assert.equal(g.isAncestor(root, first, g.head(root)), true);
+  assert.equal(g.isAncestor(root, g.head(root), first), false);
+});
+
+test('git() disables core.quotepath so a non-ASCII path round-trips unescaped', () => {
+  const name = 'caf\u00e9.txt';
+  const { root, git } = makeRepo({ files: { 'a.txt': 'a\n' } });
+  writeFileSync(join(root, name), 'c\n');
+  git(['add', name]);
+  git(['commit', '-q', '-m', 'feat: add non-ascii file']);
+  assert.deepEqual(g.log(root, { n: 1 })[0].files, [name]);
+});

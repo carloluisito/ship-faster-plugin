@@ -1,13 +1,11 @@
-import { statSync } from 'node:fs';
-import { join } from 'node:path';
 import { readStdinJson } from './lib/cli.mjs';
 import { loadConfig } from './lib/config.mjs';
 import * as gitLib from './lib/git.mjs';
 import { normalizePath } from './lib/glob.mjs';
+import { isLarge, riskyReason } from './lib/risky.mjs';
 import { resolveRootCached } from './lib/root.mjs';
 import { splitSegments, tokenize } from './lib/shell.mjs';
 
-const RISKY = [/(^|\/)\.env(\..*)?$/, /\.(pem|key|p12|pfx)$/i, /credential/i, /secret/i, /(^|\/)node_modules\//, /(^|\/)(dist|build)\//, /\.log$/];
 const OVERRIDE = (rule) => ` Override: guard.${rule} in .claude/ship-faster.json.`;
 const WRAPPERS = new Set(['sudo', 'time', 'nice', 'env', 'command', 'exec', 'nohup', 'stdbuf']);
 const VALUE_OPTS = new Set(['-o', '--push-option', '--receive-pack', '--exec', '--repo']);
@@ -107,14 +105,10 @@ function checkAdd(args, ctx) {
   let dirty;
   try { dirty = ctx.gitApi.dirtyFiles(ctx.root); } catch { return null; }
   if (!Array.isArray(dirty)) return null;
-  const risky = dirty.map((d) => d.path).filter((p) => RISKY.some((re) => re.test(p)) || isLarge(ctx.root, p));
+  const risky = dirty.map((d) => d.path).filter((p) => riskyReason(p) !== null || isLarge(ctx.root, p));
   if (!risky.length) return null;
   const list = risky.slice(0, 5).join(', ') + (risky.length > 5 ? `, +${risky.length - 5} more` : '');
   return { rule: 'addAll', reason: `ship-faster guard: "git add ${flag}" would stage risky paths (${list}). Stage files by name.${OVERRIDE('addAll')}` };
-}
-
-function isLarge(root, p) {
-  try { return statSync(join(root, p)).size > 5 * 1024 * 1024; } catch { return false; }
 }
 
 const EVAL_SUBCOMMANDS = new Set(['push', 'add', 'commit', 'merge']);

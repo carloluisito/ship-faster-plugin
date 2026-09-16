@@ -3,7 +3,7 @@ import { normalizePath } from './glob.mjs';
 
 export function git(args, { cwd, timeoutMs = 2000 } = {}) {
   try {
-    const r = spawnSync('git', args, {
+    const r = spawnSync('git', ['-c', 'core.quotepath=false', ...args], {
       cwd: cwd || process.cwd(),
       encoding: 'utf8',
       timeout: timeoutMs,
@@ -146,4 +146,53 @@ export function mergeBase(cwd, shas) {
   if (valid.length === 0) return null;
   const v = out(['merge-base', '--octopus', ...valid], cwd, 5000);
   return v && /^[0-9a-f]{40}$/.test(v) ? v : null;
+}
+
+export function lastTag(cwd, { match } = {}) {
+  const args = ['describe', '--tags', '--abbrev=0'];
+  if (match) args.push('--match', match);
+  const tag = out(args, cwd);
+  if (!tag) return null;
+  const sha = out(['rev-list', '-n1', tag], cwd);
+  return sha && /^[0-9a-f]{40}$/.test(sha) ? { tag, sha } : null;
+}
+
+export function tagExists(cwd, name) {
+  return git(['show-ref', '--verify', '--quiet', `refs/tags/${name}`], { cwd }).ok;
+}
+
+export function subjects(cwd, { n = 30 } = {}) {
+  const v = out(['log', `-n${n}`, '--no-merges', '--pretty=%s'], cwd, 5000);
+  return v ? v.split(/\r?\n/).filter(Boolean) : [];
+}
+
+export function logSince(cwd, ref, { n = 500 } = {}) {
+  const range = ref ? `${ref}..HEAD` : 'HEAD';
+  const r = git(['log', `-n${n}`, '--pretty=format:%H%x1f%P%x1f%s', range], { cwd, timeoutMs: 10000 });
+  if (!r.ok) return [];
+  return r.stdout.split(/\r?\n/).filter(Boolean).map((line) => {
+    const [sha, parents, subject] = line.split('\x1f');
+    return { sha, parents: (parents || '').split(' ').filter(Boolean), subject: subject || '' };
+  });
+}
+
+export function aheadBehind(cwd, base) {
+  if (!base || String(base).startsWith('-')) return null;
+  const v = out(['rev-list', '--left-right', '--count', `${base}...HEAD`], cwd, 5000);
+  if (!v) return null;
+  const [behind, ahead] = v.split(/\s+/).map(Number);
+  return Number.isInteger(ahead) && Number.isInteger(behind) ? { ahead, behind } : null;
+}
+
+export function upstream(cwd) {
+  return out(['rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{u}'], cwd);
+}
+
+export function remoteUrl(cwd, name = 'origin') {
+  return out(['remote', 'get-url', name], cwd);
+}
+
+export function isAncestor(cwd, a, b) {
+  if (!a || !b) return false;
+  return git(['merge-base', '--is-ancestor', a, b], { cwd }).ok;
 }
