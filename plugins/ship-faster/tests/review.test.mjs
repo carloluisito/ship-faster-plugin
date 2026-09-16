@@ -89,3 +89,13 @@ test('nothing to review, a bad base, no git, and pruning of old review directori
   assert.equal(cli.json.files.length, 1);
   assert.equal(runScript('review', ['--root', root, '--json']).json.ok, false);
 });
+
+test('a renamed file appears once at its new path, not the old one', () => {
+  const { root, git } = makeRepo({ files: { 'src/old.ts': 'export const a = 1;\n' } });
+  git(['checkout', '-q', '-b', 'feat/rename']);
+  git(['mv', 'src/old.ts', 'src/new.ts']);
+  git(['commit', '-q', '-m', 'refactor: rename old to new']);
+  const r = prepareReview(root, { config: DEFAULTS });
+  assert.equal(r.ok, true);
+  assert.deepEqual(r.files.map((f) => f.path), ['src/new.ts']);
+});

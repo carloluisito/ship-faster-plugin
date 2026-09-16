@@ -52,7 +52,7 @@ export function prepareReview(root, { config, base, maxLines = 4000 } = {}) {
   const mergeBase = git.git(['merge-base', resolvedBase, 'HEAD'], { cwd: root, timeoutMs: 5000 });
   if (!mergeBase.ok) return { ok: false, error: `base ${resolvedBase} cannot be resolved` };
   const mb = mergeBase.stdout.trim();
-  const diff = git.git(['diff', '--no-color', '--no-ext-diff', mb], { cwd: root, timeoutMs: 20000 });
+  const diff = git.git(['diff', '--no-color', '--no-ext-diff', '-M', mb], { cwd: root, timeoutMs: 20000 });
   if (!diff.ok) return { ok: false, error: 'git diff failed' };
   const perFile = splitPerFile(diff.stdout);
   const untrackedPaths = git.dirtyFiles(root).filter((d) => d.status === '??').map((d) => d.path)

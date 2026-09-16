@@ -3,7 +3,7 @@ name: ship
 description: Turn the current work into a pull request: branch off a protected branch, run preflight, sync the docs the change touches, review against the repository's rules, check the plan, commit by name, then push and open the PR with a verification table in the body; squash-merge only with --merge.
 disable-model-invocation: true
 argument-hint: "[branch-or-description] [--merge] [--draft] [--base <branch>] [--no-review]"
-allowed-tools: Read, Glob, Grep, Write, Edit, Skill, Bash(node *), Bash(git *), Bash(gh *)
+allowed-tools: Read, Glob, Grep, Write, Edit, Skill, Agent, Bash(node *), Bash(git *), Bash(gh *)
 ---
 
 # Ship
@@ -48,7 +48,7 @@ Unless the arguments contain `--no-review`, invoke `ship-faster:review` with `--
 node "${CLAUDE_PLUGIN_ROOT}/scripts/plan.mjs" find --branch <current branch> --json
 ```
 
-When `plan` is not null: read the plan file. Build the checklist: one `- [x]` per touchpoint whose path appears in `git diff --name-only <base>...HEAD` or in `dirty`, `- [ ]` otherwise; one `- [ ] planned test absent: <path>` per test file named under Tests to add that has no change. Then `node "${CLAUDE_PLUGIN_ROOT}/scripts/plan.mjs" set-status <plan rel> shipped --json` and include the plan file in the commit.
+When `plan` is not null: read the plan file. Build the checklist: one `- [x]` per touchpoint whose path appears in `git diff --name-only <base>...HEAD` or in `dirty`, `- [ ]` otherwise; one `- [ ] planned test absent: <path>` per test file named under Tests to add that has no change. Then `node "${CLAUDE_PLUGIN_ROOT}/scripts/plan.mjs" set-status <plan rel> shipped --json` and include the plan file in the commit. `ok: false`: report it and leave the plan file out of the commit.
 
 ## 7. Commit
 

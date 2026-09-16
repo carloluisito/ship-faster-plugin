@@ -20,7 +20,7 @@ Append `--base <branch>` when the arguments contain it. `ok: false`: print the e
 
 ## 2. Fan out
 
-Launch `ship-faster:rules-reviewer` once per entry in `chunks`, all in one message so they run in parallel. Each prompt carries `chunks: [that chunk's file]`, `untracked: [...]` (every untracked file path, given to the first chunk's reviewer only), `rulePages: [...]` (only entries with `exists: true`, as file paths), and `recipes: [...]` (file paths), and asks for the JSON contract in the agent's definition.
+Launch `ship-faster:rules-reviewer` once per entry in `chunks`, all in one message so they run in parallel. Each prompt carries `chunks: [that chunk's file]`, `untracked: [...]` (the `file` path of every entry in `untracked`, the copies review.mjs wrote, given to the first chunk's reviewer only), `rulePages: [...]` (only entries with `exists: true`, as file paths), and `recipes: [...]` (file paths), and asks for the JSON contract in the agent's definition. When `chunks` is empty and `untracked` is not, launch exactly one reviewer with `chunks: []` and the untracked list.
 
 ## 3. Merge
 
