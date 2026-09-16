@@ -1,5 +1,5 @@
 import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
-import { isAbsolute, join } from 'node:path';
+import { isAbsolute, join, resolve } from 'node:path';
 import { runMain } from './lib/cli.mjs';
 import { loadConfig } from './lib/config.mjs';
 import { parseFrontmatter, updateFrontmatter } from './lib/fm.mjs';
@@ -20,9 +20,13 @@ export function listPlans(root, { config } = {}) {
   if (!existsSync(dir)) return [];
   return readdirSync(dir).filter((n) => n.endsWith('.md')).sort().map((n) => {
     const file = join(dir, n);
-    const { data, errors } = parseFrontmatter(readFileSync(file, 'utf8'));
-    return { file, rel: relPath(root, file), data: data || {}, errors };
-  });
+    try {
+      const { data, errors } = parseFrontmatter(readFileSync(file, 'utf8'));
+      return { file, rel: relPath(root, file), data: data || {}, errors };
+    } catch {
+      return null;
+    }
+  }).filter((p) => p !== null);
 }
 
 const isActive = (p) => !p.data.status || p.data.status === 'active';
@@ -61,6 +65,11 @@ export function stalePlans(root, { config, days = 30 } = {}) {
 export function setPlanStatus(root, fileOrRel, status) {
   if (!STATUSES.has(status)) return { ok: false, error: `status must be one of ${[...STATUSES].join(', ')}` };
   const file = isAbsolute(fileOrRel) ? fileOrRel : join(root, ...normalizePath(fileOrRel).split('/'));
+  const { config } = loadConfig(root);
+  const dir = plansDir(root, config);
+  const normalizedFile = normalizePath(resolve(file));
+  const normalizedDir = normalizePath(resolve(dir));
+  if (!normalizedFile.startsWith(normalizedDir + '/')) return { ok: false, error: `plan must be inside ${config.plansDir}` };
   if (!existsSync(file)) return { ok: false, error: `plan not found: ${fileOrRel}` };
   writeFileSync(file, updateFrontmatter(readFileSync(file, 'utf8'), { status }));
   const rel = relPath(root, file);
@@ -73,7 +82,11 @@ if (process.argv[1] && normalizePath(process.argv[1]).endsWith('/scripts/plan.mj
     const { config } = loadConfig(root);
     const [cmd, a, b] = positional;
     if (cmd === 'find') return typeof flags.branch === 'string' ? findPlan(root, { config, branch: flags.branch }) : { ok: false, error: 'find requires --branch <name>' };
-    if (cmd === 'stale') return stalePlans(root, { config, days: flags.days ? Number(flags.days) : 30 });
+    if (cmd === 'stale') {
+      const days = flags.days === undefined ? 30 : Number(flags.days);
+      if (!Number.isInteger(days) || days < 0) return { ok: false, error: '--days must be a non-negative integer' };
+      return stalePlans(root, { config, days });
+    }
     if (cmd === 'set-status') return a && b ? setPlanStatus(root, a, b) : { ok: false, error: 'set-status requires <file> <status>' };
     return { ok: false, error: `unknown command ${cmd}; use find, stale, or set-status` };
   });

@@ -2,7 +2,7 @@ import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { makeRepo, runScript, cleanupAll } from './helpers.mjs';
+import { makeRepo, runScript, cleanupAll, tmpDir } from './helpers.mjs';
 import { parseFrontmatter, serializeFrontmatter } from '../scripts/lib/fm.mjs';
 import { DEFAULTS } from '../scripts/lib/config.mjs';
 import { branchExists, isMerged } from '../scripts/lib/git.mjs';
@@ -59,4 +59,31 @@ test('stalePlans flags merged and missing branches older than the window', () =>
   const r = stalePlans(root, { config: DEFAULTS });
   assert.deepEqual(r.plans.map((p) => [p.rel.split('/').pop(), p.reason]), [['a.md', 'branch merged'], ['b.md', 'branch gone']]);
   assert.deepEqual(stalePlans(root, { config: DEFAULTS, days: 1 }).plans.map((p) => p.rel.split('/').pop()), ['a.md', 'b.md', 'd.md']);
+});
+
+test('setPlanStatus rejects paths outside plans directory and validates --days', () => {
+  const { root } = makeRepo({ files: { 'a.txt': '' } });
+  const dir = join(root, 'docs', 'plans');
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, '2026-09-10-test.md'), plan('Test', 'feat/x', '2026-09-10'));
+  assert.equal(setPlanStatus(root, 'docs/plans/2026-09-10-test.md', 'shipped').ok, true);
+  assert.equal(setPlanStatus(root, '../outside.md', 'shipped').ok, false);
+  const outside = join(tmpDir(), 'x.md');
+  writeFileSync(outside, 'test');
+  assert.equal(setPlanStatus(root, outside, 'shipped').ok, false);
+  const cli = runScript('plan', ['stale', '--days', 'abc', '--root', root, '--json']);
+  assert.equal(cli.json.ok, false);
+  assert.match(cli.json.error, /--days/);
+  const cli2 = runScript('plan', ['stale', '--days', '1', '--root', root, '--json']);
+  assert.equal(cli2.json.ok, true);
+});
+
+test('listPlans skips unreadable entries', () => {
+  const { root } = makeRepo({ files: { 'a.txt': '' } });
+  const dir = join(root, 'docs', 'plans');
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, 'valid.md'), plan('Valid', 'feat/x', '2026-09-10'));
+  mkdirSync(join(dir, 'dir.md'));
+  const plans = findPlan(root, { config: DEFAULTS, branch: 'feat/x' });
+  assert.equal(plans.plan.data.title, 'Valid');
 });
