@@ -110,6 +110,7 @@ node scripts/changes.mjs       branch, base, ahead/behind, uncommitted files wit
 node scripts/version.mjs       detect | bump <patch|minor|major|x.y.z>: version source (manifests, plugin.json + marketplace, or tags) and bump
 node scripts/changelog.mjs     since [--tag <tag>] | insert --section <file>: commits since the last tag grouped Added / Fixed / Changed; place a section under Unreleased
 node scripts/review.mjs        prepare [--base <branch>]: write the branch diff in chunks plus new files to the data directory and name the rule pages
+node scripts/health.mjs        scan | record: old TODOs by blame, large files, skipped tests, slow checks, stale recipes and plans, docs counts
 ```
 
 ## Evals
