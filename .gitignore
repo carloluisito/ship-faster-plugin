@@ -3,3 +3,4 @@ plugins/ship-faster/evals/results/
 *.log
 .DS_Store
 Thumbs.db
+.claude/worktrees/
