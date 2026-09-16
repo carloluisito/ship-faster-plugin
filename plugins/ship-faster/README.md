@@ -108,6 +108,7 @@ node scripts/page.mjs          verify <page>... | touch <page>...: stamp verifie
 node scripts/claude-md.mjs     sections | splice --block <file> | backup: read, regenerate, and back up CLAUDE.md's managed block
 node scripts/changes.mjs       branch, base, ahead/behind, uncommitted files with risk flags, commit style (ship's inventory)
 node scripts/version.mjs       detect | bump <patch|minor|major|x.y.z>: version source (manifests, plugin.json + marketplace, or tags) and bump
+node scripts/changelog.mjs     since [--tag <tag>] | insert --section <file>: commits since the last tag grouped Added / Fixed / Changed; place a section under Unreleased
 ```
 
 ## Evals
