@@ -6,6 +6,7 @@ import { listRepoFiles } from './lib/files.mjs';
 import * as git from './lib/git.mjs';
 import { normalizePath } from './lib/glob.mjs';
 import { resolveRoot } from './lib/root.mjs';
+import { projectDir } from './lib/state.mjs';
 
 const CI_FILES = [
   [/^\.github\/workflows\/[^/]+\.ya?ml$/, 'github'],
@@ -25,7 +26,7 @@ function readJson(root, rel) {
   try { return JSON.parse(readText(root, rel)); } catch { return null; }
 }
 
-export function detect(root) {
+export function detect(root, { brief = false } = {}) {
   root = normalizePath(root);
   const { config } = loadConfig(root);
   const isRepo = git.isRepo(root);
@@ -160,12 +161,18 @@ export function detect(root) {
     stacks, ci, scripts, testFrameworks, lintTools, typecheck,
     entryPoints: [...new Set(entryPoints)],
     topDirs, workspaces, existing,
+    config,
+    dataDir: normalizePath(projectDir(root)),
     suggestedChecks: checks,
   };
   result.summary = [
     `${stacks.map((s) => s.kind).join('+') || 'unknown stack'}, ${n} files (${sizeClass}), ${ci.length} CI file(s)`,
     `checks: ${checks.map((c) => c.run).join(' | ') || 'none detected'}`,
   ];
+  if (brief) {
+    const { ok, root: r, git: g, stacks: s, ci: c, existing: e, config: cfg, dataDir, summary } = result;
+    return { ok, root: r, git: g, stacks: s, ci: c, existing: e, config: cfg, dataDir, summary };
+  }
   return result;
 }
 
@@ -203,5 +210,5 @@ function detectNodeWorkspaces(root, pkg, files, workspaces) {
 }
 
 if (process.argv[1] && normalizePath(process.argv[1]).endsWith('/scripts/detect.mjs')) {
-  runMain((_, flags) => detect(resolveRoot(flags)));
+  runMain((_, flags) => detect(resolveRoot(flags), { brief: Boolean(flags.brief) }));
 }

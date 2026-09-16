@@ -4,6 +4,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { makeRepo, runScript, tmpDir, cleanupAll } from './helpers.mjs';
 import { detect } from '../scripts/detect.mjs';
+import { projectHash } from '../scripts/lib/state.mjs';
 
 after(cleanupAll);
 
@@ -119,4 +120,22 @@ test('works without git and via the CLI', () => {
   assert.equal(cli.code, 0);
   assert.equal(cli.json.ok, true);
   assert.equal(cli.json.stacks[0].kind, 'node');
+});
+
+test('detect reports the resolved config and the project data directory, and --brief drops the long lists', () => {
+  process.env.CLAUDE_PLUGIN_DATA = tmpDir('sf-data-');
+  const { root } = makeRepo({ files: { '.claude/ship-faster.json': JSON.stringify({ wikiDir: 'wiki', pageMaxLines: 120 }), 'package.json': JSON.stringify({ scripts: { test: 'node -e 0' } }), 'src/index.js': '' } });
+  const r = detect(root);
+  assert.equal(r.config.wikiDir, 'wiki');
+  assert.equal(r.config.pageMaxLines, 120);
+  assert.equal(r.config.rulesDir, '.claude/rules');
+  assert.ok(r.dataDir.endsWith(`/projects/${projectHash(root)}`), r.dataDir);
+  assert.ok(!r.dataDir.includes('\\'));
+  const brief = detect(root, { brief: true });
+  assert.deepEqual(Object.keys(brief).sort(), ['ci', 'config', 'dataDir', 'existing', 'git', 'ok', 'root', 'stacks', 'summary']);
+  assert.equal(brief.git.head, r.git.head);
+  const cli = runScript('detect', ['--root', root, '--brief', '--json']);
+  assert.equal(cli.json.ok, true);
+  assert.equal(cli.json.scripts, undefined);
+  assert.equal(cli.json.config.wikiDir, 'wiki');
 });
