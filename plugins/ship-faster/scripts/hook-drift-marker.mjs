@@ -3,7 +3,7 @@ import { readStdinJson } from './lib/cli.mjs';
 import { loadConfig } from './lib/config.mjs';
 import { anyMatch, normalizePath } from './lib/glob.mjs';
 import { resolveRootCached } from './lib/root.mjs';
-import { loadSession, saveSession } from './lib/state.mjs';
+import { updateSession } from './lib/state.mjs';
 import { loadWikiCache } from './lib/wiki.mjs';
 
 const TOOLS = new Set(['Edit', 'Write', 'MultiEdit', 'NotebookEdit']);
@@ -25,15 +25,15 @@ async function main() {
   const hits = cache.pages.filter((p) => p.covers.length && anyMatch(p.covers, rel));
   if (!hits.length) return;
   const sid = input.session_id || 'default';
-  const session = loadSession(root, sid);
-  session.pages = session.pages || {};
-  for (const p of hits) {
-    const entry = session.pages[p.rel] || { files: [], reported: false };
-    if (!entry.files.includes(rel) && entry.files.length < 200) entry.files.push(rel);
-    session.pages[p.rel] = entry;
-  }
-  session.updatedAt = new Date().toISOString();
-  saveSession(root, sid, session);
+  updateSession(root, sid, (session) => {
+    session.pages = session.pages || {};
+    for (const p of hits) {
+      const entry = session.pages[p.rel] || { files: [], reported: false };
+      if (!entry.files.includes(rel) && entry.files.length < 200) entry.files.push(rel);
+      session.pages[p.rel] = entry;
+    }
+    session.updatedAt = new Date().toISOString();
+  });
 }
 
 main().catch(() => {}).finally(() => { process.exitCode = 0; });

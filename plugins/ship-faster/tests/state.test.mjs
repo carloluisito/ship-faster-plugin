@@ -66,6 +66,37 @@ test('session helpers never throw on blocked data directory', () => {
   assert.equal(s.saveSession('/r', 'sid', {}), false);
   assert.deepEqual(s.loadSession('/r', 'sid'), {});
   assert.deepEqual(s.pruneSessions('/r'), { removed: 0 });
+  assert.equal(s.updateSession('/r', 'sid', () => {}), false);
+});
+
+test('updateSession creates a page when the record is missing', () => {
+  const root = tmpDir();
+  const ok = s.updateSession(root, 'sid1', (record) => {
+    record.pages = record.pages || {};
+    record.pages['a.md'] = { files: ['x'], reported: false };
+  });
+  assert.equal(ok, true);
+  assert.deepEqual(s.loadSession(root, 'sid1'), { pages: { 'a.md': { files: ['x'], reported: false } } });
+});
+
+test('updateSession merges a concurrent write from another process instead of overwriting it', () => {
+  const root = tmpDir();
+  s.saveSession(root, 'sid1', { pages: { 'a.md': { files: ['x'], reported: false } } });
+  const ok = s.updateSession(root, 'sid1', (record) => {
+    s.saveSession(root, 'sid1', {
+      pages: {
+        'b.md': { files: ['y'], reported: false },
+        'a.md': { files: ['x', 'z'], reported: true },
+      },
+    });
+    record.pages = record.pages || {};
+    record.pages['c.md'] = { files: ['q'], reported: false };
+  });
+  assert.equal(ok, true);
+  const final = s.loadSession(root, 'sid1');
+  assert.deepEqual(final.pages['a.md'], { files: ['x', 'z'], reported: true });
+  assert.deepEqual(final.pages['b.md'], { files: ['y'], reported: false });
+  assert.deepEqual(final.pages['c.md'], { files: ['q'], reported: false });
 });
 
 test('writeJsonAtomic returns false and cleans up when rename fails on directory target', () => {

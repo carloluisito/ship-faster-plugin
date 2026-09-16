@@ -76,6 +76,27 @@ export function saveSession(root, sid, data) {
   return writeJsonAtomic(sessionFile(root, sid), data);
 }
 
+export function updateSession(root, sid, mutate) {
+  try {
+    const record = loadSession(root, sid);
+    mutate(record);
+    record.pages = record.pages || {};
+    const diskPages = (loadSession(root, sid) || {}).pages || {};
+    for (const [rel, diskEntry] of Object.entries(diskPages)) {
+      const mutated = record.pages[rel];
+      if (!mutated) { record.pages[rel] = diskEntry; continue; }
+      const files = (mutated.files || []).slice();
+      for (const f of diskEntry.files || []) {
+        if (!files.includes(f) && files.length < 200) files.push(f);
+      }
+      record.pages[rel] = { files, reported: !!(mutated.reported || diskEntry.reported) };
+    }
+    return saveSession(root, sid, record);
+  } catch {
+    return false;
+  }
+}
+
 export function pruneSessions(root, { maxAgeDays = 7, deadlineMs = 1000 } = {}) {
   try {
     const dir = join(projectDir(root), 'sessions');
