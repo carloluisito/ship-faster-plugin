@@ -40,6 +40,10 @@ test('every error rule fires', () => {
   const { root, w, sha } = goodRepo();
   writeFileSync(join(w, 'nofm.md'), '# no frontmatter\n');
   writeFileSync(join(w, 'bad.md'), fm({ title: 'Architecture', covers: [], verified: sha }) + '# dup title and empty covers\n[missing](nope.md)\n');
+  writeFileSync(join(w, 'badfm.md'), '---\ntitle: BadFm\nnested:\n  child: v\n---\nx\n');
+  const missingFm = { summary: 's', read_when: 'r', updated: '2026-09-16', title: 'Missing', covers: ['src/**'], verified: sha };
+  delete missingFm.read_when;
+  writeFileSync(join(w, 'missing.md'), serializeFrontmatter(missingFm) + 'x\n');
   writeFileSync(join(w, 'nomatch.md'), fm({ title: 'NoMatch', covers: ['nothing/**'], verified: sha }) + 'x\n');
   writeFileSync(join(w, 'long.md'), fm({ title: 'Long', covers: ['src/**'], verified: sha }) + 'line\n'.repeat(250));
   writeFileSync(join(w, 'secret.md'), fm({ title: 'Secret', covers: ['src/**'], verified: sha }) + 'token = ghp_' + 'a'.repeat(36) + '\n');
@@ -49,17 +53,42 @@ test('every error rule fires', () => {
   writeFileSync(join(root, '.claude', 'rules', 'nopaths.md'), '- always\n');
   const r = lint(root, { config: DEFAULTS });
   const got = new Set(r.errors.map((e) => e.rule));
-  for (const rule of ['frontmatter-missing', 'covers-empty', 'covers-no-match', 'page-too-long', 'index-stale', 'claude-md-too-long', 'rules-too-long', 'link-missing', 'checks-shape', 'duplicate-title', 'secret']) {
+  for (const rule of ['frontmatter-missing', 'frontmatter-invalid', 'frontmatter-required', 'covers-empty', 'covers-no-match', 'page-too-long', 'index-stale', 'claude-md-too-long', 'rules-too-long', 'link-missing', 'checks-shape', 'duplicate-title', 'secret']) {
     assert.ok(got.has(rule), `expected ${rule}, got ${[...got].join(', ')}`);
   }
   assert.ok(r.warnings.some((x) => x.rule === 'rules-no-paths'));
   assert.equal(r.ok, false);
   const secret = r.errors.find((e) => e.rule === 'secret');
   assert.equal(secret.line, 9);
+  const missingReq = r.errors.find((e) => e.rule === 'frontmatter-required' && e.file === 'docs/wiki/missing.md');
+  assert.ok(missingReq, 'expected frontmatter-required for docs/wiki/missing.md');
+  assert.ok(missingReq.message.includes('read_when'));
   const cli = runScript('lint', ['--root', root, '--json']);
   assert.equal(cli.code, 1);
   assert.equal(cli.json.ok, false);
   assert.equal(runScript('lint', ['--root', root]).code, 1);
+});
+
+test('script-missing is scoped to pages and CLAUDE.md, not rules files', () => {
+  const { root, w, sha } = goodRepo();
+  writeFileSync(join(root, '.claude', 'rules', 'scriptish.md'), '---\npaths: ["src/**"]\n---\nRun `npm run nope`.\n');
+  writeFileSync(join(w, 'scriptpage.md'), fm({ title: 'ScriptPage', covers: ['src/**'], verified: sha }) + 'Run `npm run nope`.\n');
+  const r = lint(root, { config: DEFAULTS });
+  assert.ok(!r.warnings.some((x) => x.rule === 'script-missing' && x.file === '.claude/rules/scriptish.md'));
+  assert.ok(r.warnings.some((x) => x.rule === 'script-missing' && x.file === 'docs/wiki/scriptpage.md'));
+});
+
+test('plans: malformed frontmatter is frontmatter-invalid; a well-formed plan produces no finding', () => {
+  const { root } = goodRepo();
+  const plansDir = join(root, 'docs', 'plans');
+  mkdirSync(plansDir, { recursive: true });
+  writeFileSync(join(plansDir, '2026-09-16-x.md'), '---\ntitle: X\nnested:\n  child: v\n---\n# X\n');
+  writeFileSync(join(plansDir, '2026-09-16-good.md'), '---\ntitle: Good\n---\n# Good\n');
+  const r = lint(root, { config: DEFAULTS });
+  const bad = r.errors.find((e) => e.rule === 'frontmatter-invalid' && e.file === 'docs/plans/2026-09-16-x.md');
+  assert.ok(bad, 'expected frontmatter-invalid for docs/plans/2026-09-16-x.md');
+  assert.ok(!r.errors.some((e) => e.file === 'docs/plans/2026-09-16-good.md'));
+  assert.ok(!r.warnings.some((e) => e.file === 'docs/plans/2026-09-16-good.md'));
 });
 
 test('warnings: missing path, missing script, verified not in history; index-too-long', () => {

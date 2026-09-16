@@ -60,7 +60,7 @@ export function lint(root, { config } = {}) {
       }
     }
     if (p.lines > config.pageMaxLines) err(p.rel, null, 'page-too-long', `${p.lines} lines, limit ${config.pageMaxLines}`);
-    scanBody(root, p.file, p.rel, text, { err, warn, topLevel, files, pkgScripts, paths: true });
+    scanBody(root, p.file, p.rel, text, { err, warn, topLevel, files, pkgScripts, tokens: true });
   }
 
   const wdir = wikiDir(root, config);
@@ -76,7 +76,7 @@ export function lint(root, { config } = {}) {
     const text = readFileSync(claude, 'utf8');
     const n = countLines(text);
     if (n > config.claudeMdMaxLines) err('CLAUDE.md', null, 'claude-md-too-long', `${n} lines, limit ${config.claudeMdMaxLines}`);
-    scanBody(root, claude, 'CLAUDE.md', text, { err, warn, topLevel, files, pkgScripts, paths: true });
+    scanBody(root, claude, 'CLAUDE.md', text, { err, warn, topLevel, files, pkgScripts, tokens: true });
   }
 
   const rulesDir = join(root, ...config.rulesDir.split('/'));
@@ -90,7 +90,17 @@ export function lint(root, { config } = {}) {
       if (!data || !Array.isArray(data.paths) || data.paths.length === 0) warn(rel, 1, 'rules-no-paths', 'rules file has no paths list and will load in every session');
       const n = countLines(text);
       if (n > config.rulesFileMaxLines) err(rel, null, 'rules-too-long', `${n} lines, limit ${config.rulesFileMaxLines}`);
-      scanBody(root, file, rel, text, { err, warn, topLevel, files, pkgScripts, paths: false });
+      scanBody(root, file, rel, text, { err, warn, topLevel, files, pkgScripts, tokens: false });
+    }
+  }
+
+  const plansDir = join(root, ...config.plansDir.split('/'));
+  if (existsSync(plansDir)) {
+    for (const name of readdirSync(plansDir).filter((f) => f.endsWith('.md'))) {
+      const file = join(plansDir, name);
+      const rel = relPath(root, file);
+      const { errors: fmErrors } = parseFrontmatter(readFileSync(file, 'utf8'));
+      for (const e of fmErrors) err(rel, e.line, 'frontmatter-invalid', e.message);
     }
   }
 
@@ -106,7 +116,7 @@ function readScripts(root) {
   try { return JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).scripts || null; } catch { return null; }
 }
 
-function scanBody(root, file, rel, text, { err, warn, topLevel, files, pkgScripts, paths }) {
+function scanBody(root, file, rel, text, { err, warn, topLevel, files, pkgScripts, tokens }) {
   const lines = text.split(/\r?\n/);
   const fileSet = new Set(files);
   let inFence = false;
@@ -124,9 +134,9 @@ function scanBody(root, file, rel, text, { err, warn, topLevel, files, pkgScript
     if (inFence) return;
     for (const m of line.matchAll(/`([^`\n]+)`/g)) {
       const tok = m[1].trim();
+      if (!tokens) continue;
       const script = /^(?:npm|pnpm|yarn) run ([\w:.-]+)/.exec(tok);
       if (script && pkgScripts && !(script[1] in pkgScripts)) warn(rel, no, 'script-missing', `package.json has no script "${script[1]}"`);
-      if (!paths) continue;
       if (!tok.includes('/') || /\s|[*?{}<>$]|^https?:|^\.\.?$/.test(tok) || tok.length > 120 || tok.startsWith('-')) continue;
       const p = normalizePath(tok).replace(/^\.\//, '').replace(/\/$/, '');
       if (!topLevel.has(p.split('/')[0])) continue;
