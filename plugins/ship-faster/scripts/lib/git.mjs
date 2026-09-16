@@ -76,6 +76,14 @@ export function changedSince(cwd, sha) {
   return splitZ(r.stdout).map(normalizePath);
 }
 
+export function changedBetween(cwd, ref) {
+  const r0 = String(ref || '');
+  if (!r0 || r0.startsWith('-')) return null;
+  const r = git(['diff', '--name-only', '-z', `${r0}...HEAD`], { cwd, timeoutMs: 5000 });
+  if (!r.ok) return null;
+  return splitZ(r.stdout).map(normalizePath);
+}
+
 export function dirtyFiles(cwd, { timeoutMs = 5000 } = {}) {
   const r = git(['status', '--porcelain=v1', '-z', '--untracked-files=all'], { cwd, timeoutMs });
   if (!r.ok) return [];

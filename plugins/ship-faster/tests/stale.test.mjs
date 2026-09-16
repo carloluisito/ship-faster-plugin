@@ -261,3 +261,54 @@ test('a tracked page with uncommitted edits is not dirty for covered working-tre
   assert.equal(by['new.md'].status, 'dirty');
   assert.deepEqual(by['new.md'].changed, ['lib/b.ts']);
 });
+
+test('--since scopes non-fresh pages to the branch diff, the working tree, and session records, and lists uncovered files', () => {
+  const { root, git } = makeRepo({ files: { 'src/a.ts': 'a', 'lib/b.ts': 'b', 'ops/d.txt': 'd', 'etc/e.txt': 'e', 'new/n.ts': 'n' } });
+  const first = git(['rev-parse', 'HEAD']);
+  writeFileSync(join(root, 'lib', 'b.ts'), 'b2');
+  git(['add', 'lib/b.ts']);
+  git(['commit', '-q', '-m', 'main change']);
+  git(['checkout', '-q', '-b', 'feat']);
+  writeFileSync(join(root, 'src', 'a.ts'), 'a2');
+  writeFileSync(join(root, 'new', 'n.ts'), 'n2');
+  git(['add', 'src/a.ts', 'new/n.ts']);
+  git(['commit', '-q', '-m', 'feat change']);
+  const headSha = git(['rev-parse', 'HEAD']);
+
+  const w = join(root, 'docs', 'wiki');
+  mkdirSync(w, { recursive: true });
+  writeFileSync(join(w, 'index.md'), '# i\n');
+  writeFileSync(join(w, 'a.md'), page('A', ['src/**'], first));
+  writeFileSync(join(w, 'b.md'), page('B', ['lib/**'], first));
+  writeFileSync(join(w, 'd.md'), page('D', ['ops/**'], headSha));
+  writeFileSync(join(w, 'e.md'), page('E', ['etc/**'], headSha));
+  writeFileSync(join(w, 'inv.md'), '---\ntitle: Invalid\n---\nno covers\n');
+  writeFileSync(join(root, 'CLAUDE.md'), '# x\n');
+  saveSession(root, 'sid9', { pages: { 'docs/wiki/d.md': { files: ['ops/d.txt'], reported: false } } });
+
+  const scoped = stale(root, { config: DEFAULTS, session: 'all', since: 'main' });
+  const by = Object.fromEntries(scoped.pages.map((p) => [p.rel.replace('docs/wiki/', ''), p]));
+  assert.deepEqual([by['a.md'].status, by['a.md'].inScope], ['stale', true]);
+  assert.deepEqual([by['b.md'].status, by['b.md'].inScope], ['stale', false]);
+  assert.deepEqual([by['d.md'].status, by['d.md'].inScope], ['dirty', true]);
+  assert.deepEqual([by['e.md'].status, by['e.md'].inScope], ['fresh', false]);
+  assert.deepEqual([by['inv.md'].status, by['inv.md'].inScope], ['invalid', true]);
+  assert.deepEqual(scoped.since, { ref: 'main', files: 2, error: null });
+  assert.deepEqual(scoped.uncovered, ['new/n.ts']);
+  assert.match(scoped.summary[0], /in scope/);
+
+  const unscoped = stale(root, { config: DEFAULTS, session: 'all' });
+  assert.equal(unscoped.pages.find((p) => p.rel.endsWith('b.md')).inScope, true);
+  assert.equal(unscoped.pages.find((p) => p.rel.endsWith('e.md')).inScope, false);
+  assert.equal(unscoped.since, null);
+  assert.deepEqual(unscoped.uncovered, []);
+
+  const bad = stale(root, { config: DEFAULTS, since: 'no-such-ref' });
+  assert.equal(bad.since.error, 'cannot diff against no-such-ref');
+  assert.equal(bad.pages.find((p) => p.rel.endsWith('b.md')).inScope, true);
+
+  const cli = runScript('stale', ['--root', root, '--json', '--session', 'all', '--since', 'main']);
+  assert.equal(cli.json.pages.find((p) => p.rel.endsWith('d.md')).inScope, true);
+  assert.equal(cli.json.pages.find((p) => p.rel.endsWith('b.md')).inScope, false);
+  assert.deepEqual(cli.json.uncovered, ['new/n.ts']);
+});

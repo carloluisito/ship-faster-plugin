@@ -107,3 +107,16 @@ test('writeJsonAtomic returns false and cleans up when rename fails on directory
   assert.equal(result, false);
   assert.equal(readdirSync(dir).filter((n) => n.endsWith('.tmp')).length, 0);
 });
+
+test('loadAllSessions unions every session record of the project', () => {
+  const root = tmpDir('sf-root-');
+  s.saveSession(root, 'one', { pages: { 'docs/wiki/a.md': { files: ['src/a.ts'], reported: false } } });
+  s.saveSession(root, 'two', { pages: { 'docs/wiki/a.md': { files: ['src/b.ts'], reported: true }, 'docs/wiki/c.md': { files: ['lib/c.ts'], reported: false } } });
+  writeFileSync(join(s.projectDir(root), 'sessions', 'junk.json'), 'not json');
+  const all = s.loadAllSessions(root);
+  assert.deepEqual(Object.keys(all.pages).sort(), ['docs/wiki/a.md', 'docs/wiki/c.md']);
+  assert.deepEqual(all.pages['docs/wiki/a.md'].files.sort(), ['src/a.ts', 'src/b.ts']);
+  assert.equal(all.pages['docs/wiki/a.md'].reported, true);
+  assert.equal(all.pages['docs/wiki/c.md'].reported, false);
+  assert.deepEqual(s.loadAllSessions(tmpDir('sf-empty-')).pages, {});
+});

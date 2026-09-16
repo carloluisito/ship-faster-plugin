@@ -135,3 +135,18 @@ test('commitsSince lists commits after a sha with their files, null for a bad sh
   assert.equal(g.commitsSince(root, 'unverified'), null);
   assert.equal(g.commitsSince(root, first, { n: 1 }).truncated, true);
 });
+
+test('changedBetween lists the branch diff against the merge base and null for a bad ref', () => {
+  const { root, git } = makeRepo({ files: { 'a.txt': 'a\n' } });
+  writeFileSync(join(root, 'main.txt'), 'm\n');
+  git(['add', 'main.txt']);
+  git(['commit', '-q', '-m', 'main moves']);
+  git(['checkout', '-q', '-b', 'feat', 'HEAD~1']);
+  writeFileSync(join(root, 'feat.txt'), 'f\n');
+  git(['add', 'feat.txt']);
+  git(['commit', '-q', '-m', 'feat']);
+  assert.deepEqual(g.changedBetween(root, 'main'), ['feat.txt']);
+  assert.equal(g.changedBetween(root, 'no-such-ref'), null);
+  assert.equal(g.changedBetween(root, '--output=/tmp/x'), null);
+  assert.equal(g.changedBetween(root, ''), null);
+});

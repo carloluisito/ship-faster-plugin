@@ -78,7 +78,7 @@ Every script under `scripts/` runs standalone with `--json`:
 ```
 node scripts/detect.mjs        stacks, CI files, scripts, workspaces, suggested checks
 node scripts/footprints.mjs    files that change together, from git history
-node scripts/stale.mjs         which wiki pages are stale, dirty, or unverifiable; a page committed together with the covered change stays fresh
+node scripts/stale.mjs         which wiki pages are stale, dirty, or unverifiable (--since <ref> marks pages in a branch's scope, --session all merges every session record; a page committed together with the covered change stays fresh)
 node scripts/index.mjs         regenerate docs/wiki/index.md (--check to only compare)
 node scripts/lint.mjs          budgets, links, covers, checks shape, secrets
 node scripts/checks.mjs        resolve | run the repository's checks
