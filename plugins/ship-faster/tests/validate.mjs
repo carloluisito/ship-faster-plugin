@@ -11,7 +11,7 @@ const TOOLS = new Set(['Read', 'Glob', 'Grep', 'Bash', 'Write', 'Edit', 'MultiEd
 const PROMPT_FIELDS = new Set(['schema_version', 'name', 'description', 'tags', 'plugins', 'runs', 'model', 'max_turns', 'timeout_seconds', 'allowed_tools', 'append_system_prompt', 'env', 'expected_outcome']);
 const GRADER_TYPES = new Set(['regex', 'tool_used', 'tool_order', 'file_exists', 'llm', 'baseline']);
 const SKILL_NAMES = new Set(['onboard', 'sync-docs', 'lesson', 'kickoff', 'preflight', 'ship', 'release', 'health', 'review']);
-const TEMPLATES = ['claude-md.md', 'package-claude-md.md', 'plan.md', 'rules-file.md', 'gotcha-entry.md', ...['overview', 'architecture', 'layout', 'commands', 'conventions', 'testing', 'gotchas', 'dependencies', 'ops', 'recipe', 'package'].map((p) => `pages/${p}.md`)];
+const TEMPLATES = ['claude-md.md', 'package-claude-md.md', 'plan.md', 'rules-file.md', 'gotcha-entry.md', 'pr-body.md', ...['overview', 'architecture', 'layout', 'commands', 'conventions', 'testing', 'gotchas', 'dependencies', 'ops', 'recipe', 'package'].map((p) => `pages/${p}.md`)];
 
 function readJson(file) {
   return JSON.parse(readFileSync(file, 'utf8'));

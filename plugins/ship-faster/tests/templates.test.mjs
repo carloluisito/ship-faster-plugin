@@ -27,7 +27,7 @@ const PAGES = {
 };
 
 test('every template file exists', () => {
-  for (const f of ['claude-md.md', 'package-claude-md.md', 'plan.md', 'rules-file.md', 'gotcha-entry.md', ...Object.keys(PAGES).map((p) => `pages/${p}.md`)]) {
+  for (const f of ['claude-md.md', 'package-claude-md.md', 'plan.md', 'rules-file.md', 'gotcha-entry.md', 'pr-body.md', ...Object.keys(PAGES).map((p) => `pages/${p}.md`)]) {
     assert.ok(existsSync(join(T, f)), `missing templates/${f}`);
   }
 });
@@ -73,4 +73,9 @@ test('plan, rules, package CLAUDE.md, and gotcha entry templates have the right 
   const entry = read('gotcha-entry.md');
   for (const label of ['Symptom:', 'Cause:', 'Rule:', 'Evidence:']) assert.ok(entry.includes(label), `gotcha entry: missing ${label}`);
   assert.match(entry, /<!-- id: g-\{\{yyyymmdd\}\}-\{\{slug\}\} -->/);
+});
+
+test('the PR body template carries the six sections in order', () => {
+  assert.deepEqual(h2s(read('pr-body.md')), ['What', 'Why', 'How verified', 'Docs', 'Plan', 'Risks']);
+  assert.match(read('pr-body.md'), /\| Check \| Status \| Duration \|/);
 });
