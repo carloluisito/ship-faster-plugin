@@ -2,8 +2,8 @@
 title: Commands
 summary: Verified validation, test, and benchmark commands for the plugin, run from the repository root, with durations.
 read_when: You need to run, test, build, or debug the environment, or preflight needs the check list.
-covers: [.github/workflows/ci.yml, plugins/ship-faster/tests/run.mjs, plugins/ship-faster/tests/validate.mjs, plugins/ship-faster/tests/bench.mjs, plugins/ship-faster/README.md]
-verified: 57442cc23c96f7b6c7a961a149cf9363f2a5540b
+covers: [.github/workflows/ci.yml, .github/workflows/evals.yml, plugins/ship-faster/tests/run.mjs, plugins/ship-faster/tests/validate.mjs, plugins/ship-faster/tests/bench.mjs, plugins/ship-faster/README.md]
+verified: adff26e938d9b6784cf24b932eb5259856a1951e
 updated: 2026-09-16
 checks:
   - name: validate
@@ -40,17 +40,17 @@ No ports, no servers, no watchers.
 ## Everyday
 | Purpose | Command | Duration | Status |
 |---|---|---|---|
-| All tests | `node plugins/ship-faster/tests/run.mjs` | 26.4s | pass |
+| All tests | `node plugins/ship-faster/tests/run.mjs` | 32.0s | pass (171 tests) |
 | One test file | `node --test plugins/ship-faster/tests/glob.test.mjs` | 0.2s | pass |
-| Plugin structure | `node plugins/ship-faster/tests/validate.mjs` | 0.1s | pass |
+| Plugin structure | `node plugins/ship-faster/tests/validate.mjs` | 0.4s | pass |
 | Claude Code plugin validation | `claude plugin validate --strict plugins/ship-faster` | 1.0s | pass |
 | Claude Code marketplace validation | `claude plugin validate --strict .` | 1.0s | pass |
-| Hook latency benchmark | `node plugins/ship-faster/tests/bench.mjs` | 11.9s | pass |
-| Skill evals (spend model credit) | `claude plugin eval plugins/ship-faster --ablation none --runs 1 --scaffold --allow-tools Bash Write Edit --no-publish --trust-plugin --max-cost-usd 20` | — | not run |
+| Hook latency benchmark | `node plugins/ship-faster/tests/bench.mjs` | 12.8s | pass |
+| Skill evals (spend model credit) | `claude plugin eval plugins/ship-faster --ablation none --runs 1 --scaffold --allow-tools Bash Write Edit --no-publish --trust-plugin --max-cost-usd 20` | — | not run; CI runs them through `.github/workflows/evals.yml` |
 
 ## Checks
-1. `node plugins/ship-faster/tests/validate.mjs` — manifests, hooks, skills, agents, evals, and templates are well formed, about 0.1s
-2. `node plugins/ship-faster/tests/run.mjs` — every `*.test.mjs` passes under `node --test`, about 26s
+1. `node plugins/ship-faster/tests/validate.mjs` — manifests, hooks, skills, agents, evals, and templates are well formed, under 1s
+2. `node plugins/ship-faster/tests/run.mjs` — every `*.test.mjs` passes under `node --test`, about 33s
 3. `claude plugin validate --strict plugins/ship-faster` — Claude Code accepts the plugin, about 1s
 4. `claude plugin validate --strict .` — Claude Code accepts the marketplace, about 1s
 5. `node plugins/ship-faster/scripts/lint.mjs` — this repository's own wiki, CLAUDE.md, and rules pass lint, under 1s

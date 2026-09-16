@@ -18,8 +18,8 @@ The marketplace manifest sits at the root and the plugin under `plugins/ship-fas
 | Directory | Responsibility | Entry point |
 |---|---|---|
 | `.claude-plugin/` | marketplace manifest | `.claude-plugin/marketplace.json` |
-| `plugins/ship-faster/skills/` | onboard, sync-docs, lesson | `plugins/ship-faster/skills/onboard/SKILL.md` |
-| `plugins/ship-faster/agents/` | repo-analyst, doc-verifier | `plugins/ship-faster/agents/repo-analyst.md` |
+| `plugins/ship-faster/skills/` | onboard, sync-docs, lesson, kickoff, preflight, review, ship, release, health | `plugins/ship-faster/skills/onboard/SKILL.md` |
+| `plugins/ship-faster/agents/` | repo-analyst, doc-verifier, check-runner, rules-reviewer, health-auditor | `plugins/ship-faster/agents/repo-analyst.md` |
 | `plugins/ship-faster/hooks/` | hook registration | `plugins/ship-faster/hooks/hooks.json` |
 | `plugins/ship-faster/scripts/` | CLI scripts and hook scripts | `plugins/ship-faster/scripts/stale.mjs` |
 | `plugins/ship-faster/scripts/lib/` | shared modules | `plugins/ship-faster/scripts/lib/cli.mjs` |
@@ -28,15 +28,15 @@ The marketplace manifest sits at the root and the plugin under `plugins/ship-fas
 | `plugins/ship-faster/tests/` | tests, validator, benchmark | `plugins/ship-faster/tests/run.mjs` |
 | `docs/superpowers/` | design spec and implementation plans | `docs/superpowers/specs/2026-09-16-ship-faster-plugin-design.md` |
 
-## Commands (verified 2026-09-16 at 65c55bf)
+## Commands (verified 2026-09-16 at 7c2c6ba)
 | Purpose | Command | Duration |
 |---|---|---|
-| Validate plugin structure | `node plugins/ship-faster/tests/validate.mjs` | 0.1s |
-| Run all tests | `node plugins/ship-faster/tests/run.mjs` | 26s |
+| Validate plugin structure | `node plugins/ship-faster/tests/validate.mjs` | 0.4s |
+| Run all tests | `node plugins/ship-faster/tests/run.mjs` | 33s |
 | Run one test file | `node --test plugins/ship-faster/tests/<name>.test.mjs` | 0.2s |
 | Claude Code plugin validation | `claude plugin validate --strict plugins/ship-faster` | 1s |
 | Claude Code marketplace validation | `claude plugin validate --strict .` | 1s |
-| Hook latency benchmark | `node plugins/ship-faster/tests/bench.mjs` | 12s |
+| Hook latency benchmark | `node plugins/ship-faster/tests/bench.mjs` | 13s |
 | Skill evals (spend model credit) | see `docs/wiki/commands.md` | not run |
 
 ## Read next
@@ -62,7 +62,7 @@ The marketplace manifest sits at the root and the plugin under `plugins/ship-fas
 `docs/wiki/index.md` lists every page.
 
 ## Keeping docs true
-Pages under `docs/wiki/` carry `covers` globs and a `verified` commit; `/ship-faster:sync-docs` refreshes stale pages.
+Pages under `docs/wiki/` carry `covers` globs and a `verified` commit; `/ship-faster:sync-docs` refreshes stale pages and `/ship-faster:ship` runs it before every PR.
 Record non-obvious causes with `/ship-faster:lesson` right after learning them.
 <!-- ship-faster:managed:end -->
 

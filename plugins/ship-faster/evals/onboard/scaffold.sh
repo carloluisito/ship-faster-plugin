@@ -23,6 +23,7 @@ An in-memory users API used as a fixture. `npm start` serves it on port 3000; `n
 EOF
 cat > .gitignore <<'EOF'
 node_modules/
+scaffold.sh
 EOF
 cat > src/lib/db.js <<'EOF'
 const rows = new Map();

@@ -3,7 +3,7 @@ title: Gotchas
 summary: Hook stdin hangs, Windows renames, BOM shebangs, long-history staleness, tag pushes, and test state leaks, with evidence.
 read_when: Something behaves in a way the code does not explain, or before touching the areas listed in covers.
 covers: [plugins/ship-faster/scripts/lib/cli.mjs, plugins/ship-faster/scripts/lib/state.mjs, plugins/ship-faster/evals/*/scaffold.sh, plugins/ship-faster/scripts/stale.mjs, plugins/ship-faster/scripts/hook-ship-guard.mjs, plugins/ship-faster/tests/run.mjs]
-verified: 57442cc23c96f7b6c7a961a149cf9363f2a5540b
+verified: adff26e938d9b6784cf24b932eb5259856a1951e
 updated: 2026-09-16
 ---
 # Gotchas
@@ -36,10 +36,10 @@ Evidence: `plugins/ship-faster/scripts/stale.mjs:10`, `plugins/ship-faster/scrip
 Symptom: The guard allowed `git push origin main --tags`.
 Cause: Any `--tags` was treated as a tag-only push, but a refspec given alongside `--tags` pushes that branch as well.
 Rule: Exempt a `--tags` push from the protected-branch check only when it names no refspec, and keep the `--tags` cases in `plugins/ship-faster/tests/hook-ship-guard.test.mjs`.
-Evidence: commit 7eb1c21, `plugins/ship-faster/scripts/hook-ship-guard.mjs:66`, 2026-09-16.
+Evidence: commit 7eb1c21, `plugins/ship-faster/scripts/hook-ship-guard.mjs:65`, 2026-09-16.
 
 ### A test run alone writes to the real plugin data directory <!-- id: g-20260916-plugin-data -->
 Symptom: A test file run with `node --test` that reaches `lib/state.mjs` without setting `CLAUDE_PLUGIN_DATA` creates `projects/<hash>/` under `~/.claude/plugins/data/ship-faster/`.
 Cause: `dataDir()` falls back to the user's Claude config directory when `CLAUDE_PLUGIN_DATA` is unset, and only `tests/run.mjs` sets it for the whole run.
 Rule: In every test file that reaches `lib/state.mjs`, set `process.env.CLAUDE_PLUGIN_DATA = tmpDir('sf-data-')` in `beforeEach`.
-Evidence: `plugins/ship-faster/scripts/lib/state.mjs:7`, `plugins/ship-faster/tests/run.mjs:13`, 2026-09-16.
+Evidence: `plugins/ship-faster/scripts/lib/state.mjs:7`, `plugins/ship-faster/tests/run.mjs:14`, 2026-09-16.

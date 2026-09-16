@@ -3,14 +3,14 @@
 
 | Page | Read when | Summary |
 |---|---|---|
-| [Architecture](architecture.md) | You are changing how components interact, adding a component, or need the reason behind a structural decision. | Skills call deterministic Node scripts and read-only agents; hooks track which wiki pages edits touch. |
+| [Architecture](architecture.md) | You are changing how components interact, adding a component, or need the reason behind a structural decision. | Skills call deterministic Node scripts and agents; hooks track which wiki pages edits touch and guard risky git commands. |
 | [Commands](commands.md) | You need to run, test, build, or debug the environment, or preflight needs the check list. | Verified validation, test, and benchmark commands for the plugin, run from the repository root, with durations. |
 | [Conventions](conventions.md) | You are writing or reviewing code and need the naming, error handling, or style rules this repository actually follows. | Zero-dependency ESM scripts with a JSON output contract, silent hooks, bounded git calls, and validator-enforced plugin files. |
 | [Gotchas](gotchas.md) | Something behaves in a way the code does not explain, or before touching the areas listed in covers. | Hook stdin hangs, Windows renames, BOM shebangs, long-history staleness, tag pushes, and test state leaks, with evidence. |
 | [Layout](layout.md) | You need to find where something lives or decide where a new file belongs. | The marketplace at the root, the plugin under plugins/ship-faster, and where each new skill, hook, script, or test goes. |
-| [Ops](ops.md) | You are changing CI, preparing a release, or need to know how and where the software runs. | One GitHub Actions workflow gates PRs on tests and Claude Code validation; releases are a manual version bump. |
-| [Overview](overview.md) | You are new to the repository or need the domain vocabulary and system boundaries. | ship-faster is a Claude Code plugin that writes a router CLAUDE.md and a verified wiki, and keeps them true. |
-| [Testing](testing.md) | You are adding or fixing a test, need a fixture or mock, or a test cannot run locally. | node:test suites in plugins/ship-faster/tests with real git fixtures, a structure validator, a hook benchmark, and skill evals. |
+| [Ops](ops.md) | You are changing CI, preparing a release, or need to know how and where the software runs. | One GitHub Actions workflow gates PRs on tests and Claude Code validation, another runs skill evals manually and weekly; releases go through the release skill. |
+| [Overview](overview.md) | You are new to the repository or need the domain vocabulary and system boundaries. | ship-faster is a Claude Code plugin that writes a router CLAUDE.md and a verified wiki, keeps them true, and ships changes through repo-aware skills. |
+| [Testing](testing.md) | You are adding or fixing a test, need a fixture or mock, or a test cannot run locally. | node:test suites in plugins/ship-faster/tests with real git fixtures, a structure validator, a hook benchmark, and skill evals run in CI. |
 
 ## Recipes
 
@@ -20,7 +20,7 @@
 | [Add a hook](recipes/add-a-hook.md) | You need to run plugin code on a Claude Code hook event. | A new hook script that reads Claude Code's JSON input, stays silent on error, is registered in hooks.json, and is tested and benchmarked. |
 | [Add a script](recipes/add-a-script.md) | You need to add a CLI script that skills or hooks call. | A new standalone script under plugins/ship-faster/scripts with the JSON output contract, a test, and docs. |
 | [Add a skill](recipes/add-a-skill.md) | You need to add a slash command or model-invocable skill to the plugin. | A new skill directory with validator-clean frontmatter, script calls through CLAUDE_PLUGIN_ROOT, and the eval case every skill needs. |
-| [Bump the version](recipes/bump-the-version.md) | You need to cut a new plugin version. | Set a new plugin version in both manifests and the changelog so validation passes. |
-| [Change a guard rule](recipes/change-a-guard-rule.md) | You need to change which git commands the ship guard blocks or how it decides. | Add or change what the PreToolUse git guard denies, with its config key, fake-git tests, and the latency budget. |
+| [Bump the version](recipes/bump-the-version.md) | You need to cut a new plugin version. | Cut a new plugin version with the release skill, or by hand in both manifests and the changelog so validation passes. |
+| [Change a guard rule](recipes/change-a-guard-rule.md) | You need to change which git commands the ship guard blocks or how it decides. | Add or change what the PreToolUse git guard denies, with its config key, fake-git tests, the shared risky-path rules, and the latency budget. |
 | [Change page freshness](recipes/change-page-freshness.md) | You need to change when a wiki page counts as fresh, stale, dirty, unverifiable, or invalid. | Change how stale.mjs classifies wiki pages, with the git helpers, fixture tests, and the SessionStart budget. |
 | [Detect a stack](recipes/detect-a-stack.md) | You need detect.mjs to recognise a stack, test framework, linter, or workspace layout it misses. | Teach detect.mjs a new language or build tool, with its suggested checks, entry points, workspaces, and lockfile. |
