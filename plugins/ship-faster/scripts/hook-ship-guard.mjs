@@ -55,7 +55,7 @@ function positionalArgs(args) {
 }
 
 function checkPush(args, ctx) {
-  if (args.includes('-n') || args.includes('--dry-run')) return null;
+  if (args.includes('--dry-run') || args.some((a) => a === '-n' || shortHas(a, 'n'))) return null;
   if (args.includes('--no-verify')) return { rule: 'noVerify' };
   let force = args.some((a) => a === '-f' || a === '--force' || a.startsWith('--force-with-lease') || a === '--force-if-includes' || shortHas(a, 'f'));
   const hasTags = args.includes('--tags');

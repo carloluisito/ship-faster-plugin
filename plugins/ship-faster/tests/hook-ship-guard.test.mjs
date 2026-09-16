@@ -29,6 +29,7 @@ test('push rules', () => {
   assert.equal(ev('git push origin +main').rule, 'forcePush');
   assert.equal(ev('git push -uf origin main').rule, 'forcePush');
   assert.equal(ev('git push -n origin main').decision, null);
+  assert.equal(ev('git push -fn origin main').decision, null);
   assert.equal(ev('git push origin --tags').decision, null);
   assert.equal(ev('git push origin main --tags').rule, 'pushProtected');
   assert.equal(ev('git push --tags origin main').rule, 'pushProtected');
