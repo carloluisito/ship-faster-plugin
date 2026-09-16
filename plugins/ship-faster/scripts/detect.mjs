@@ -74,7 +74,7 @@ export function detect(root) {
     detectNodeWorkspaces(root, pkg, files, workspaces);
   }
 
-  const dotnetManifests = list(/(^|\/)[^/]+\.(sln|csproj|fsproj)$/).slice(0, 20);
+  const dotnetManifests = list(/(^|\/)([^/]+\.(sln|csproj|fsproj)|Directory\.Build\.props)$/).slice(0, 20);
   if (dotnetManifests.length) {
     stacks.push({ kind: 'dotnet', manifests: dotnetManifests });
     testFrameworks.push('dotnet-test');

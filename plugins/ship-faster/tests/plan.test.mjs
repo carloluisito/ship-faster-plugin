@@ -76,6 +76,9 @@ test('setPlanStatus rejects paths outside plans directory and validates --days',
   assert.match(cli.json.error, /--days/);
   const cli2 = runScript('plan', ['stale', '--days', '1', '--root', root, '--json']);
   assert.equal(cli2.json.ok, true);
+  const bare = runScript('plan', ['stale', '--days', '--root', root, '--json']);
+  assert.equal(bare.json.ok, false);
+  assert.match(bare.json.error, /--days/);
 });
 
 test('listPlans skips unreadable entries', () => {

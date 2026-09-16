@@ -1,6 +1,6 @@
 import { readStdinJson } from './lib/cli.mjs';
 import { resolveRootCached } from './lib/root.mjs';
-import { updateSession } from './lib/state.mjs';
+import { loadSession, updateSession } from './lib/state.mjs';
 
 const MAX = 400;
 const TAIL = ', not yet re-verified. If the changes alter what those pages claim, update them or run /ship-faster:sync-docs before shipping.';
@@ -14,7 +14,7 @@ function compose(names) {
     const line = HEAD + list + TAIL;
     if (line.length <= MAX) return line;
   }
-  return HEAD + `${names.length} pages` + TAIL;
+  return HEAD + `${names.length} ${names.length === 1 ? 'page' : 'pages'}` + TAIL;
 }
 
 async function main() {
@@ -23,6 +23,8 @@ async function main() {
   const cwd = typeof input.cwd === 'string' ? input.cwd : process.cwd();
   const root = resolveRootCached(cwd);
   const sid = input.session_id || 'default';
+  const known = loadSession(root, sid).pages || {};
+  if (!Object.keys(known).some((rel) => !known[rel].reported)) return;
   let pending = [];
   updateSession(root, sid, (session) => {
     const pages = session.pages || {};

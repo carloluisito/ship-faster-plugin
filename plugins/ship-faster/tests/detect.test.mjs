@@ -62,6 +62,12 @@ test('dotnet, python, go, rust, java are detected with their checks', () => {
   assert.deepEqual(setupCfgMypy.suggestedChecks.map((c) => [c.name, c.run]), [['typecheck', 'mypy .']]);
 });
 
+test('Directory.Build.props is a .NET manifest signal alongside project files', () => {
+  const r = detect(makeRepo({ files: { 'Directory.Build.props': '<Project/>', 'src/A/A.csproj': '<Project/>' } }).root);
+  assert.deepEqual(r.stacks.map((s) => s.kind), ['dotnet']);
+  assert.deepEqual(r.stacks[0].manifests.slice().sort(), ['Directory.Build.props', 'src/A/A.csproj']);
+});
+
 test('pnpm workspaces become workspaces entries', () => {
   const { root } = makeRepo({ files: {
     'package.json': JSON.stringify({ name: 'mono', private: true }),

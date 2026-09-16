@@ -83,7 +83,8 @@ if (process.argv[1] && normalizePath(process.argv[1]).endsWith('/scripts/plan.mj
     const [cmd, a, b] = positional;
     if (cmd === 'find') return typeof flags.branch === 'string' ? findPlan(root, { config, branch: flags.branch }) : { ok: false, error: 'find requires --branch <name>' };
     if (cmd === 'stale') {
-      const days = flags.days === undefined ? 30 : Number(flags.days);
+      const given = flags.days;
+      const days = given === undefined ? 30 : typeof given === 'string' || typeof given === 'number' ? Number(given) : NaN;
       if (!Number.isInteger(days) || days < 0) return { ok: false, error: '--days must be a non-negative integer' };
       return stalePlans(root, { config, days });
     }

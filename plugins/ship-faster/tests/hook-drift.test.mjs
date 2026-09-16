@@ -1,10 +1,10 @@
 import { test, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, mkdirSync, realpathSync, utimesSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, realpathSync, statSync, utimesSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { makeRepo, runScript, tmpDir, cleanupAll } from './helpers.mjs';
 import { serializeFrontmatter } from '../scripts/lib/fm.mjs';
-import { loadSession, saveSession, sessionFile } from '../scripts/lib/state.mjs';
+import { loadSession, projectHash, saveSession, sessionFile, writeJsonAtomic } from '../scripts/lib/state.mjs';
 import { resolveRootCached } from '../scripts/lib/root.mjs';
 
 after(cleanupAll);
@@ -65,6 +65,28 @@ test('prompt-report prints once per page, then stays silent, and caps the line',
   const capped = report(big);
   assert.ok(capped.stdout.length <= 401, `line is ${capped.stdout.length} chars`);
   assert.match(capped.stdout, /and \d+ more/);
+});
+
+test('a report with nothing pending leaves the session file alone', () => {
+  const root = repo();
+  edit(root, 'src/api/users.ts');
+  assert.match(report(root).stdout, /add-endpoint/);
+  const file = sessionFile(root, 'sid1');
+  const past = new Date(Date.now() - 60_000);
+  utimesSync(file, past, past);
+  const before = statSync(file).mtimeMs;
+  assert.equal(report(root).stdout, '');
+  assert.equal(statSync(file).mtimeMs, before);
+});
+
+test('resolveRootCached trusts a cached root for a day outside a repository', () => {
+  const dir = tmpDir();
+  const first = resolveRootCached(dir);
+  const cache = join(process.env.CLAUDE_PLUGIN_DATA, 'cwd-cache', `${projectHash(dir)}.json`);
+  assert.ok(existsSync(cache));
+  assert.equal(resolveRootCached(dir), first);
+  writeJsonAtomic(cache, { root: '/somewhere/without/a/dot-git', at: new Date().toISOString() });
+  assert.equal(resolveRootCached(dir), '/somewhere/without/a/dot-git');
 });
 
 test('session-end removes the session file and prunes old ones; cwd cache avoids repeated git calls', () => {
