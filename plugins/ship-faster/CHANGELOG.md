@@ -12,6 +12,13 @@ versions follow semver.
 - SessionEnd cleanup of session records.
 - Scripts: detect, footprints, stale, index, lint, checks, plan, with a shared zero-dependency library.
 - Optional `.claude/ship-faster.json` configuration.
+- `onboard` skill: analyses the repository with parallel `repo-analyst` agents, runs its checks, writes the wiki, verifies every page with `doc-verifier`, writes path-scoped rules, and generates or updates the managed block of CLAUDE.md (existing file backed up first).
+- `sync-docs` skill: re-verifies stale, dirty, invalid, and unverifiable pages against the changed files, covers changed files no page describes, and re-stamps `verified` at HEAD; `--scope diff --since <branch>` limits it to a branch's changes.
+- `lesson` skill: records a gotcha, decision, or convention with symptom, cause, rule, and evidence, plus a path-scoped rule line.
+- Agents `repo-analyst` (haiku, read-only) and `doc-verifier` (sonnet, read-only).
+- Templates for CLAUDE.md, per-package CLAUDE.md, every wiki page type, recipes, plans, rules files, and gotcha entries.
+- Scripts `page.mjs` (stamp `verified`/`updated`) and `claude-md.mjs` (sections, splice, backup); `stale.mjs --since` and `--session all`; `detect.mjs --brief`, `config`, and `dataDir`.
+- Eval cases for `onboard`, `sync-docs`, and `lesson` under `evals/`, with scaffold scripts that build fixture repositories.
 
 ### Changed
 - A wiki page committed together with the covered files it describes stays fresh: only commits that change covered files without touching the page make it stale, and a page with uncommitted edits of its own is not marked dirty by covered working-tree changes. Pages no longer go stale the moment `ship` commits them.
