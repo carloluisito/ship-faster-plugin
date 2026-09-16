@@ -145,10 +145,13 @@ function pluginSource(root, files, pluginName) {
   return { kind: 'plugin', files: sourceFiles, current: pluginVersion, pluginName: entry.name };
 }
 
+function lastTagInfo(root, match, prefix) {
+  const last = git.isRepo(root) ? git.lastTag(root, { match }) : null;
+  return { last: last ? last.tag : null, prefix };
+}
+
 export function detectVersion(root, { file, plugin } = {}) {
   const files = listRepoFiles(root);
-  const last = git.isRepo(root) ? git.lastTag(root, { match: 'v*' }) : null;
-  const tags = { last: last ? last.tag : null, prefix: 'v' };
   if (file) {
     const rel = normalizePath(file);
     const kind = kindOfFile(rel);
@@ -156,11 +159,12 @@ export function detectVersion(root, { file, plugin } = {}) {
     if (!existsSync(join(root, ...rel.split('/')))) return { ok: false, error: `${rel} not found` };
     const current = versionIn(root, rel, kind);
     if (!current) return { ok: false, error: `${rel} has no version` };
-    return { ok: true, source: { kind, files: [{ path: rel, current }], current }, tags, summary: [`version ${current} from ${rel}`] };
+    return { ok: true, source: { kind, files: [{ path: rel, current }], current }, tags: lastTagInfo(root, 'v*', 'v'), summary: [`version ${current} from ${rel}`] };
   }
   const p = pluginSource(root, files, plugin);
   if (p && p.error) return { ok: false, error: p.error };
-  if (p) return { ok: true, source: p, tags, summary: [`version ${p.current} from ${p.files.map((f) => f.path).join(' and ')}`] };
+  if (p) return { ok: true, source: p, tags: lastTagInfo(root, `${p.pluginName}--v*`, `${p.pluginName}--v`), summary: [`version ${p.current} from ${p.files.map((f) => f.path).join(' and ')}`] };
+  const tags = lastTagInfo(root, 'v*', 'v');
   for (const rel of ['package.json', 'pyproject.toml', 'Cargo.toml', 'Directory.Build.props']) {
     if (!files.includes(rel)) continue;
     const current = versionIn(root, rel, rel);
@@ -177,8 +181,8 @@ export function detectVersion(root, { file, plugin } = {}) {
     const current = versionIn(root, txt, 'version.txt');
     if (current) return { ok: true, source: { kind: 'version.txt', files: [{ path: txt, current }], current }, tags, summary: [`version ${current} from ${txt}`] };
   }
-  const current = last ? last.tag.replace(/^v/, '') : null;
-  return { ok: true, source: { kind: 'tags', files: [], current }, tags, summary: [current ? `version ${current} from tag ${last.tag}` : 'no version file and no tag yet'] };
+  const current = tags.last ? tags.last.replace(/^v/, '') : null;
+  return { ok: true, source: { kind: 'tags', files: [], current }, tags, summary: [current ? `version ${current} from tag ${tags.last}` : 'no version file and no tag yet'] };
 }
 
 export function bumpVersion(root, spec, { file, plugin } = {}) {

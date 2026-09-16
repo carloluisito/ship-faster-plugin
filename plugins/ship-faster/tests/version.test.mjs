@@ -83,6 +83,12 @@ test('a plugin repository bumps plugin.json and the marketplace entry together a
   const same = bumpVersion(root, '0.2.0');
   assert.equal(same.ok, false);
   assert.match(same.error, /not greater than/);
+
+  const demo = makeRepo({ files: { '.claude-plugin/plugin.json': '{\n  "name": "demo",\n  "version": "0.1.0"\n}\n' } });
+  demo.git(['tag', 'demo--v0.1.0']);
+  const dd = detectVersion(demo.root);
+  assert.equal(dd.source.kind, 'plugin');
+  assert.equal(dd.tags.last, 'demo--v0.1.0');
 });
 
 test('a marketplace with two plugins needs --plugin, and a disagreeing pair is an error', () => {
