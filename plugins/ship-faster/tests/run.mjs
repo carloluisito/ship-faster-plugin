@@ -1,5 +1,6 @@
 import { spawnSync } from 'node:child_process';
-import { readdirSync } from 'node:fs';
+import { mkdtempSync, readdirSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -9,5 +10,8 @@ if (files.length === 0) {
   console.error('no test files found');
   process.exit(1);
 }
-const r = spawnSync(process.execPath, ['--test', ...files], { stdio: 'inherit' });
+const data = mkdtempSync(join(tmpdir(), 'sf-run-data-'));
+process.env.CLAUDE_PLUGIN_DATA = data;
+const r = spawnSync(process.execPath, ['--test', ...files], { stdio: 'inherit', env: process.env });
+try { rmSync(data, { recursive: true, force: true }); } catch {}
 process.exit(r.status ?? 1);
