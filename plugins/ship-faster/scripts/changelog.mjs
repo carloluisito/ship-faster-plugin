@@ -85,9 +85,14 @@ function mergePending(section, pending) {
     const name = heading ? heading[1] : 'Changed';
     const bullets = block.replace(/^### [^\n]*\n?/, '').trim();
     if (!bullets) continue;
-    const marker = new RegExp(`^### ${name}\\n([\\s\\S]*?)(?=\\n### |$)`, 'm');
-    if (marker.test(out)) out = out.replace(marker, (whole) => `${whole.trimEnd()}\n${bullets}`);
-    else out += `\n\n### ${name}\n${bullets}`;
+    const marker = `### ${name}\n`;
+    const at = out.search(new RegExp(`^### ${name}\\n`, 'm'));
+    if (at === -1) { out += `\n\n${marker}${bullets}`; continue; }
+    const rest = out.slice(at + marker.length);
+    const next = rest.search(/^### /m);
+    const groupEnd = next === -1 ? out.length : at + marker.length + next;
+    const group = out.slice(at, groupEnd).trimEnd();
+    out = out.slice(0, at) + `${group}\n${bullets}` + (next === -1 ? '' : `\n\n${out.slice(groupEnd)}`);
   }
   return out + '\n';
 }

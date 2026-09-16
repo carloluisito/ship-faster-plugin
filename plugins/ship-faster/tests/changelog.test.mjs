@@ -83,3 +83,10 @@ test('insertSectionFile creates or updates CHANGELOG.md from a section file, als
   assert.equal(insertSectionFile(root, sectionFile).ok, false);
   assert.equal(runScript('changelog', ['insert', '--root', root, '--json']).json.ok, false);
 });
+
+test('pending Unreleased bullets fold in after the last bullet of a matching group', () => {
+  const section = '## [1.2.0] - 2026-09-17\n\n### Fixed\n- New fix one.\n- New fix two.\n\n### Changed\n- Something.\n';
+  const existing = '# Changelog\n\n## [Unreleased]\n\n### Fixed\n- Pending fix.\n\n## [1.1.0] - 2026-09-16\n- x\n';
+  const merged = insertSection(existing, section);
+  assert.match(merged, /### Fixed\n- New fix one\.\n- New fix two\.\n- Pending fix\.\n\n### Changed\n- Something\.\n\n## \[1\.1\.0\]/);
+});
