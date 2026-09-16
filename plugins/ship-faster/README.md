@@ -107,6 +107,7 @@ node scripts/plan.mjs          find --branch | stale | set-status
 node scripts/page.mjs          verify <page>... | touch <page>...: stamp verified (HEAD) and updated (today)
 node scripts/claude-md.mjs     sections | splice --block <file> | backup: read, regenerate, and back up CLAUDE.md's managed block
 node scripts/changes.mjs       branch, base, ahead/behind, uncommitted files with risk flags, commit style (ship's inventory)
+node scripts/version.mjs       detect | bump <patch|minor|major|x.y.z>: version source (manifests, plugin.json + marketplace, or tags) and bump
 ```
 
 ## Evals
