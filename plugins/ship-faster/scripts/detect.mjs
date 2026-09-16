@@ -2,11 +2,11 @@ import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import { runMain } from './lib/cli.mjs';
 import { loadConfig } from './lib/config.mjs';
+import { listRepoFiles } from './lib/files.mjs';
 import * as git from './lib/git.mjs';
 import { normalizePath } from './lib/glob.mjs';
 import { resolveRoot } from './lib/root.mjs';
 
-const SKIP_DIRS = new Set(['.git', 'node_modules', 'dist', 'build', 'target', 'bin', 'obj', 'vendor', '.venv', 'venv', '__pycache__']);
 const CI_FILES = [
   [/^\.github\/workflows\/[^/]+\.ya?ml$/, 'github'],
   [/^\.gitlab-ci\.yml$/, 'gitlab'],
@@ -16,22 +16,6 @@ const CI_FILES = [
   [/^bitbucket-pipelines\.yml$/, 'bitbucket'],
 ];
 const DOUBLE_STAR = '\u0001';
-
-function walkFiles(root) {
-  const out = [];
-  const stack = [''];
-  while (stack.length && out.length < 20000) {
-    const rel = stack.pop();
-    let entries;
-    try { entries = readdirSync(join(root, rel), { withFileTypes: true }); } catch { continue; }
-    for (const e of entries) {
-      const r = rel ? `${rel}/${e.name}` : e.name;
-      if (e.isDirectory()) { if (!SKIP_DIRS.has(e.name)) stack.push(r); }
-      else if (e.isFile()) out.push(r);
-    }
-  }
-  return out.sort();
-}
 
 function readText(root, rel) {
   try { return readFileSync(join(root, rel), 'utf8'); } catch { return null; }
@@ -45,7 +29,7 @@ export function detect(root) {
   root = normalizePath(root);
   const { config } = loadConfig(root);
   const isRepo = git.isRepo(root);
-  const files = isRepo ? git.trackedFiles(root) : walkFiles(root);
+  const files = listRepoFiles(root);
   const has = (rel) => files.includes(rel);
   const any = (re) => files.some((f) => re.test(f));
   const list = (re) => files.filter((f) => re.test(f));
