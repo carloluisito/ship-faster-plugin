@@ -1,10 +1,12 @@
-import { test, after } from 'node:test';
+import { test, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { makeRepo, runScript, tmpDir, cleanupAll } from './helpers.mjs';
 import { detect } from '../scripts/detect.mjs';
 import { projectHash } from '../scripts/lib/state.mjs';
+
+beforeEach(() => { process.env.CLAUDE_PLUGIN_DATA = tmpDir('sf-data-'); });
 
 after(cleanupAll);
 
@@ -123,7 +125,6 @@ test('works without git and via the CLI', () => {
 });
 
 test('detect reports the resolved config and the project data directory, and --brief drops the long lists', () => {
-  process.env.CLAUDE_PLUGIN_DATA = tmpDir('sf-data-');
   const { root } = makeRepo({ files: { '.claude/ship-faster.json': JSON.stringify({ wikiDir: 'wiki', pageMaxLines: 120 }), 'package.json': JSON.stringify({ scripts: { test: 'node -e 0' } }), 'src/index.js': '' } });
   const r = detect(root);
   assert.equal(r.config.wikiDir, 'wiki');
