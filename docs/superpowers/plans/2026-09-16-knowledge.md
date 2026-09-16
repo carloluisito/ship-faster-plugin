@@ -1375,6 +1375,7 @@ function countLines(text) {
 
 export function sections(text) {
   const lines = lf(text).split('\n');
+  const total = countLines(text);
   const out = [];
   let managed = null;
   let title = null;
@@ -1391,7 +1392,7 @@ export function sections(text) {
     const h2 = /^## (.+)$/.exec(line);
     if (!h2) return;
     if (cur) cur.end = i;
-    cur = { heading: h2[1].trim(), start: i + 1, end: lines.length, lines: 0, managed: false, text: '' };
+    cur = { heading: h2[1].trim(), start: i + 1, end: total, lines: 0, managed: false, text: '' };
     out.push(cur);
   });
   for (const s of out) {
@@ -1701,7 +1702,7 @@ Record non-obvious causes with `/ship-faster:lesson` right after learning them.
 
 `plugins/ship-faster/templates/plan.md`:
 
-```markdown
+````markdown
 ---
 title: {{Feature title}}
 branch: {{type}}/{{slug}}
@@ -1738,7 +1739,7 @@ pages: [{{page}}, {{recipes/task}}]
 ```
 {{command that proves it works}}
 ```
-```
+````
 
 `plugins/ship-faster/templates/rules-file.md`:
 
@@ -2563,7 +2564,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
 
 `plugins/ship-faster/agents/repo-analyst.md`:
 
-```markdown
+````markdown
 ---
 name: repo-analyst
 description: Read-only analyst for the onboard skill. Given one area of a repository (stack and commands, layout and entry points, tests, conventions, architecture and data flow, ops and CI, dependencies) plus detect and footprints output, returns evidence-backed facts, suggested covers globs, recipe candidates, and open questions as JSON. Never edits files.
@@ -2618,13 +2619,13 @@ Return only one fenced JSON block, nothing before or after it:
 ```
 
 `confidence` is `high` when the line states it outright, `medium` when it follows from two or more lines, `low` when it is the most likely reading of one line. Keep every string under 200 characters.
-```
+````
 
 - [ ] **Step 2: Write doc-verifier.md**
 
 `plugins/ship-faster/agents/doc-verifier.md`:
 
-```markdown
+````markdown
 ---
 name: doc-verifier
 description: Read-only verifier for wiki pages written by onboard and sync-docs. Given one page path, checks every path, command, name, number, and behavioural claim against the repository and returns the false and unverifiable claims as JSON with file line numbers and evidence. Never edits files.
@@ -2670,7 +2671,7 @@ Return only one fenced JSON block:
 ```
 
 Use empty arrays when nothing is wrong. Keep `claim` to the shortest quote that identifies the sentence.
-```
+````
 
 - [ ] **Step 3: Validate**
 
@@ -2714,7 +2715,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
 
 `plugins/ship-faster/skills/lesson/SKILL.md`:
 
-```markdown
+````markdown
 ---
 name: lesson
 description: Record a non-obvious cause, decision, or convention in the wiki the moment it is learned, as symptom, cause, rule, and evidence, plus a path-scoped rule when the lesson has a clear file scope.
@@ -2791,7 +2792,7 @@ Fix every lint error (a `covers` glob matching no tracked file, a page over budg
 ## 7. Report
 
 Three lines: the entry id and page; the rules-file line, or "no path scope"; the lint result.
-```
+````
 
 - [ ] **Step 2: Write the eval case**
 
@@ -3002,7 +3003,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
 
 `plugins/ship-faster/skills/sync-docs/SKILL.md`:
 
-```markdown
+````markdown
 ---
 name: sync-docs
 description: Bring stale wiki pages back to true by re-checking their claims against the code that changed, re-verify them at HEAD, and add coverage for new behaviour no page describes.
@@ -3070,7 +3071,7 @@ node "${CLAUDE_PLUGIN_ROOT}/scripts/lint.mjs" --json
 ## 6. Report
 
 One table: page, status before, action (`confirmed`, `updated`, `created`, `frontmatter repaired`, or `left stale: <reason>`), then one line naming uncovered files you left alone. Never call a page true unless you read the changed files behind it.
-```
+````
 
 - [ ] **Step 2: Write the eval case**
 
@@ -3280,7 +3281,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
 
 `plugins/ship-faster/skills/onboard/SKILL.md`:
 
-```markdown
+````markdown
 ---
 name: onboard
 description: Generate a router CLAUDE.md, a verified wiki under docs/wiki, and path-scoped rules for the current repository by analysing it, running its commands, and verifying every page against the code.
@@ -3398,7 +3399,7 @@ Fix every error (a page over 200 lines, CLAUDE.md over 150, a `covers` glob matc
 ## 12. Report
 
 Follow `${CLAUDE_SKILL_DIR}/reference/report.md`.
-```
+````
 
 - [ ] **Step 2: Write the reference files**
 
@@ -3777,7 +3778,7 @@ claude plugin eval plugins/ship-faster --ablation none --runs 1 --scaffold --all
 
 Replace `plugins/ship-faster/README.md` with:
 
-```markdown
+````markdown
 # ship-faster
 
 Router CLAUDE.md, verified wiki, and a repo-aware shipping workflow for Claude Code.
@@ -3908,7 +3909,7 @@ claude plugin validate --strict plugins/ship-faster
 ## License
 
 MIT
-```
+````
 
 - [ ] **Step 3: Update the CHANGELOG**
 
