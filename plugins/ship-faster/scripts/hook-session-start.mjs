@@ -1,4 +1,4 @@
-import { existsSync, readdirSync } from 'node:fs';
+import { existsSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { readStdinJson } from './lib/cli.mjs';
 import { loadConfig } from './lib/config.mjs';
@@ -28,7 +28,7 @@ async function main() {
     let line = `ship-faster: wiki at ${config.wikiDir}/index.md (${pages.length} pages).`;
     line += notFresh.length ? ` Stale: ${notFresh.length} (${notFresh.slice(0, 4).join(', ')}${notFresh.length > 4 ? ', …' : ''}) → /ship-faster:sync-docs.` : ' All pages fresh.';
     const rulesDir = join(root, ...config.rulesDir.split('/'));
-    const rules = existsSync(rulesDir) ? readdirSync(rulesDir).filter((n) => n.endsWith('.md')).length : 0;
+    const rules = existsSync(rulesDir) && statSync(rulesDir).isDirectory() ? readdirSync(rulesDir).filter((n) => n.endsWith('.md')).length : 0;
     if (rules) line += ` Rules: ${config.rulesDir} (${rules} files).`;
     lines.push(line);
     if (source === 'startup' || source === 'resume') {
@@ -45,9 +45,20 @@ async function main() {
     if (n >= 20) lines.push(`ship-faster: no CLAUDE.md or ${config.wikiDir} here (${n} tracked files). /ship-faster:onboard generates them.`);
   }
 
-  let text = lines.join('\n');
-  if (text.length > MAX) text = text.slice(0, MAX - 1) + '…';
+  const text = capOutput(lines, MAX);
   if (text) process.stdout.write(text + '\n');
+}
+
+function capOutput(lines, max) {
+  const arr = lines.slice();
+  while (arr.length > 1 && arr.join('\n').length > max) arr.pop();
+  let text = arr.join('\n');
+  if (text.length > max) {
+    const cut = text.slice(0, max - 1);
+    const sp = cut.lastIndexOf(' ');
+    text = (sp > 0 ? cut.slice(0, sp) : cut) + '…';
+  }
+  return text;
 }
 
 function healthLine(root, config) {

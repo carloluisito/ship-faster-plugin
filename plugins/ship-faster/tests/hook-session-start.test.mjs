@@ -75,3 +75,47 @@ test('fresh project without health.json gets no health line; garbage input exits
   const gone = hook({ session_id: 's', cwd: join(root, 'does-not-exist'), source: 'startup' }, root);
   assert.equal(gone.code, 0);
 });
+
+test('output over 600 characters drops whole lines instead of cutting mid-line or mid-word', () => {
+  const { root, git } = bigRepo({ 'lib/x.ts': 'x' });
+  const first = git(['rev-parse', 'HEAD']);
+  writeFileSync(join(root, 'lib', 'x.ts'), 'x2');
+  git(['add', '-A']);
+  git(['commit', '-q', '-m', 'x']);
+  git(['checkout', '-q', '-b', 'feat/sso']);
+  const w = join(root, 'docs', 'wiki');
+  mkdirSync(w, { recursive: true });
+  writeFileSync(join(w, 'index.md'), '# i\n');
+  for (let i = 0; i < 4; i++) {
+    const slug = 'a'.repeat(89) + i;
+    writeFileSync(join(w, `${slug}.md`), page(slug, ['lib/**'], first));
+  }
+  mkdirSync(join(root, '.claude', 'rules'), { recursive: true });
+  writeFileSync(join(root, '.claude', 'rules', 'api.md'), '---\npaths: ["src/**"]\n---\n- rule\n');
+  mkdirSync(join(root, 'docs', 'plans'), { recursive: true });
+  const planSlug = 'b'.repeat(120);
+  writeFileSync(join(root, 'docs', 'plans', `${planSlug}.md`), serializeFrontmatter({ title: 'Long', branch: 'feat/sso', status: 'active', created: '2026-09-16' }) + '# Long\n');
+  writeJsonAtomic(join(projectDir(root), 'health.json'), { lastRun: new Date(Date.now() - 21 * 86400_000).toISOString() });
+
+  const r = hook({ session_id: 's', cwd: root, source: 'startup' }, root);
+  assert.ok(r.stdout.length <= 600, r.stdout.length);
+  const lines = r.stdout.trim().split('\n');
+  for (const line of lines) {
+    assert.ok(
+      /^ship-faster: wiki at /.test(line) || /^ship-faster: active plan for branch /.test(line) || /^ship-faster: health audit /.test(line),
+      line
+    );
+    assert.notEqual(line.slice(-1), ' ', line);
+  }
+});
+
+test('a rules path that is a file does not blank the output', () => {
+  const { root } = bigRepo();
+  const w = join(root, 'docs', 'wiki');
+  mkdirSync(w, { recursive: true });
+  writeFileSync(join(w, 'index.md'), '# i\n');
+  mkdirSync(join(root, '.claude'), { recursive: true });
+  writeFileSync(join(root, '.claude', 'rules'), 'not a directory\n');
+  const r = hook({ session_id: 's', cwd: root, source: 'startup' }, root);
+  assert.match(r.stdout, /^ship-faster: wiki at /);
+});
