@@ -3,7 +3,7 @@ title: Add a CI system
 summary: Detect a new CI file and extract its steps as checks, with install and deploy steps excluded.
 read_when: You need checks.mjs to resolve checks from a CI system or step format it does not read yet.
 covers: [plugins/ship-faster/scripts/checks.mjs, plugins/ship-faster/scripts/detect.mjs, plugins/ship-faster/tests/checks.test.mjs]
-verified: 6a999ea3f5c0c5626dec4619b1d6676ddd8b8510
+verified: 57442cc23c96f7b6c7a961a149cf9363f2a5540b
 updated: 2026-09-16
 ---
 # Add a CI system

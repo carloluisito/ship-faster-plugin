@@ -3,7 +3,7 @@ title: Add a hook
 summary: "A new hook script that reads Claude Code's JSON input, stays silent on error, is registered in hooks.json, and is tested and benchmarked."
 read_when: You need to run plugin code on a Claude Code hook event.
 covers: [plugins/ship-faster/hooks/hooks.json, plugins/ship-faster/scripts/hook-*.mjs, plugins/ship-faster/tests/bench.mjs, plugins/ship-faster/tests/validate.mjs]
-verified: 6a999ea3f5c0c5626dec4619b1d6676ddd8b8510
+verified: 57442cc23c96f7b6c7a961a149cf9363f2a5540b
 updated: 2026-09-16
 ---
 # Add a hook

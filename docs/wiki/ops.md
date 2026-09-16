@@ -3,7 +3,7 @@ title: Ops
 summary: One GitHub Actions workflow gates PRs on tests and Claude Code validation; releases are a manual version bump.
 read_when: You are changing CI, preparing a release, or need to know how and where the software runs.
 covers: [.github/workflows/ci.yml, .claude-plugin/marketplace.json, plugins/ship-faster/.claude-plugin/plugin.json, plugins/ship-faster/CHANGELOG.md]
-verified: 6a999ea3f5c0c5626dec4619b1d6676ddd8b8510
+verified: 57442cc23c96f7b6c7a961a149cf9363f2a5540b
 updated: 2026-09-16
 ---
 # Ops

@@ -3,7 +3,7 @@ title: Add a skill
 summary: A new skill directory with validator-clean frontmatter, script calls through CLAUDE_PLUGIN_ROOT, and the eval case every skill needs.
 read_when: You need to add a slash command or model-invocable skill to the plugin.
 covers: [plugins/ship-faster/skills/**, plugins/ship-faster/evals/**, plugins/ship-faster/tests/validate.mjs]
-verified: 6a999ea3f5c0c5626dec4619b1d6676ddd8b8510
+verified: 57442cc23c96f7b6c7a961a149cf9363f2a5540b
 updated: 2026-09-16
 ---
 # Add a skill

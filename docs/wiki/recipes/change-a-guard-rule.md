@@ -3,7 +3,7 @@ title: Change a guard rule
 summary: Add or change what the PreToolUse git guard denies, with its config key, fake-git tests, and the latency budget.
 read_when: You need to change which git commands the ship guard blocks or how it decides.
 covers: [plugins/ship-faster/scripts/hook-ship-guard.mjs, plugins/ship-faster/scripts/lib/shell.mjs, plugins/ship-faster/scripts/lib/config.mjs, plugins/ship-faster/tests/hook-ship-guard.test.mjs]
-verified: 6a999ea3f5c0c5626dec4619b1d6676ddd8b8510
+verified: 57442cc23c96f7b6c7a961a149cf9363f2a5540b
 updated: 2026-09-16
 ---
 # Change a guard rule

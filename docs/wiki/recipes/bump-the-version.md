@@ -3,7 +3,7 @@ title: Bump the version
 summary: Set a new plugin version in both manifests and the changelog so validation passes.
 read_when: You need to cut a new plugin version.
 covers: [plugins/ship-faster/.claude-plugin/plugin.json, .claude-plugin/marketplace.json, plugins/ship-faster/CHANGELOG.md, plugins/ship-faster/README.md]
-verified: 6a999ea3f5c0c5626dec4619b1d6676ddd8b8510
+verified: 57442cc23c96f7b6c7a961a149cf9363f2a5540b
 updated: 2026-09-16
 ---
 # Bump the version

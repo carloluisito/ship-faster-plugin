@@ -3,7 +3,7 @@ title: Testing
 summary: "node:test suites in plugins/ship-faster/tests with real git fixtures, a structure validator, a hook benchmark, and skill evals."
 read_when: You are adding or fixing a test, need a fixture or mock, or a test cannot run locally.
 covers: [plugins/ship-faster/tests/**, plugins/ship-faster/evals/**]
-verified: 6a999ea3f5c0c5626dec4619b1d6676ddd8b8510
+verified: 57442cc23c96f7b6c7a961a149cf9363f2a5540b
 updated: 2026-09-16
 ---
 # Testing
@@ -35,5 +35,5 @@ updated: 2026-09-16
 `makeRepo` sets a local user, disables commit signing, and runs git with `GIT_TERMINAL_PROMPT=0` and `GIT_CONFIG_NOSYSTEM=1`. No test needs credentials or a service beyond `git`. There is no coverage configuration.
 
 ## Not runnable locally
-- Skill evals: they spend real model credit and need a sandbox backend for `Bash`, so the plugin README says they run in CI on Linux, never as a PR gate (`plugins/ship-faster/README.md:113`). `.github/workflows/ci.yml` has no eval job yet.
+- Skill evals: they spend real model credit and need a sandbox backend for `Bash`, so they are run by hand on Linux until a scheduled CI job arrives with the shipping skills, never as a PR gate (`plugins/ship-faster/README.md:113`). `.github/workflows/ci.yml` has no eval job yet.
 - The CI matrix (ubuntu-latest and windows-latest, Node 20 and 22) runs only in GitHub Actions; locally you test one OS and one Node version.
