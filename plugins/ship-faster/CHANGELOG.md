@@ -21,7 +21,7 @@ versions follow semver.
 - Eval cases for `onboard`, `sync-docs`, and `lesson` under `evals/`, with scaffold scripts that build fixture repositories.
 - `kickoff` skill: a grounded plan under `docs/plans/` (goal, complete scope, ordered touchpoints, tests, docs impact, risks quoting gotchas, verification) and the branch for it.
 - `preflight` skill: runs the repository's checks inside the `check-runner` agent and reports the table, the failure tail, the log path, and a diagnosis.
-- `ship` skill: branch, preflight, docs sync, rules review, plan check, commit by name, push and PR with a verification table, optional squash-merge; the guard hook blocks force pushes, protected-branch pushes, `--no-verify`, and `git add -A`.
+- `ship` skill: branch, preflight, docs sync, rules review, plan check, commit by name, push and PR with a verification table, optional squash-merge; the guard hook denies pushes to protected branches, `--no-verify`, and an add-all that would stage a risky file.
 - `release` skill: docs checkpoint, Keep a Changelog section, version bump across manifests (plugin.json and marketplace entry together), preflight, `release: vX.Y.Z` commit, tag via `claude plugin tag` in plugin repositories, guarded publish and GitHub release.
 - `health` skill: coded findings across dependencies, tests, docs, hygiene, CI, and plans from `health-auditor` agents, with `--fix safe` behind preflight.
 - `review` skill: findings against the repository's own conventions, gotchas, decisions, and recipes through the `rules-reviewer` agent.

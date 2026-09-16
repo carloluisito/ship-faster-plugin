@@ -18,7 +18,7 @@ Repository facts:
 
 Arguments: $ARGUMENTS
 
-Rules that hold throughout: never force push, never push to a protected branch, never `--no-verify`, never `git add -A` or `git add .` (the ship-guard hook blocks these four), never skip preflight, never merge without `--merge`. Push, PR creation, and merge are outward-facing: each needs the user's explicit yes first. When nobody can answer (a non-interactive run), stop before that step and print the exact commands instead of running them.
+Rules that hold throughout: never force push, never push to a protected branch, never `--no-verify`, never `git add -A` or `git add .` (the ship-guard hook denies pushes to protected branches, `--no-verify`, and an add-all that would stage a risky file), never skip preflight, never merge without `--merge`. Push, PR creation, and merge are outward-facing: each needs the user's explicit yes first. When nobody can answer (a non-interactive run), stop before that step and print the exact commands instead of running them.
 
 `<dataDir>` = `dataDir` from the facts; `<wikiDir>` = `config.wikiDir`. Read `${CLAUDE_SKILL_DIR}/reference/commit-and-pr.md` before step 7.
 

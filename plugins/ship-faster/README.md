@@ -27,7 +27,7 @@ Requires `node` (20 or newer) and `git` on your PATH. `gh` is optional: skills t
 | `health` | `/ship-faster:health [--fix <codes>\|safe]` | Fans out `health-auditor` agents over dependencies, tests, docs, hygiene, CI, and plans and prints one table of coded findings with effort and fix; `--fix` applies chosen fixes behind preflight and reverts them on failure. Slash-only. |
 | `review` | `/ship-faster:review [--base <branch>]` | Reviews the branch diff against `conventions.md`, `gotchas.md`, architecture decisions, and matching recipes through the `rules-reviewer` agent; findings coded R1..Rn quote the rule they cite. Inside `ship`, a `block` finding stops the commit. Claude may invoke it before a PR. |
 
-Every skill runs the plugin's scripts for the deterministic parts and asks the model only for judgement. Safety rules the skills state: never force push, never push to a protected branch, never `--no-verify`, never `git add -A` (these four are also blocked by the PreToolUse hook), never skip preflight, never merge without `--merge`. Outward-facing steps (push, PR, merge, publish) wait for your explicit yes; in a non-interactive run the skill stops before them and prints the commands.
+Every skill runs the plugin's scripts for the deterministic parts and asks the model only for judgement. Safety rules the skills state: never force push, never push to a protected branch, never `--no-verify`, never `git add -A` (the PreToolUse hook denies pushes to protected branches, `--no-verify`, and an add-all that would stage a risky file), never skip preflight, never merge without `--merge`. Outward-facing steps (push, PR, merge, publish) wait for your explicit yes; in a non-interactive run the skill stops before them and prints the commands.
 
 ## Agents
 
