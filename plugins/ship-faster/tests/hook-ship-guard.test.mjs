@@ -46,6 +46,7 @@ test('no-verify and add rules, quoting, chaining, and config levels', () => {
   assert.equal(ev('git commit -anm x').rule, 'noVerify');
   assert.equal(ev('git commit -am x').decision, null);
   assert.equal(ev('git merge --no-verify feat').rule, 'noVerify');
+  assert.equal(ev('git push --no-verify origin feat/x').rule, 'noVerify');
   assert.equal(ev('echo "git push origin main"').decision, null);
   assert.equal(ev('npm test && git push origin main').rule, 'pushProtected');
   const risky = { dirtyFiles: () => [{ path: '.env', status: '??' }, { path: 'src/a.ts', status: 'M' }] };
