@@ -1,5 +1,6 @@
 import { copyFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
+import { randomBytes } from 'node:crypto';
 import { runMain } from './lib/cli.mjs';
 import { loadConfig } from './lib/config.mjs';
 import { normalizePath } from './lib/glob.mjs';
@@ -26,7 +27,7 @@ export function sections(text) {
   let inFence = false;
   let cur = null;
   lines.forEach((line, i) => {
-    if (/^\s*```/.test(line)) inFence = !inFence;
+    if (/^\s*(```|~~~)/.test(line)) inFence = !inFence;
     const trimmed = line.trim();
     if (trimmed === START) managed = { start: i + 1, end: null };
     else if (trimmed === END && managed && managed.end === null) managed.end = i + 1;
@@ -58,19 +59,25 @@ export function splice(existing, block, { projectName = 'Project' } = {}) {
     content = `# ${projectName}\n\n${managedBlock}\n\n## Rules\n`;
   } else {
     const text = lf(existing);
-    const s = text.indexOf(START);
-    const e = text.indexOf(END, s === -1 ? 0 : s);
-    if (s !== -1 && e !== -1) {
+    const starts = text.split(START).length - 1;
+    const ends = text.split(END).length - 1;
+    if (starts === 1 && ends === 1 && text.indexOf(START) < text.indexOf(END)) {
+      const s = text.indexOf(START);
+      const e = text.indexOf(END);
       content = text.slice(0, s) + managedBlock + text.slice(e + END.length);
       replaced = true;
-    } else {
+    } else if (starts === 0 && ends === 0) {
       const lines = text.split('\n');
       const h1 = lines.findIndex((l) => /^# /.test(l));
-      lines.splice(h1 === -1 ? 0 : h1 + 1, 0, '', managedBlock, '');
-      content = lines.join('\n');
+      const head = lines.slice(0, h1 + 1);
+      const rest = lines.slice(h1 + 1);
+      while (rest.length && rest[0].trim() === '') rest.shift();
+      const parts = h1 === -1 ? [managedBlock] : [...head, '', managedBlock];
+      content = (rest.length ? [...parts, '', ...rest] : parts).join('\n');
+    } else {
+      return { error: `CLAUDE.md has ${starts} start and ${ends} end marker(s); expected one matched pair or none. Fix the markers by hand.` };
     }
   }
-  content = content.replace(/\n{3,}/g, '\n\n').replace(/^\n+/, '');
   if (!content.endsWith('\n')) content += '\n';
   return { content, managedLines, lines: countLines(content), replaced };
 }
@@ -81,6 +88,7 @@ export function spliceFile(root, block, { config, projectName, force = false, dr
   const existing = existsSync(file) ? readFileSync(file, 'utf8') : null;
   const name = projectName || (existing !== null && sections(existing).title) || basename(normalizePath(root).replace(/\/+$/, '')) || 'Project';
   const r = splice(existing, block, { projectName: name });
+  if (r.error) return { ok: false, error: r.error, path: 'CLAUDE.md', created: false, replaced: false, written: false, warnings: [] };
   const warnings = [];
   if (r.managedLines > MANAGED_MAX) warnings.push(`managed block is ${r.managedLines} lines, limit ${MANAGED_MAX}`);
   if (r.lines > config.claudeMdMaxLines) warnings.push(`CLAUDE.md would be ${r.lines} lines, limit ${config.claudeMdMaxLines}`);
@@ -95,7 +103,7 @@ export function backupClaudeMd(root) {
   const file = join(root, 'CLAUDE.md');
   if (!existsSync(file)) return { ok: true, backup: null, summary: ['no CLAUDE.md to back up'] };
   const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-  const dest = join(backupDir(root), `CLAUDE.md.${stamp}.${process.pid}`);
+  const dest = join(backupDir(root), `CLAUDE.md.${stamp}.${process.pid}.${randomBytes(2).toString('hex')}`);
   copyFileSync(file, dest);
   const backup = normalizePath(dest);
   return { ok: true, backup, summary: [`backed up CLAUDE.md to ${backup}`] };

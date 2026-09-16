@@ -116,3 +116,26 @@ test('backup copies CLAUDE.md into the project backup directory, and the CLI cov
   assert.equal(bk.json.ok, true);
   assert.equal(readdirSync(backupDir(root)).length, 2);
 });
+
+test('splice never touches hand-written text outside the markers and refuses unbalanced markers', () => {
+  const rules = '## Rules\n- rule one.\n\n\n\n- rule two after three blank lines.\n';
+  const withMarkers = `# Acme\n\n${START}\nold\n${END}\n\n${rules}`;
+  const r = splice(withMarkers, '## What this is\nNew.');
+  assert.ok(r.content.endsWith(rules), r.content);
+  const noMarkers = `# Acme\n\n\n${rules}`;
+  const inserted = splice(noMarkers, '## What this is\nNew.');
+  assert.equal(inserted.content, `# Acme\n\n${START}\n## What this is\nNew.\n${END}\n\n${rules}`);
+  const twoStarts = `# Acme\n${START}\na\n${START}\nb\n${END}\n`;
+  assert.match(splice(twoStarts, 'x').error, /2 start and 1 end/);
+  const endFirst = `# Acme\n${END}\nb\n${START}\n`;
+  assert.match(splice(endFirst, 'x').error, /marker/);
+  const { root } = makeRepo({ files: { 'CLAUDE.md': twoStarts } });
+  const f = spliceFile(root, 'x', { config: DEFAULTS });
+  assert.equal(f.ok, false);
+  assert.equal(readFileSync(join(root, 'CLAUDE.md'), 'utf8'), twoStarts);
+});
+
+test('sections ignores headings inside ~~~ fences too', () => {
+  const s = sections('# T\n\n~~~\n## not a heading\n~~~\n\n## Real\n');
+  assert.deepEqual(s.sections.map((x) => x.heading), ['Real']);
+});
