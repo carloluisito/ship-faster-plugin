@@ -96,19 +96,33 @@ export function trackedFiles(cwd) {
   return r.ok ? splitZ(r.stdout).map(normalizePath) : [];
 }
 
-export function log(cwd, { n = 500 } = {}) {
-  const r = git(['log', `-n${n}`, '--no-merges', '--pretty=format:__C__%H%x1f%s', '--name-only'], { cwd, timeoutMs: 10000 });
-  if (!r.ok) return [];
+function parseLog(stdout, meta) {
   const commits = [];
   let cur = null;
-  for (const line of r.stdout.split(/\r?\n/)) {
+  for (const line of stdout.split(/\r?\n/)) {
     if (line.startsWith('__C__')) {
-      const [sha, subject] = line.slice(5).split('\x1f');
-      cur = { sha, subject: subject || '', files: [] };
+      const [sha, rest] = line.slice(5).split('\x1f');
+      cur = { sha, ...meta(rest || ''), files: [] };
       commits.push(cur);
     } else if (cur && line.trim()) {
       cur.files.push(normalizePath(line.trim()));
     }
   }
   return commits;
+}
+
+export function log(cwd, { n = 500 } = {}) {
+  const r = git(['log', `-n${n}`, '--no-merges', '--pretty=format:__C__%H%x1f%s', '--name-only'], { cwd, timeoutMs: 10000 });
+  return r.ok ? parseLog(r.stdout, (subject) => ({ subject })) : [];
+}
+
+export function logTopo(cwd, range, { n = 2000 } = {}) {
+  const r = git(['log', '--topo-order', `-n${n}`, '--pretty=format:__C__%H%x1f%P', '--name-only', range], { cwd, timeoutMs: 10000 });
+  return r.ok ? parseLog(r.stdout, (parents) => ({ parents: parents.split(' ').filter(Boolean) })) : [];
+}
+
+export function mergeBase(cwd, shas) {
+  if (!Array.isArray(shas) || shas.length === 0) return null;
+  const v = out(['merge-base', '--octopus', ...shas], cwd, 5000);
+  return v && /^[0-9a-f]{40}$/.test(v) ? v : null;
 }

@@ -69,6 +69,48 @@ test('ten pages sharing one verified sha are all classified stale (commitExists 
   assert.deepEqual(r.counts, { fresh: 0, stale: 10, dirty: 0, unverifiable: 0, invalid: 0 });
 });
 
+test('distinct verified shas are classified exactly by the batched pass, with a per-sha fallback', () => {
+  const { root, git } = makeRepo({ files: { 'a/f.ts': 'a1' } });
+  const c1 = git(['rev-parse', 'HEAD']);
+  git(['checkout', '-q', '-b', 'side']);
+  writeFileSync(join(root, 'side.ts'), 's');
+  git(['add', '-A']);
+  git(['commit', '-q', '-m', 'side']);
+  const cSide = git(['rev-parse', 'HEAD']);
+  git(['checkout', '-q', 'main']);
+  const commit = (dir) => {
+    mkdirSync(join(root, dir), { recursive: true });
+    writeFileSync(join(root, dir, 'f.ts'), dir);
+    git(['add', '-A']);
+    git(['commit', '-q', '-m', dir]);
+    return git(['rev-parse', 'HEAD']);
+  };
+  const c2 = commit('b');
+  commit('c');
+  const c4 = commit('d');
+
+  const w = join(root, 'docs', 'wiki');
+  mkdirSync(w, { recursive: true });
+  writeFileSync(join(w, 'index.md'), '# i\n');
+  writeFileSync(join(w, 'a.md'), page('A', ['a/**'], c1));
+  writeFileSync(join(w, 'b.md'), page('B', ['b/**'], c1));
+  writeFileSync(join(w, 'c.md'), page('C', ['c/**'], c2));
+  writeFileSync(join(w, 'd.md'), page('D', ['d/**'], c4));
+  writeFileSync(join(w, 'side.md'), page('Side', ['b/**'], cSide));
+
+  const r = stale(root, { config: DEFAULTS });
+  const by = Object.fromEntries(r.pages.map((p) => [p.rel.replace('docs/wiki/', ''), p]));
+  assert.equal(by['a.md'].status, 'fresh');
+  assert.equal(by['b.md'].status, 'stale');
+  assert.deepEqual(by['b.md'].changed, ['b/f.ts']);
+  assert.equal(by['c.md'].status, 'stale');
+  assert.deepEqual(by['c.md'].changed, ['c/f.ts']);
+  assert.equal(by['d.md'].status, 'fresh');
+  assert.equal(by['side.md'].status, 'stale');
+  assert.deepEqual(by['side.md'].changed, ['b/f.ts']);
+  assert.deepEqual(r.counts, { fresh: 2, stale: 3, dirty: 0, unverifiable: 0, invalid: 0 });
+});
+
 test('no wiki and no git are reported, not thrown', () => {
   const none = stale(tmpDir(), { config: DEFAULTS });
   assert.equal(none.exists, false);

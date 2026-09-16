@@ -48,6 +48,39 @@ test('changedSince, dirtyFiles, trackedFiles, log', () => {
   assert.deepEqual(log[1].files.sort(), ['a.txt', 'src/b.ts']);
 });
 
+test('mergeBase and logTopo describe the range between a common base and HEAD', () => {
+  const { root, git } = makeRepo({ files: { 'a.txt': 'a\n' } });
+  const first = g.head(root);
+  git(['checkout', '-q', '-b', 'side']);
+  writeFileSync(join(root, 'side.txt'), 's\n');
+  git(['add', '-A']);
+  git(['commit', '-q', '-m', 'side']);
+  const side = g.head(root);
+  git(['checkout', '-q', 'main']);
+  writeFileSync(join(root, 'b.txt'), 'b\n');
+  git(['add', '-A']);
+  git(['commit', '-q', '-m', 'b']);
+  const second = g.head(root);
+
+  assert.equal(g.mergeBase(root, [first, side, second]), first);
+  assert.equal(g.mergeBase(root, [first, 'deadbeef']), null);
+  assert.equal(g.mergeBase(root, []), null);
+
+  const linear = g.logTopo(root, `${first}..HEAD`);
+  assert.deepEqual(linear.map((c) => c.sha), [second]);
+  assert.deepEqual(linear[0].files, ['b.txt']);
+  assert.deepEqual(linear[0].parents, [first]);
+
+  git(['merge', '-q', '--no-ff', '-m', 'merge', 'side']);
+  const merged = g.head(root);
+  const branchy = g.logTopo(root, `${first}..HEAD`);
+  assert.equal(branchy[0].sha, merged);
+  assert.equal(branchy[0].parents.length, 2);
+  assert.deepEqual(branchy.map((c) => c.sha).sort(), [merged, second, side].sort());
+  assert.deepEqual(g.logTopo(root, `${first}..HEAD`, { n: 1 }).map((c) => c.sha), [merged]);
+  assert.deepEqual(g.logTopo(tmpDir(), 'a..b'), []);
+});
+
 test('git() reports failure without throwing', () => {
   const r = g.git(['rev-parse', 'HEAD'], { cwd: tmpDir() });
   assert.equal(r.ok, false);

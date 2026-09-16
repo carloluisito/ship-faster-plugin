@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { readStdinJson } from './lib/cli.mjs';
 import { loadConfig } from './lib/config.mjs';
 import * as git from './lib/git.mjs';
-import { normalizePath } from './lib/glob.mjs';
+import { resolveRootCached } from './lib/root.mjs';
 import { projectDir, readJson } from './lib/state.mjs';
 import { listPages } from './lib/wiki.mjs';
 import { findPlan } from './plan.mjs';
@@ -16,7 +16,7 @@ async function main() {
   if (!input) return;
   const cwd = typeof input.cwd === 'string' && existsSync(input.cwd) ? input.cwd : process.cwd();
   const source = typeof input.source === 'string' ? input.source : 'startup';
-  const root = git.repoRoot(cwd) || normalizePath(cwd);
+  const root = resolveRootCached(cwd);
   const { config } = loadConfig(root);
   const lines = [];
   const pages = listPages(root, config);
