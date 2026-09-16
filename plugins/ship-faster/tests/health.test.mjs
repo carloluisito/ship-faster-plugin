@@ -73,3 +73,21 @@ test('record writes health.json with lastRun and counts; the CLI runs scan and r
   assert.equal(JSON.parse(readFileSync(join(projectDir(root), 'health.json'), 'utf8')).counts.findings, 5);
   assert.equal(runScript('health', ['--root', root, '--json']).json.ok, false);
 });
+
+test('skip markers need word boundaries, TODO markers need a comment prefix, and blame ignores whitespace', () => {
+  const { root, git } = makeRepo({});
+  mkdirSync(join(root, 'src'), { recursive: true });
+  mkdirSync(join(root, 'tests'), { recursive: true });
+  mkdirSync(join(root, 'docs'), { recursive: true });
+  writeFileSync(join(root, 'tests', 'run.js'), 'process.exit(1);\ncontext.Skip();\nxit("later", () => {});\n');
+  writeFileSync(join(root, 'docs', 'notes.md'), 'The health scan looks for TODO, FIXME, HACK markers.\n');
+  writeFileSync(join(root, 'src', 'old.js'), '// TODO: remove\nconst a = 1;\n');
+  git(['add', 'tests/run.js', 'docs/notes.md', 'src/old.js']);
+  commitAt(root, OLD, 'chore: old');
+  writeFileSync(join(root, 'src', 'old.js'), '    // TODO: remove\nconst a = 1;\n');
+  git(['add', 'src/old.js']);
+  git(['commit', '-q', '-m', 'style: reindent']);
+  const r = scanHealth(root, { config: DEFAULTS });
+  assert.deepEqual(r.skippedTests, [{ path: 'tests/run.js', line: 3, marker: 'xit(' }]);
+  assert.deepEqual(r.todos.map((t) => [t.path, t.line]), [['src/old.js', 1]]);
+});

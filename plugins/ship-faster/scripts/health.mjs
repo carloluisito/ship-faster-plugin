@@ -11,8 +11,12 @@ import { lint } from './lint.mjs';
 import { stalePlans } from './plan.mjs';
 import { stale } from './stale.mjs';
 
-const MARKER = /\b(TODO|FIXME|HACK)\b/;
-const SKIP_MARKERS = ['.skip(', 'xit(', 'xdescribe(', 'test.todo(', '@pytest.mark.skip', '@unittest.skip', '[Ignore]', '[Fact(Skip', 't.Skip(', '#[ignore]', '@Disabled', '@Ignore'];
+const MARKER = /(?:\/\/|#|\/\*|\*|<!--|--|;)\s*(TODO|FIXME|HACK)\b/;
+const SKIP_MARKERS = [
+  [/\.skip\(/, '.skip('], [/\bxit\(/, 'xit('], [/\bxdescribe\(/, 'xdescribe('], [/\btest\.todo\(/, 'test.todo('],
+  [/@pytest\.mark\.skip/, '@pytest.mark.skip'], [/@unittest\.skip/, '@unittest.skip'], [/\[Ignore\]/, '[Ignore]'], [/\[Fact\(Skip/, '[Fact(Skip'],
+  [/\bt\.Skip\(/, 't.Skip('], [/#\[ignore\]/, '#[ignore]'], [/@Disabled\b/, '@Disabled'], [/@Ignore\b/, '@Ignore'],
+];
 const TEXT_MAX_BYTES = 512 * 1024;
 const MAX_MARKERS = 60;
 const DAY = 86400_000;
@@ -24,7 +28,7 @@ function isTextFile(buf) {
 }
 
 function blameAge(root, path, line, now) {
-  const r = git.git(['blame', '-L', `${line},${line}`, '--porcelain', '--', path], { cwd: root, timeoutMs: 3000 });
+  const r = git.git(['blame', '-w', '-L', `${line},${line}`, '--porcelain', '--', path], { cwd: root, timeoutMs: 3000 });
   if (!r.ok) return null;
   const m = /^author-time (\d+)$/m.exec(r.stdout);
   return m ? Math.floor((now - Number(m[1]) * 1000) / DAY) : null;
@@ -53,7 +57,7 @@ export function scanHealth(root, { config, todoAgeDays = 90, largeBytes = 1024 *
     try { buf = readFileSync(join(root, rel)); } catch { continue; }
     if (!isTextFile(buf)) continue;
     const lines = buf.toString('utf8').split(/\r?\n/);
-    const isTest = /(^|\/)(tests?|__tests__|spec)\//.test(rel) || /\.(test|spec)\.\w+$/.test(rel) || /_test\.\w+$/.test(rel) || /Tests?\.\w+$/.test(rel);
+    const isTest = /(^|\/)(tests?|__tests__|spec)\//.test(rel) || /\.(test|spec)\.\w+$/.test(rel) || /_test\.\w+$/.test(rel) || /Tests?\.\w+$/.test(rel) || /(^|\/)test_[^/]+\.py$/.test(rel);
     lines.forEach((text, i) => {
       const m = MARKER.exec(text);
       if (m && markersSeen < MAX_MARKERS) {
@@ -62,8 +66,8 @@ export function scanHealth(root, { config, todoAgeDays = 90, largeBytes = 1024 *
         if (ageDays !== null && ageDays >= todoAgeDays) todos.push({ path: rel, line: i + 1, tag: m[1], text: text.trim().slice(0, 120), ageDays });
       }
       if (isTest) {
-        const marker = SKIP_MARKERS.find((s) => text.includes(s));
-        if (marker) skippedTests.push({ path: rel, line: i + 1, marker });
+        const hit = SKIP_MARKERS.find(([re]) => re.test(text));
+        if (hit) skippedTests.push({ path: rel, line: i + 1, marker: hit[1] });
       }
     });
   }
