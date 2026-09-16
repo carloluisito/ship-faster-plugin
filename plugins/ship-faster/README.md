@@ -52,7 +52,7 @@ A page is stale when a covered file changed in a commit that did not also touch 
 
 Every hook exits 0 on every error path and prints nothing when it has nothing to say. A deny from the guard names the alternative and the config key that overrides it.
 
-Projected token cost: see the sentence added in Task 14.
+Projected token cost, from `claude plugin details ship-faster`: about 640 tokens added to every session for the skill and agent listing (lesson 200, sync-docs 160, repo-analyst 120, doc-verifier 100, onboard 70); hooks add none. A skill costs its own body only when it fires (onboard about 2.8k, lesson 1.9k, sync-docs 1.4k). The release checklist refreshes these numbers.
 
 ## Configuration
 
