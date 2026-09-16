@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { SCRIPTS } from './helpers.mjs';
@@ -39,6 +39,23 @@ test('readStdinJson returns parsed input, and null for garbage or nothing', () =
   assert.equal(run('{"a":1}'), '{"a":1}');
   assert.equal(run('not json'), 'null');
   assert.equal(run(''), 'null');
+});
+
+test('readStdinJson lets the process exit when the stdin pipe is never closed', async () => {
+  const mod = pathToFileURL(join(SCRIPTS, 'lib', 'cli.mjs')).href;
+  const script = `import { readStdinJson } from '${mod}'; const v = await readStdinJson(300); console.log(JSON.stringify(v));`;
+  const child = spawn(process.execPath, ['--input-type=module', '-e', script], { stdio: ['pipe', 'pipe', 'pipe'] });
+  child.stdin.on('error', () => {});
+  let out = '';
+  child.stdout.setEncoding('utf8');
+  child.stdout.on('data', (c) => { out += c; });
+  const killer = setTimeout(() => child.kill('SIGKILL'), 3000);
+  const { code, signal } = await new Promise((resolve) => child.on('exit', (c, s) => resolve({ code: c, signal: s })));
+  clearTimeout(killer);
+  child.stdin.destroy();
+  assert.equal(signal, null, 'child had to be killed: an open stdin kept it alive');
+  assert.equal(code, 0);
+  assert.equal(out.trim(), 'null');
 });
 
 function capture(fn) {

@@ -28,7 +28,18 @@ export function readStdinJson(timeoutMs = 1500) {
   return new Promise((resolve) => {
     let data = '';
     let done = false;
-    const finish = (value) => { if (!done) { done = true; clearTimeout(timer); resolve(value); } };
+    const finish = (value) => {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      // An stdin pipe nobody closes keeps the event loop alive; release it or the hook never exits.
+      try {
+        process.stdin.pause();
+        process.stdin.removeAllListeners();
+        if (typeof process.stdin.unref === 'function') process.stdin.unref();
+      } catch {}
+      resolve(value);
+    };
     const timer = setTimeout(() => finish(safeParse(data)), timeoutMs);
     process.stdin.setEncoding('utf8');
     process.stdin.on('data', (c) => { data += c; });
