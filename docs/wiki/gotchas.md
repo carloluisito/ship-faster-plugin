@@ -3,7 +3,7 @@ title: Gotchas
 summary: Hook stdin hangs, Windows renames, BOM shebangs, long-history staleness, tag pushes, and test state leaks, with evidence.
 read_when: Something behaves in a way the code does not explain, or before touching the areas listed in covers.
 covers: [plugins/ship-faster/scripts/lib/cli.mjs, plugins/ship-faster/scripts/lib/state.mjs, plugins/ship-faster/evals/*/scaffold.sh, plugins/ship-faster/scripts/stale.mjs, plugins/ship-faster/scripts/hook-ship-guard.mjs, plugins/ship-faster/tests/run.mjs]
-verified: 7c2c6ba2f70b6f4b5563c9541b80449ff0fb7af6
+verified: adff26e938d9b6784cf24b932eb5259856a1951e
 updated: 2026-09-16
 ---
 # Gotchas

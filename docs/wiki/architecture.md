@@ -3,7 +3,7 @@ title: Architecture
 summary: Skills call deterministic Node scripts and agents; hooks track which wiki pages edits touch and guard risky git commands.
 read_when: You are changing how components interact, adding a component, or need the reason behind a structural decision.
 covers: [plugins/ship-faster/scripts/**, plugins/ship-faster/hooks/hooks.json, plugins/ship-faster/agents/**, plugins/ship-faster/skills/**]
-verified: 7c2c6ba2f70b6f4b5563c9541b80449ff0fb7af6
+verified: adff26e938d9b6784cf24b932eb5259856a1951e
 updated: 2026-09-16
 ---
 # Architecture
@@ -44,7 +44,7 @@ Freshness (`stale.mjs`), per page: missing fields or empty covers is `invalid`; 
 - Scripts and hooks import from `scripts/lib/`; `lib/` modules import only each other and Node built-ins.
 - Every CLI script, and `hook-ship-guard.mjs`, runs its CLI only when `process.argv[1]` ends with its own path, so it can be imported (`hook-session-start.mjs` imports `stale.mjs` and `plan.mjs`; `health.mjs` imports `lint.mjs`, `plan.mjs`, and `stale.mjs`; `checks.mjs` imports `detect.mjs`; `lint.mjs` imports `index.mjs`). The other four hooks call `main()` on load and are never imported.
 - Every git process is spawned by `git()` in `lib/git.mjs`, with `-c core.quotepath=false` and a timeout (2000 ms by default).
-- Plugin state goes only under the data directory, located through `lib/state.mjs`. Scripts write into the target repository only the generated files, `CHANGELOG.md` (`changelog.mjs insert`), and version files (`version.mjs bump`).
+- Plugin state goes only under the data directory, located through `lib/state.mjs`. Scripts write into the target repository only the generated files, a changelog file (`changelog.mjs insert`, `CHANGELOG.md` by default or a `--file` path), and version files (`version.mjs bump`).
 - `repo-analyst`, `doc-verifier`, and `rules-reviewer` cannot write files or run commands; `check-runner` and `health-auditor` run commands but never edit files.
 
 ## Decisions
