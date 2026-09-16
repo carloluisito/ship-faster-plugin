@@ -83,6 +83,7 @@ node scripts/index.mjs         regenerate docs/wiki/index.md (--check to only co
 node scripts/lint.mjs          budgets, links, covers, checks shape, secrets
 node scripts/checks.mjs        resolve | run the repository's checks
 node scripts/plan.mjs          find --branch | stale | set-status
+node scripts/page.mjs          verify <page>... | touch <page>...: stamp verified (HEAD) and updated (today) on wiki pages
 ```
 
 ## Development
