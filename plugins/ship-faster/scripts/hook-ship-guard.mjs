@@ -1,0 +1,114 @@
+import { statSync } from 'node:fs';
+import { join } from 'node:path';
+import { readStdinJson } from './lib/cli.mjs';
+import { loadConfig } from './lib/config.mjs';
+import * as gitLib from './lib/git.mjs';
+import { normalizePath } from './lib/glob.mjs';
+import { splitSegments, tokenize } from './lib/shell.mjs';
+
+const RISKY = [/(^|\/)\.env(\..*)?$/, /\.(pem|key|p12|pfx)$/i, /credential/i, /secret/i, /(^|\/)node_modules\//, /(^|\/)(dist|build)\//, /\.log$/];
+const OVERRIDE = (rule) => ` Override: guard.${rule} in .claude/ship-faster.json.`;
+
+const defaultGitApi = {
+  currentBranch: (root) => gitLib.currentBranch(root),
+  defaultBranch: (root) => gitLib.defaultBranch(root),
+  isTag: (root, name) => gitLib.git(['show-ref', '--verify', '--quiet', `refs/tags/${name}`], { cwd: root }).ok,
+  dirtyFiles: (root) => gitLib.dirtyFiles(root),
+};
+
+function gitInvocation(tokens) {
+  let i = 0;
+  while (i < tokens.length && /^[A-Za-z_][A-Za-z0-9_]*=/.test(tokens[i])) i++;
+  if (tokens[i] !== 'git') return null;
+  i++;
+  while (i < tokens.length && tokens[i].startsWith('-')) {
+    if (tokens[i] === '-C' || tokens[i] === '-c') i += 2;
+    else i += 1;
+  }
+  return { sub: tokens[i], args: tokens.slice(i + 1) };
+}
+
+const shortHas = (tok, letter) => /^-[A-Za-z]+$/.test(tok) && tok.includes(letter);
+
+function checkPush(args, ctx) {
+  if (args.includes('-n') || args.includes('--dry-run')) return null;
+  if (args.includes('--tags')) return null;
+  let force = args.some((a) => a === '-f' || a === '--force' || a.startsWith('--force-with-lease') || a === '--force-if-includes' || shortHas(a, 'f'));
+  const positional = args.filter((a) => !a.startsWith('-'));
+  const refspecs = positional.slice(1);
+  let targets;
+  if (refspecs.length) {
+    targets = refspecs.map((r) => {
+      let spec = r;
+      if (spec.startsWith('+')) { force = true; spec = spec.slice(1); }
+      const dst = spec.includes(':') ? spec.split(':')[1] : spec;
+      return dst.replace(/^refs\/heads\//, '');
+    }).filter(Boolean);
+    if (targets.every((t) => ctx.gitApi.isTag(ctx.root, t))) return null;
+  } else {
+    const cur = ctx.gitApi.currentBranch(ctx.root);
+    if (!cur) return null;
+    targets = [cur];
+  }
+  const protectedSet = new Set(ctx.config.protectedBranches);
+  const def = ctx.gitApi.defaultBranch(ctx.root);
+  if (def) protectedSet.add(def);
+  const hit = targets.find((t) => protectedSet.has(t) && !ctx.gitApi.isTag(ctx.root, t));
+  if (!hit) return null;
+  if (force) return { rule: 'forcePush', reason: `ship-faster guard: force push to protected branch "${hit}" is blocked. Push a feature branch and open a PR with /ship-faster:ship.${OVERRIDE('forcePush')}` };
+  return { rule: 'pushProtected', reason: `ship-faster guard: direct push to protected branch "${hit}" is blocked. Push the feature branch and open a PR with /ship-faster:ship.${OVERRIDE('pushProtected')}` };
+}
+
+function checkAdd(args, ctx) {
+  const flag = args.find((a) => a === '-A' || a === '--all' || a === '.' || a === ':/' || shortHas(a, 'A'));
+  if (!flag) return null;
+  let dirty;
+  try { dirty = ctx.gitApi.dirtyFiles(ctx.root); } catch { return null; }
+  if (!Array.isArray(dirty)) return null;
+  const risky = dirty.map((d) => d.path).filter((p) => RISKY.some((re) => re.test(p)) || isLarge(ctx.root, p));
+  if (!risky.length) return null;
+  const list = risky.slice(0, 5).join(', ') + (risky.length > 5 ? `, +${risky.length - 5} more` : '');
+  return { rule: 'addAll', reason: `ship-faster guard: "git add ${flag}" would stage risky paths (${list}). Stage files by name.${OVERRIDE('addAll')}` };
+}
+
+function isLarge(root, p) {
+  try { return statSync(join(root, p)).size > 5 * 1024 * 1024; } catch { return false; }
+}
+
+export function evaluate(command, { root, config, gitApi = defaultGitApi }) {
+  const ctx = { root, config, gitApi };
+  let best = { decision: null, reason: null, rule: null };
+  const rank = { deny: 2, ask: 1 };
+  for (const segment of splitSegments(command)) {
+    const inv = gitInvocation(tokenize(segment));
+    if (!inv) continue;
+    let finding = null;
+    if (inv.sub === 'push') finding = checkPush(inv.args, ctx);
+    else if (inv.sub === 'commit' && inv.args.some((a) => a === '--no-verify' || a === '-n' || shortHas(a, 'n'))) finding = { rule: 'noVerify' };
+    else if (inv.sub === 'merge' && inv.args.includes('--no-verify')) finding = { rule: 'noVerify' };
+    else if (inv.sub === 'add') finding = checkAdd(inv.args, ctx);
+    if (!finding) continue;
+    if (finding.rule === 'noVerify' && !finding.reason) finding.reason = `ship-faster guard: --no-verify skips the repository's hooks and is blocked. Fix what the hook reports instead.${OVERRIDE('noVerify')}`;
+    const level = config.guard[finding.rule];
+    if (level !== 'deny' && level !== 'ask') continue;
+    if ((rank[level] || 0) > (rank[best.decision] || 0)) best = { decision: level, reason: finding.reason, rule: finding.rule };
+  }
+  return best;
+}
+
+async function main() {
+  const input = await readStdinJson(1000);
+  if (!input || input.tool_name !== 'Bash') return;
+  const command = input.tool_input && input.tool_input.command;
+  if (typeof command !== 'string' || !/\bgit\b/.test(command)) return;
+  const cwd = typeof input.cwd === 'string' ? input.cwd : process.cwd();
+  const root = gitLib.repoRoot(cwd) || normalizePath(cwd);
+  const { config } = loadConfig(root);
+  const result = evaluate(command, { root, config });
+  if (!result.decision) return;
+  process.stdout.write(JSON.stringify({ hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: result.decision, permissionDecisionReason: result.reason } }) + '\n');
+}
+
+if (process.argv[1] && normalizePath(process.argv[1]).endsWith('/scripts/hook-ship-guard.mjs')) {
+  main().catch(() => {}).finally(() => { process.exitCode = 0; });
+}
