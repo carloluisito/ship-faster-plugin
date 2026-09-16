@@ -28,6 +28,11 @@ export function stale(root, { config, session = null, changed = [] } = {}) {
     if (!diffCache.has(sha)) diffCache.set(sha, sha === head ? [] : git.changedSince(root, sha));
     return diffCache.get(sha);
   };
+  const commitExistsCache = new Map();
+  const commitExists = (sha) => {
+    if (!commitExistsCache.has(sha)) commitExistsCache.set(sha, sha === head ? true : git.commitExists(root, sha));
+    return commitExistsCache.get(sha);
+  };
 
   const pages = wiki.pages.map((p) => {
     const rel = p.rel;
@@ -39,7 +44,7 @@ export function stale(root, { config, session = null, changed = [] } = {}) {
     const covers = data.covers.map(String);
     const verified = String(data.verified);
     if (!isRepo) return { rel, status: 'unverifiable', verified, changed: [], reason: 'not a git repository' };
-    if (verified === 'unverified' || !git.commitExists(root, verified)) return { rel, status: 'unverifiable', verified, changed: [], reason: verified === 'unverified' ? 'never verified' : 'verified commit is not in history' };
+    if (verified === 'unverified' || !commitExists(verified)) return { rel, status: 'unverifiable', verified, changed: [], reason: verified === 'unverified' ? 'never verified' : 'verified commit is not in history' };
     const diff = changedSince(verified);
     if (diff === null) return { rel, status: 'unverifiable', verified, changed: [], reason: 'git diff failed' };
     const matched = filterPaths(covers, diff);

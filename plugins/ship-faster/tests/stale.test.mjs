@@ -52,6 +52,23 @@ test('classifies fresh, stale, dirty, unverifiable, invalid and merges session r
   assert.equal(cli.json.pages.find((p) => p.rel.endsWith('fresh.md')).status, 'dirty');
 });
 
+test('ten pages sharing one verified sha are all classified stale (commitExists memoization does not change results)', () => {
+  const { root, git } = makeRepo({ files: { 'lib/b.ts': 'b' } });
+  const first = git(['rev-parse', 'HEAD']);
+  writeFileSync(join(root, 'lib', 'b.ts'), 'b2');
+  git(['add', '-A']);
+  git(['commit', '-q', '-m', 'change b']);
+  const w = join(root, 'docs', 'wiki');
+  mkdirSync(w, { recursive: true });
+  writeFileSync(join(w, 'index.md'), '# i\n');
+  for (let i = 0; i < 10; i++) writeFileSync(join(w, `page-${i}.md`), page(`Page ${i}`, ['lib/**'], first));
+
+  const r = stale(root, { config: DEFAULTS });
+  assert.equal(r.pages.length, 10);
+  assert.ok(r.pages.every((p) => p.status === 'stale'));
+  assert.deepEqual(r.counts, { fresh: 0, stale: 10, dirty: 0, unverifiable: 0, invalid: 0 });
+});
+
 test('no wiki and no git are reported, not thrown', () => {
   const none = stale(tmpDir(), { config: DEFAULTS });
   assert.equal(none.exists, false);
