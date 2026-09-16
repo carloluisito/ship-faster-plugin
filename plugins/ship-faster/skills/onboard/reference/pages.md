@@ -39,7 +39,7 @@ A page with no verified content is not written. Never pad a page to justify it.
 - Over budget: cut restated code first, then prose; never rules or steps. Split a recipe rather than shortening its steps.
 - Secrets: names only, never values. A line that looks like a credential fails lint.
 
-## Small repository (fewer than 20 tracked files)
+## Small repository (fewer than 20 tracked files and no README)
 Write CLAUDE.md, overview, architecture (from the manifests and the user's paragraph), commands, conventions, and the index. Recipes arrive later through sync-docs.
 
 ## CLAUDE.md managed block
