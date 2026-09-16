@@ -102,3 +102,9 @@ git commit -q -m "feat: farewell"
 cat > src/greet.js <<'EOF'
 export function greet(name) { return `Hello, ${name}!`; }
 EOF
+cat > greet.test.js <<'EOF'
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { greet } from './src/greet.js';
+test('greets', () => { assert.equal(greet('Ada'), 'Hello, Ada!'); });
+EOF
