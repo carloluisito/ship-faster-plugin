@@ -100,6 +100,6 @@ test('insertSectionFile writes to a --file path relative to root, rejects paths 
   assert.match(readFileSync(join(root, 'plugins/demo/CHANGELOG.md'), 'utf8'), /## \[Unreleased\]\n\n## \[1\.1\.0\] - 2026-09-16\n\n### Added\n- Add users endpoint \(abcdef1\)\n/);
   assert.equal(existsSync(join(root, 'CHANGELOG.md')), false);
   assert.equal(insertSectionFile(root, sectionFile, { file: '../x.md' }).ok, false);
-  writeFileSync(sectionFile, '﻿## [1.2.0] - 2026-10-01\n\n### Added\n- BOM safe.\n');
+  writeFileSync(sectionFile, '\uFEFF## [1.2.0] - 2026-10-01\n\n### Added\n- BOM safe.\n');
   assert.equal(insertSectionFile(root, sectionFile).ok, true);
 });

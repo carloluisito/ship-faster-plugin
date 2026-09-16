@@ -106,7 +106,7 @@ export function insertSectionFile(root, sectionFile, { file } = {}) {
   if (normalizePath(target).split('/').includes('..')) return { ok: false, error: '--file must stay inside the repository' };
   let section;
   try { section = readFileSync(sectionFile, 'utf8'); } catch (e) { return { ok: false, error: `cannot read ${sectionFile}: ${e.message}` }; }
-  section = section.replace(/^﻿/, '');
+  section = section.replace(/^\uFEFF/, '');
   const heading = /^## \[([^\]]+)\]/.exec(section);
   if (!heading) return { ok: false, error: 'section must start with "## [version] - date"' };
   const path = join(root, target);
