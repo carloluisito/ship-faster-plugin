@@ -62,7 +62,7 @@ The marketplace manifest sits at the root and the plugin under `plugins/ship-fas
 `docs/wiki/index.md` lists every page.
 
 ## Keeping docs true
-Pages under `docs/wiki/` carry `covers` globs and a `verified` commit; `/ship-faster:sync-docs` refreshes stale pages.
+Pages under `docs/wiki/` carry `covers` globs and a `verified` commit; `/ship-faster:sync-docs` refreshes stale pages and `/ship-faster:ship` runs it before every PR.
 Record non-obvious causes with `/ship-faster:lesson` right after learning them.
 <!-- ship-faster:managed:end -->
 
