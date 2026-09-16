@@ -52,7 +52,7 @@ A page is stale when a covered file changed in a commit that did not also touch 
 
 Every hook exits 0 on every error path and prints nothing when it has nothing to say. A deny from the guard names the alternative and the config key that overrides it.
 
-Projected token cost, from `claude plugin details ship-faster`: about 640 tokens added to every session for the skill and agent listing (lesson 200, sync-docs 160, repo-analyst 120, doc-verifier 100, onboard 70); hooks add none. A skill costs its own body only when it fires (onboard about 2.8k, lesson 1.9k, sync-docs 1.4k). The release checklist refreshes these numbers.
+Projected token cost, from `claude plugin details ship-faster`: about 640 tokens added to every session for the skill and agent listing (lesson 200, sync-docs 160, repo-analyst 120, doc-verifier 100, onboard 70); hooks add none. A skill costs its own body only when it fires (onboard about 2.9k, lesson 1.8k, sync-docs 1.4k). The release checklist refreshes these numbers.
 
 ## Configuration
 
@@ -99,7 +99,7 @@ Every script under `scripts/` runs standalone with `--json`:
 ```
 node scripts/detect.mjs        stacks, CI files, scripts, workspaces, suggested checks, resolved config, data dir (--brief for orientation only)
 node scripts/footprints.mjs    files that change together, from git history
-node scripts/stale.mjs         which wiki pages are stale, dirty, or unverifiable (--since <ref> marks pages in a branch's scope, --session all merges every session record)
+node scripts/stale.mjs         which wiki pages are stale, dirty, or unverifiable (--since <ref> marks pages in a branch's scope, --session all merges every session record; a page committed together with the covered change stays fresh)
 node scripts/index.mjs         regenerate docs/wiki/index.md (--check to only compare)
 node scripts/lint.mjs          budgets, links, covers, checks shape, secrets
 node scripts/checks.mjs        resolve | run the repository's checks
@@ -110,7 +110,7 @@ node scripts/claude-md.mjs     sections | splice --block <file> | backup: read, 
 
 ## Evals
 
-`evals/<skill>/` holds one case per skill: a prompt, a `case.yaml` naming a scaffold script that builds a fixture repository, and graders (deterministic checks plus one rubric a judge model scores). Runs spend real model credit and need a sandbox backend for `Bash`, so they run in CI on Linux, never as a PR gate:
+`evals/<skill>/` holds one case per skill: a prompt, a `case.yaml` naming a scaffold script that builds a fixture repository, and graders (deterministic checks plus one rubric a judge model scores). Runs spend real model credit and need a sandbox backend for `Bash`, so they are run by hand on Linux (a scheduled CI job arrives with the shipping skills), never as a PR gate:
 
 ```
 claude plugin eval plugins/ship-faster --ablation none --runs 1 --scaffold --allow-tools Bash Write Edit --no-publish --trust-plugin --max-cost-usd 20

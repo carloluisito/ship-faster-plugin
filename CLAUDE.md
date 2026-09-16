@@ -72,3 +72,5 @@ Record non-obvious causes with `/ship-faster:lesson` right after learning them.
 - Save every `plugins/ship-faster/evals/*/scaffold.sh` as UTF-8 without a BOM.
 - Exempt a `--tags` push from the protected-branch check only when it names no refspec.
 - In every test file that reaches `lib/state.mjs`, set `CLAUDE_PLUGIN_DATA` to a temp directory in `beforeEach`.
+- Stage files by name; never `git add -A`, `--all`, or `.`.
+- End every commit message with `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>`.

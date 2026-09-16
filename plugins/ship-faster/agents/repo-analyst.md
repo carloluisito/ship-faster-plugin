@@ -28,7 +28,7 @@ The prompt gives you:
 
 ## Limits
 
-- Read at most 40 files. Prefer breadth over depth: headers, exports, configs.
+- Read at most 30 files, several per turn in parallel Read calls; prefer breadth over depth: headers, exports, configs.
 - Stop at 25 facts. Keep the strongest evidence.
 - Do not guess versions, ports, or environment variables you have not seen in a file.
 - Do not run commands and do not infer that a command works; report it as a candidate with its source line.

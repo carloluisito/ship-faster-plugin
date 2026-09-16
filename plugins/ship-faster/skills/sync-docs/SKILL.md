@@ -24,7 +24,7 @@ Scope defaults to `all`.
 |---|---|---|
 | `all` | `node "${CLAUDE_PLUGIN_ROOT}/scripts/stale.mjs" --session all --json` | every page with `inScope: true` |
 | `diff` | `node "${CLAUDE_PLUGIN_ROOT}/scripts/stale.mjs" --session all --since <base> --json` | every page with `inScope: true` |
-| `session` | `node "${CLAUDE_PLUGIN_ROOT}/scripts/stale.mjs" --session all --json` | pages with status `dirty` |
+| `session` | `node "${CLAUDE_PLUGIN_ROOT}/scripts/stale.mjs" --session all --json` | pages with status `dirty` (uncommitted edits plus every session record of this project from the last seven days) |
 
 If `since.error` is set, or `git.currentBranch` equals `<base>` (on the base branch there is no branch diff; committed changes there need the `all` rule), say so and use the `all` rule. Nothing to act on and `uncovered` empty: report "all pages fresh" with the counts and stop.
 

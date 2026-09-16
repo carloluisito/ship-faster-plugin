@@ -107,7 +107,7 @@ export function loadAllSessions(root) {
     if (!rec || typeof rec !== 'object' || !rec.pages || typeof rec.pages !== 'object') continue;
     for (const [rel, entry] of Object.entries(rec.pages)) {
       const cur = merged.pages[rel] || { files: [], reported: false };
-      for (const f of (entry && entry.files) || []) if (!cur.files.includes(f) && cur.files.length < 200) cur.files.push(f);
+      for (const f of Array.isArray(entry && entry.files) ? entry.files : []) if (!cur.files.includes(f) && cur.files.length < 200) cur.files.push(f);
       cur.reported = cur.reported || Boolean(entry && entry.reported);
       merged.pages[rel] = cur;
     }

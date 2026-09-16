@@ -139,3 +139,16 @@ test('sections ignores headings inside ~~~ fences too', () => {
   const s = sections('# T\n\n~~~\n## not a heading\n~~~\n\n## Real\n');
   assert.deepEqual(s.sections.map((x) => x.heading), ['Real']);
 });
+
+test('spliceFile keeps CRLF line endings and hand-written text byte for byte', () => {
+  const { root } = makeRepo({ files: { 'a.txt': '' } });
+  const rules = '## Rules\r\n- keep me.\r\n\r\n\r\n- and me.\r\n';
+  const existing = `# Acme\r\n\r\n${START}\r\nold\r\n${END}\r\n\r\n${rules}`;
+  writeFileSync(join(root, 'CLAUDE.md'), existing);
+  const r = spliceFile(root, '## What this is\nNew.\n', { config: DEFAULTS });
+  assert.equal(r.ok, true);
+  const out = readFileSync(join(root, 'CLAUDE.md'), 'utf8');
+  assert.ok(!/(?<!\r)\n/.test(out), 'every newline is CRLF');
+  assert.ok(out.endsWith(rules), out);
+  assert.ok(out.includes('New.\r\n'));
+});

@@ -86,6 +86,7 @@ export function spliceFile(root, block, { config, projectName, force = false, dr
   config = config || loadConfig(root).config;
   const file = join(root, 'CLAUDE.md');
   const existing = existsSync(file) ? readFileSync(file, 'utf8') : null;
+  const crlf = existing !== null && /\r\n/.test(existing) && (existing.match(/\r\n/g) || []).length >= (existing.match(/(?<!\r)\n/g) || []).length;
   const name = projectName || (existing !== null && sections(existing).title) || basename(normalizePath(root).replace(/\/+$/, '')) || 'Project';
   const r = splice(existing, block, { projectName: name });
   if (r.error) return { ok: false, error: r.error, path: 'CLAUDE.md', created: false, replaced: false, written: false, warnings: [] };
@@ -94,9 +95,9 @@ export function spliceFile(root, block, { config, projectName, force = false, dr
   if (r.lines > config.claudeMdMaxLines) warnings.push(`CLAUDE.md would be ${r.lines} lines, limit ${config.claudeMdMaxLines}`);
   const base = { path: 'CLAUDE.md', created: existing === null, replaced: r.replaced, lines: r.lines, managedLines: r.managedLines, warnings };
   if (warnings.length && !force) return { ok: false, error: warnings.join('; '), ...base, written: false };
-  if (!dryRun) writeFileSync(file, r.content);
+  if (!dryRun) writeFileSync(file, crlf ? r.content.replace(/\n/g, '\r\n') : r.content);
   const verb = dryRun ? 'would write' : 'wrote';
-  return { ok: true, ...base, written: !dryRun, content: dryRun ? r.content : undefined, summary: [`${verb} CLAUDE.md: ${r.lines} lines, managed block ${r.managedLines} lines${r.replaced ? ' (replaced)' : existing === null ? ' (created)' : ' (inserted)'}`, ...warnings] };
+  return { ok: true, ...base, written: !dryRun, content: dryRun ? (crlf ? r.content.replace(/\n/g, '\r\n') : r.content) : undefined, summary: [`${verb} CLAUDE.md: ${r.lines} lines, managed block ${r.managedLines} lines${r.replaced ? ' (replaced)' : existing === null ? ' (created)' : ' (inserted)'}`, ...warnings] };
 }
 
 export function backupClaudeMd(root) {

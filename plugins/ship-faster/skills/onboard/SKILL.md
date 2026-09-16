@@ -54,7 +54,7 @@ Keep `clusters` and `hotspots`. A cluster with a clear task shape (its keywords 
 
 Read `${CLAUDE_SKILL_DIR}/reference/areas.md`. Launch one `ship-faster:repo-analyst` agent per area, all in a single message so they run in parallel. Each prompt contains `area: <name>`, `brief: <the row's brief>`, `detect:` followed by the full detect JSON, and `footprints:` followed by the footprints JSON. When `git.sizeClass` is `large`, also launch one analyst per entry of `topDirs` with more than 50 files, brief "architecture and data flow of <dir> only".
 
-Parse the JSON block each analyst returns. Drop any fact whose evidence path does not exist (check with Glob). Keep the `openQuestions` for the report.
+Parse the JSON block each analyst returns; an analyst that returns no JSON block, or one that does not parse, becomes an open question for the report, and you continue with the rest. Drop any fact whose evidence path does not exist (check with Glob). Keep the `openQuestions` for the report.
 
 ## 5. Verify commands
 

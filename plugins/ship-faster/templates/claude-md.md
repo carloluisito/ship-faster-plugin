@@ -34,7 +34,7 @@
 `{{wiki_dir}}/index.md` lists every page.
 
 ## Keeping docs true
-Pages under `{{wiki_dir}}/` carry `covers` globs and a `verified` commit; `/ship-faster:sync-docs` refreshes stale pages and `/ship-faster:ship` runs it before every PR.
+Pages under `{{wiki_dir}}/` carry `covers` globs and a `verified` commit; `/ship-faster:sync-docs` refreshes stale pages.
 Record non-obvious causes with `/ship-faster:lesson` right after learning them.
 <!-- ship-faster:managed:end -->
 

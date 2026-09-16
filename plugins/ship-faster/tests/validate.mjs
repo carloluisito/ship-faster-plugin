@@ -127,6 +127,12 @@ function validateSkills(pluginDir, errors, warnings, refs) {
       if (/!`/.test(line) && !/\|\| true`\s*$/.test(line)) errors.push(`${label}: preprocessing line must end in || true: ${line.trim()}`);
     }
     checkReferences(pluginDir, skillDir, text, label, errors, refs);
+    const refDir = join(skillDir, 'reference');
+    if (existsSync(refDir)) {
+      for (const rf of readdirSync(refDir).filter((f) => f.endsWith('.md'))) {
+        checkReferences(pluginDir, skillDir, readFileSync(join(refDir, rf), 'utf8'), `${label}/reference/${rf}`, errors, refs);
+      }
+    }
     for (const link of text.matchAll(/\]\((?!https?:)([^)#]+)\)/g)) {
       if (link[1].includes('${')) continue;
       if (!existsSync(resolve(skillDir, link[1]))) warnings.push(`${label}: link target missing: ${link[1]}`);
