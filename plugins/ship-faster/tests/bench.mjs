@@ -7,12 +7,13 @@ import { serializeFrontmatter } from '../scripts/lib/fm.mjs';
 process.env.CLAUDE_PLUGIN_DATA = tmpDir('sf-bench-data-');
 const files = {};
 for (let i = 0; i < 40; i++) files[`src/mod${i}/index.ts`] = `${i}`;
-const { root } = makeRepo({ files });
+const { root, git } = makeRepo({ files });
+const head = git(['rev-parse', 'HEAD']);
 const w = join(root, 'docs', 'wiki');
 mkdirSync(w, { recursive: true });
 writeFileSync(join(w, 'index.md'), '# i\n');
 for (let i = 0; i < 30; i++) {
-  writeFileSync(join(w, `page-${String(i).padStart(2, '0')}.md`), serializeFrontmatter({ title: `Page ${i}`, summary: 's', read_when: 'r', covers: [`src/mod${i}/**`], verified: 'unverified', updated: '2026-09-16' }) + '# p\n');
+  writeFileSync(join(w, `page-${String(i).padStart(2, '0')}.md`), serializeFrontmatter({ title: `Page ${i}`, summary: 's', read_when: 'r', covers: [`src/mod${i}/**`], verified: head, updated: '2026-09-16' }) + '# p\n');
 }
 
 function run(script, input) {

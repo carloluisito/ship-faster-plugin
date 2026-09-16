@@ -4,7 +4,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { makeRepo, runScript, tmpDir, cleanupAll } from './helpers.mjs';
 import { DEFAULTS } from '../scripts/lib/config.mjs';
-import { evaluate } from '../scripts/hook-ship-guard.mjs';
+import { evaluate, needsEvaluation } from '../scripts/hook-ship-guard.mjs';
 
 after(cleanupAll);
 beforeEach(() => { process.env.CLAUDE_PLUGIN_DATA = tmpDir('sf-data-'); });
@@ -108,6 +108,19 @@ test('env and sudo -g are detected regardless of prefix order', () => {
   assert.equal(ev('env GIT_TRACE=1 git push origin main').rule, 'pushProtected');
   assert.equal(ev('sudo -g wheel git push origin main').rule, 'pushProtected');
   assert.equal(ev('echo git push origin main').decision, null);
+});
+
+test('needsEvaluation is true only for push, add, commit, or merge invocations', () => {
+  assert.equal(needsEvaluation('git status'), false);
+  assert.equal(needsEvaluation('git log --oneline'), false);
+  assert.equal(needsEvaluation('npm test'), false);
+  assert.equal(needsEvaluation('echo git push'), false);
+  assert.equal(needsEvaluation('git push origin main'), true);
+  assert.equal(needsEvaluation('git add -A'), true);
+  assert.equal(needsEvaluation('git commit -n -m x'), true);
+  assert.equal(needsEvaluation('git merge --no-verify x'), true);
+  assert.equal(needsEvaluation('time git push origin main'), true);
+  assert.equal(needsEvaluation('echo "$(git push origin main)"'), true);
 });
 
 test('hook process: real repo, json output shape, silence for other tools and bad input', () => {

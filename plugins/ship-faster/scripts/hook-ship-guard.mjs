@@ -4,6 +4,7 @@ import { readStdinJson } from './lib/cli.mjs';
 import { loadConfig } from './lib/config.mjs';
 import * as gitLib from './lib/git.mjs';
 import { normalizePath } from './lib/glob.mjs';
+import { resolveRootCached } from './lib/root.mjs';
 import { splitSegments, tokenize } from './lib/shell.mjs';
 
 const RISKY = [/(^|\/)\.env(\..*)?$/, /\.(pem|key|p12|pfx)$/i, /credential/i, /secret/i, /(^|\/)node_modules\//, /(^|\/)(dist|build)\//, /\.log$/];
@@ -115,6 +116,16 @@ function isLarge(root, p) {
   try { return statSync(join(root, p)).size > 5 * 1024 * 1024; } catch { return false; }
 }
 
+const EVAL_SUBCOMMANDS = new Set(['push', 'add', 'commit', 'merge']);
+
+export function needsEvaluation(command) {
+  for (const segment of splitSegments(command)) {
+    const inv = gitInvocation(tokenize(segment));
+    if (inv && EVAL_SUBCOMMANDS.has(inv.sub)) return true;
+  }
+  return false;
+}
+
 export function evaluate(command, { root, config, gitApi = defaultGitApi }) {
   const ctx = { root, config, gitApi };
   let best = { decision: null, reason: null, rule: null };
@@ -140,9 +151,9 @@ async function main() {
   const input = await readStdinJson(1000);
   if (!input || input.tool_name !== 'Bash') return;
   const command = input.tool_input && input.tool_input.command;
-  if (typeof command !== 'string' || !/\bgit\b/.test(command)) return;
+  if (typeof command !== 'string' || !needsEvaluation(command)) return;
   const cwd = typeof input.cwd === 'string' ? input.cwd : process.cwd();
-  const root = gitLib.repoRoot(cwd) || normalizePath(cwd);
+  const root = resolveRootCached(cwd);
   const { config } = loadConfig(root);
   const result = evaluate(command, { root, config });
   if (!result.decision) return;
