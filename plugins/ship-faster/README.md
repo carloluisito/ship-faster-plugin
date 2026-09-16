@@ -62,7 +62,7 @@ A page is stale when a covered file changed in a commit that did not also touch 
 
 Every hook exits 0 on every error path and prints nothing when it has nothing to say. A deny from the guard names the alternative and the config key that overrides it.
 
-Projected token cost, from `claude plugin details ship-faster`: about 1,600 tokens added to every session for the skill and agent listing; hooks add none. The release checklist refreshes this number.
+Projected token cost, from `claude plugin details ship-faster`: about 1,600 tokens added to every session for the skill and agent listing; hooks add none. Re-measure it with that command at each release.
 
 ## Failure behaviour
 

@@ -33,11 +33,11 @@ Append `--continue` only when the arguments contain it. Without it the script st
 
 ## 3. Diagnose
 
-For the first check whose status is not `pass`: read its `tail`; when the tail does not name the cause and `log` is not null, Read the last 200 lines of the log. State the failing check, its exit code, the output line that names the cause, and the smallest plausible fix, marked as a guess when it is one. Five sentences at most.
+For the first check whose status is not `pass`: read its `tail`; when the tail does not name the cause and `log` is not null, Read the log file (the check's full output) and find the first line that names an error. State the failing check, its exit code, the output line that names the cause, and the smallest plausible fix, marked as a guess when it is one. Five sentences at most.
 
 ## 4. Report
 
-Print exactly this shape and nothing after it:
+Print exactly this shape and nothing after it (PASS when the run's `passed` is true, FAIL otherwise):
 
 ```
 Preflight: PASS|FAIL (source: <source>, <n> checks, <total>s)
