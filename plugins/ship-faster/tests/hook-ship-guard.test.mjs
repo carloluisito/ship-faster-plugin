@@ -59,6 +59,40 @@ test('no-verify and add rules, quoting, chaining, and config levels', () => {
   assert.equal(ev('git push origin main && git commit -n -m x', {}, ask).decision, 'deny');
 });
 
+test('wrapper prefixes and value-consuming push options do not defeat detection', () => {
+  assert.equal(ev('time git push origin main').rule, 'pushProtected');
+  assert.equal(ev('sudo -u root git push origin main').rule, 'pushProtected');
+  assert.equal(ev('echo git push origin main').decision, null);
+  assert.equal(ev('git push -o ci.skip origin', { currentBranch: () => 'main' }).rule, 'pushProtected');
+  assert.equal(ev('git push -o ci.skip origin feat/x').decision, null);
+  assert.equal(ev('git push origin HEAD', { currentBranch: () => 'main' }).rule, 'pushProtected');
+});
+
+test('command substitution inside quotes is still parsed as a git invocation', () => {
+  assert.equal(ev('echo "$(git push origin main)"').rule, 'pushProtected');
+});
+
+test('git add --dry-run is never denied', () => {
+  const risky = { dirtyFiles: () => [{ path: '.env', status: '??' }] };
+  assert.equal(ev('git add -A -n', risky).decision, null);
+  assert.equal(ev('git add -A', risky).rule, 'addAll');
+});
+
+test('an allow level makes no git calls, and isTag is cached per target', () => {
+  const throwing = () => { throw new Error('must not be called'); };
+  const allowAll = { ...DEFAULTS, guard: { forcePush: 'allow', pushProtected: 'allow', noVerify: 'allow', addAll: 'allow' } };
+  const noGit = { currentBranch: throwing, defaultBranch: throwing, isTag: throwing, dirtyFiles: throwing };
+  assert.equal(evaluate('git push origin main', { root: '/r', config: allowAll, gitApi: noGit }).decision, null);
+  assert.equal(evaluate('git add -A', { root: '/r', config: allowAll, gitApi: noGit }).decision, null);
+
+  const mixed = { ...DEFAULTS, guard: { ...DEFAULTS.guard, forcePush: 'allow' } };
+  assert.equal(ev('git push -f origin main', {}, mixed).rule, 'pushProtected');
+
+  let calls = 0;
+  assert.equal(ev('git push origin main', { isTag: () => { calls++; return false; } }).rule, 'pushProtected');
+  assert.equal(calls, 1);
+});
+
 test('hook process: real repo, json output shape, silence for other tools and bad input', () => {
   const { root } = makeRepo({ files: { 'a.txt': '' } });
   writeFileSync(join(root, '.env'), 'SECRET=1');

@@ -13,3 +13,8 @@ test('tokenize strips quotes and honours escapes', () => {
   assert.deepEqual(tokenize("echo 'git push origin main'"), ['echo', 'git push origin main']);
   assert.deepEqual(tokenize('git add file\\ name.txt'), ['git', 'add', 'file name.txt']);
 });
+
+test('splitSegments expands command substitution, including inside double quotes', () => {
+  assert.ok(splitSegments('echo "$(git push origin main)"').includes('git push origin main'));
+  assert.ok(splitSegments('echo `git status` done').includes('git status'));
+});

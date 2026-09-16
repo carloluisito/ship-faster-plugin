@@ -8,6 +8,8 @@ import { splitSegments, tokenize } from './lib/shell.mjs';
 
 const RISKY = [/(^|\/)\.env(\..*)?$/, /\.(pem|key|p12|pfx)$/i, /credential/i, /secret/i, /(^|\/)node_modules\//, /(^|\/)(dist|build)\//, /\.log$/];
 const OVERRIDE = (rule) => ` Override: guard.${rule} in .claude/ship-faster.json.`;
+const WRAPPERS = new Set(['sudo', 'time', 'nice', 'env', 'command', 'exec', 'nohup', 'stdbuf']);
+const VALUE_OPTS = new Set(['-o', '--push-option', '--receive-pack', '--exec', '--repo']);
 
 const defaultGitApi = {
   currentBranch: (root) => gitLib.currentBranch(root),
@@ -19,6 +21,15 @@ const defaultGitApi = {
 function gitInvocation(tokens) {
   let i = 0;
   while (i < tokens.length && /^[A-Za-z_][A-Za-z0-9_]*=/.test(tokens[i])) i++;
+  while (i < tokens.length && WRAPPERS.has(tokens[i])) {
+    const wrapper = tokens[i];
+    i++;
+    while (i < tokens.length && tokens[i].startsWith('-')) {
+      const flag = tokens[i];
+      i++;
+      if ((wrapper === 'sudo' && flag === '-u') || (wrapper === 'nice' && flag === '-n')) i++;
+    }
+  }
   if (tokens[i] !== 'git') return null;
   i++;
   while (i < tokens.length && tokens[i].startsWith('-')) {
@@ -30,21 +41,43 @@ function gitInvocation(tokens) {
 
 const shortHas = (tok, letter) => /^-[A-Za-z]+$/.test(tok) && tok.includes(letter);
 
+function positionalArgs(args) {
+  const out = [];
+  for (let i = 0; i < args.length; i++) {
+    const a = args[i];
+    if (a.startsWith('-')) { if (VALUE_OPTS.has(a)) i++; continue; }
+    out.push(a);
+  }
+  return out;
+}
+
 function checkPush(args, ctx) {
   if (args.includes('-n') || args.includes('--dry-run')) return null;
   if (args.includes('--tags')) return null;
   let force = args.some((a) => a === '-f' || a === '--force' || a.startsWith('--force-with-lease') || a === '--force-if-includes' || shortHas(a, 'f'));
-  const positional = args.filter((a) => !a.startsWith('-'));
+  const positional = positionalArgs(args);
   const refspecs = positional.slice(1);
+  if (refspecs.some((r) => r.startsWith('+'))) force = true;
+
+  const rule = force && ctx.config.guard.forcePush !== 'allow' ? 'forcePush' : 'pushProtected';
+  if (ctx.config.guard[rule] === 'allow') return null;
+
+  const tagCache = new Map();
+  const isTag = (t) => {
+    if (!tagCache.has(t)) tagCache.set(t, ctx.gitApi.isTag(ctx.root, t));
+    return tagCache.get(t);
+  };
+
   let targets;
   if (refspecs.length) {
     targets = refspecs.map((r) => {
-      let spec = r;
-      if (spec.startsWith('+')) { force = true; spec = spec.slice(1); }
-      const dst = spec.includes(':') ? spec.split(':')[1] : spec;
-      return dst.replace(/^refs\/heads\//, '');
+      const spec = r.startsWith('+') ? r.slice(1) : r;
+      let dst = spec.includes(':') ? spec.split(':')[1] : spec;
+      dst = dst.replace(/^refs\/heads\//, '');
+      if (dst === 'HEAD' || dst === '@') dst = ctx.gitApi.currentBranch(ctx.root);
+      return dst;
     }).filter(Boolean);
-    if (targets.every((t) => ctx.gitApi.isTag(ctx.root, t))) return null;
+    if (targets.length && targets.every(isTag)) return null;
   } else {
     const cur = ctx.gitApi.currentBranch(ctx.root);
     if (!cur) return null;
@@ -53,15 +86,17 @@ function checkPush(args, ctx) {
   const protectedSet = new Set(ctx.config.protectedBranches);
   const def = ctx.gitApi.defaultBranch(ctx.root);
   if (def) protectedSet.add(def);
-  const hit = targets.find((t) => protectedSet.has(t) && !ctx.gitApi.isTag(ctx.root, t));
+  const hit = targets.find((t) => protectedSet.has(t) && !isTag(t));
   if (!hit) return null;
-  if (force) return { rule: 'forcePush', reason: `ship-faster guard: force push to protected branch "${hit}" is blocked. Push a feature branch and open a PR with /ship-faster:ship.${OVERRIDE('forcePush')}` };
+  if (rule === 'forcePush') return { rule: 'forcePush', reason: `ship-faster guard: force push to protected branch "${hit}" is blocked. Push a feature branch and open a PR with /ship-faster:ship.${OVERRIDE('forcePush')}` };
   return { rule: 'pushProtected', reason: `ship-faster guard: direct push to protected branch "${hit}" is blocked. Push the feature branch and open a PR with /ship-faster:ship.${OVERRIDE('pushProtected')}` };
 }
 
 function checkAdd(args, ctx) {
+  if (args.includes('-n') || args.includes('--dry-run')) return null;
   const flag = args.find((a) => a === '-A' || a === '--all' || a === '.' || a === ':/' || shortHas(a, 'A'));
   if (!flag) return null;
+  if (ctx.config.guard.addAll === 'allow') return null;
   let dirty;
   try { dirty = ctx.gitApi.dirtyFiles(ctx.root); } catch { return null; }
   if (!Array.isArray(dirty)) return null;
