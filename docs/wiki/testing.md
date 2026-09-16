@@ -3,7 +3,7 @@ title: Testing
 summary: "node:test suites in plugins/ship-faster/tests with real git fixtures, a structure validator, a hook benchmark, and skill evals run in CI."
 read_when: You are adding or fixing a test, need a fixture or mock, or a test cannot run locally.
 covers: [plugins/ship-faster/tests/**, plugins/ship-faster/evals/**, .github/workflows/evals.yml]
-verified: adff26e938d9b6784cf24b932eb5259856a1951e
+verified: 5a02df2ff9fc60e125f40384fd2cb83945d97276
 updated: 2026-09-16
 ---
 # Testing
