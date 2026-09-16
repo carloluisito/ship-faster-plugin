@@ -43,6 +43,8 @@ checks:
   - name: lint
     run: node scripts/lint.js
     timeout: 60
+  - name: after
+    run: node -e 0
 ---
 # Commands
 
