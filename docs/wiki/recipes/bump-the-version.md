@@ -10,7 +10,7 @@ updated: 2026-09-16
 
 ## Steps
 1. On a clean `main`, run `/ship-faster:release <patch|minor|major|x.y.z>`. `version.mjs detect` finds the marketplace entry and `plugins/ship-faster/.claude-plugin/plugin.json` and fails when their versions disagree; `version.mjs bump` sets both.
-2. The skill writes the changelog section from the commits since the last `ship-faster--v*` tag, and `changelog.mjs insert` folds the `[Unreleased]` bullets into it. Note that `changelog.mjs insert` edits `CHANGELOG.md` at the repository root, not `plugins/ship-faster/CHANGELOG.md`; check which file changed before committing.
+2. The skill writes the changelog section from the commits since the last `ship-faster--v*` tag, and `changelog.mjs insert` folds the `[Unreleased]` bullets into it. The skill passes `--file plugins/ship-faster/CHANGELOG.md`, so the plugin's changelog is the one updated; without `--file` the script edits `CHANGELOG.md` at the repository root.
 3. The skill runs preflight, commits `release: v<version>`, and tags `ship-faster--v<version>` with `claude plugin tag plugins/ship-faster` (or `git tag -a` when the `claude` CLI is missing); pushing and the GitHub release wait for your yes.
 4. By hand instead: set `version` in `plugins/ship-faster/.claude-plugin/plugin.json` and the same `version` on the `ship-faster` entry of `plugins` in `.claude-plugin/marketplace.json`, and move the `[Unreleased]` entries of `plugins/ship-faster/CHANGELOG.md` under a heading for the new version.
 

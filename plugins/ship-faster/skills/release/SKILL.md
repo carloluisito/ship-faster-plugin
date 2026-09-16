@@ -3,7 +3,7 @@ name: release
 description: Cut a version from the default branch: bump the version source, write the Keep a Changelog section from the commits since the last tag, run preflight, commit "release: vX.Y.Z", tag it (claude plugin tag in a plugin repository), then publish with a GitHub release after confirmation.
 disable-model-invocation: true
 argument-hint: "<patch|minor|major|x.y.z> [--file <version file>] [--plugin <name>]"
-allowed-tools: Read, Glob, Grep, Write, Edit, Skill, Bash(node *), Bash(git *), Bash(gh *), Bash(claude plugin *), Bash(claude --version)
+allowed-tools: Read, Glob, Grep, Write, Edit, Skill, Agent, Bash(node *), Bash(git *), Bash(gh *), Bash(claude plugin *), Bash(claude --version)
 ---
 
 # Release
@@ -71,21 +71,23 @@ Omit empty groups. Sentences describe what a user sees, not the commit subject; 
 node "${CLAUDE_PLUGIN_ROOT}/scripts/changelog.mjs" insert --section <that file> --json
 ```
 
+For a plugin repository (`source.kind` is `plugin`) append `--file <plugin directory>/CHANGELOG.md` when that file exists, where the plugin directory is the one holding the `plugin.json` from `source.files`; the result's `path` is the changelog file from here on. `ok: false`: print the error and stop.
+
 ## 6. Bump
 
 ```
 node "${CLAUDE_PLUGIN_ROOT}/scripts/version.mjs" bump <argument> --json
 ```
 
-with `--file` or `--plugin` when given. `ok: false`: revert the changelog edit (`git checkout -- CHANGELOG.md`, or delete it when `created` was true) and stop. Note `to`, `files`, `tag`. Never run `npm version`.
+with `--file` or `--plugin` when given. `ok: false`: revert the changelog edit (`git checkout -- <changelog path>`, or delete it when `created` was true) and stop. Note `to`, `files`, `tag`. Never run `npm version`.
 
 ## 7. Preflight
 
-Invoke the `ship-faster:preflight` skill. `Preflight: FAIL`: revert every file from step 5, 6, and 4 (`git checkout -- <files>`; delete a CHANGELOG.md that did not exist before), print the failure, and stop.
+Invoke the `ship-faster:preflight` skill. `Preflight: FAIL`: revert every file from step 5, 6, and 4 (`git checkout -- <files>`; delete a <changelog path> that did not exist before), print the failure, and stop.
 
 ## 8. Commit and tag
 
-Stage by name: the version `files`, `CHANGELOG.md`, and every wiki file step 4 changed (`git status --porcelain` lists them). Write the message `release: v<to>` to `<dataDir>/release/commit-msg.txt` and `git commit -F <file>`. Tag:
+Stage by name: the version `files`, `<changelog path>`, and every wiki file step 4 changed (`git status --porcelain` lists them). Write the message `release: v<to>` to `<dataDir>/release/commit-msg.txt` and `git commit -F <file>`. Tag:
 
 - Plugin repository and `claude --version` succeeds: `claude plugin tag <plugin directory> -m "<name> %s"` where the plugin directory is the one holding the `plugin.json` from `source.files`.
 - Otherwise: `git tag -a <tag> -m "<tag>"`.

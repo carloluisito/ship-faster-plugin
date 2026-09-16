@@ -101,23 +101,26 @@ function normalizeBlankLines(text) {
   return text.replace(/\n{3,}/g, '\n\n').replace(/\s+$/, '') + '\n';
 }
 
-export function insertSectionFile(root, sectionFile) {
+export function insertSectionFile(root, sectionFile, { file } = {}) {
+  const target = typeof file === 'string' && file ? file : 'CHANGELOG.md';
+  if (normalizePath(target).split('/').includes('..')) return { ok: false, error: '--file must stay inside the repository' };
   let section;
   try { section = readFileSync(sectionFile, 'utf8'); } catch (e) { return { ok: false, error: `cannot read ${sectionFile}: ${e.message}` }; }
+  section = section.replace(/^﻿/, '');
   const heading = /^## \[([^\]]+)\]/.exec(section);
   if (!heading) return { ok: false, error: 'section must start with "## [version] - date"' };
-  const path = join(root, 'CHANGELOG.md');
+  const path = join(root, target);
   const created = !existsSync(path);
   const current = created ? '' : readFileSync(path, 'utf8');
   writeFileSync(path, insertSection(current, section));
-  return { ok: true, path: 'CHANGELOG.md', created, version: heading[1], summary: [`${created ? 'created' : 'updated'} CHANGELOG.md with [${heading[1]}]`] };
+  return { ok: true, path: target, created, version: heading[1], summary: [`${created ? 'created' : 'updated'} ${target} with [${heading[1]}]`] };
 }
 
 if (process.argv[1] && normalizePath(process.argv[1]).endsWith('/scripts/changelog.mjs')) {
   runMain((positional, flags) => {
     const root = resolveRoot(flags);
     if (positional[0] === 'since') return changelogSince(root, { tag: typeof flags.tag === 'string' ? flags.tag : undefined, match: typeof flags.match === 'string' ? flags.match : 'v*' });
-    if (positional[0] === 'insert') return typeof flags.section === 'string' ? insertSectionFile(root, flags.section) : { ok: false, error: 'insert requires --section <file>' };
+    if (positional[0] === 'insert') return typeof flags.section === 'string' ? insertSectionFile(root, flags.section, { file: typeof flags.file === 'string' ? flags.file : undefined }) : { ok: false, error: 'insert requires --section <file>' };
     return { ok: false, error: `unknown command ${positional[0]}; use since or insert` };
   });
 }

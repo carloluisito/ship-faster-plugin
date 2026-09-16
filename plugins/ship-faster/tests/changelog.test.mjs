@@ -1,6 +1,6 @@
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { makeRepo, runScript, cleanupAll } from './helpers.mjs';
 import { changelogSince, classify, insertSection, insertSectionFile, renderSection } from '../scripts/changelog.mjs';
@@ -89,4 +89,17 @@ test('pending Unreleased bullets fold in after the last bullet of a matching gro
   const existing = '# Changelog\n\n## [Unreleased]\n\n### Fixed\n- Pending fix.\n\n## [1.1.0] - 2026-09-16\n- x\n';
   const merged = insertSection(existing, section);
   assert.match(merged, /### Fixed\n- New fix one\.\n- New fix two\.\n- Pending fix\.\n\n### Changed\n- Something\.\n\n## \[1\.1\.0\]/);
+});
+
+test('insertSectionFile writes to a --file path relative to root, rejects paths that escape it, and strips a BOM', () => {
+  const { root } = makeRepo({ files: { 'plugins/demo/CHANGELOG.md': '# Changelog\n\n## [Unreleased]\n' } });
+  const sectionFile = join(root, 'section.md');
+  writeFileSync(sectionFile, '## [1.1.0] - 2026-09-16\n\n### Added\n- Add users endpoint (abcdef1)\n');
+  const result = insertSectionFile(root, sectionFile, { file: 'plugins/demo/CHANGELOG.md' });
+  assert.deepEqual([result.ok, result.created, result.path], [true, false, 'plugins/demo/CHANGELOG.md']);
+  assert.match(readFileSync(join(root, 'plugins/demo/CHANGELOG.md'), 'utf8'), /## \[Unreleased\]\n\n## \[1\.1\.0\] - 2026-09-16\n\n### Added\n- Add users endpoint \(abcdef1\)\n/);
+  assert.equal(existsSync(join(root, 'CHANGELOG.md')), false);
+  assert.equal(insertSectionFile(root, sectionFile, { file: '../x.md' }).ok, false);
+  writeFileSync(sectionFile, '﻿## [1.2.0] - 2026-10-01\n\n### Added\n- BOM safe.\n');
+  assert.equal(insertSectionFile(root, sectionFile).ok, true);
 });
