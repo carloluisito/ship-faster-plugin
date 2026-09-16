@@ -47,8 +47,13 @@ export function currentBranch(cwd) {
   return v && v !== 'HEAD' ? v : null;
 }
 
-function branchExists(cwd, name) {
+export function branchExists(cwd, name) {
   return git(['show-ref', '--verify', '--quiet', `refs/heads/${name}`], { cwd }).ok;
+}
+
+export function isMerged(cwd, branch, into) {
+  if (!branchExists(cwd, branch) || !into) return false;
+  return git(['merge-base', '--is-ancestor', branch, into], { cwd }).ok;
 }
 
 export function defaultBranch(cwd) {
