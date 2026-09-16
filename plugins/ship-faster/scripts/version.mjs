@@ -32,19 +32,63 @@ export function nextVersion(current, spec) {
 const read = (root, rel) => readFileSync(join(root, ...rel.split('/')), 'utf8');
 const write = (root, rel, text) => writeFileSync(join(root, ...rel.split('/')), text);
 
+function jsonStrings(text) {
+  const out = [];
+  const stack = [];
+  let i = 0;
+  const endOfString = (from) => {
+    let j = from + 1;
+    while (j < text.length) {
+      if (text[j] === '\\') { j += 2; continue; }
+      if (text[j] === '"') return j + 1;
+      j++;
+    }
+    return text.length;
+  };
+  while (i < text.length) {
+    const ch = text[i];
+    if (ch === '"') {
+      const end = endOfString(i);
+      const top = stack[stack.length - 1];
+      if (top && top.type === 'object' && top.expectKey) { top.key = JSON.parse(text.slice(i, end)); top.expectKey = false; }
+      else out.push({ path: stack.map((s) => (s.type === 'object' ? s.key : s.index)), start: i + 1, end: end - 1, value: JSON.parse(text.slice(i, end)) });
+      i = end;
+      continue;
+    }
+    if (ch === '{') stack.push({ type: 'object', key: null, expectKey: true });
+    else if (ch === '[') stack.push({ type: 'array', index: 0 });
+    else if (ch === '}' || ch === ']') stack.pop();
+    else if (ch === ',') { const top = stack[stack.length - 1]; if (top) { if (top.type === 'object') top.expectKey = true; else top.index++; } }
+    i++;
+  }
+  return out;
+}
+
+function jsonTopLevel(text, key) {
+  return jsonStrings(text).find((r) => r.path.length === 1 && r.path[0] === key) || null;
+}
+
+function jsonMarketplaceEntry(text, name) {
+  const all = jsonStrings(text);
+  const hit = all.find((r) => r.path.length === 3 && r.path[0] === 'plugins' && r.path[2] === 'name' && r.value === name);
+  if (!hit) return null;
+  return all.find((r) => r.path.length === 3 && r.path[0] === 'plugins' && r.path[1] === hit.path[1] && r.path[2] === 'version') || null;
+}
+
+const JSON_KIND = {
+  find: (t) => { const r = jsonTopLevel(t, 'version'); return r ? [r.value, r.value] : null; },
+  replace: (t, v) => { const r = jsonTopLevel(t, 'version'); return r ? t.slice(0, r.start) + v + t.slice(r.end) : t; },
+};
+
 const KINDS = {
-  'package.json': { find: (t) => /"version"\s*:\s*"([^"]+)"/.exec(t), replace: (t, v) => t.replace(/("version"\s*:\s*")[^"]+(")/, `$1${v}$2`) },
-  'pyproject.toml': { find: (t) => /^version\s*=\s*"([^"]+)"/m.exec(t), replace: (t, v) => t.replace(/^(version\s*=\s*")[^"]+(")/m, `$1${v}$2`) },
+  'package.json': JSON_KIND,
+  'pyproject.toml': { find: (t) => /\[project\][^[]*?^version\s*=\s*"([^"]+)"/ms.exec(t), replace: (t, v) => t.replace(/(\[project\][^[]*?^version\s*=\s*")[^"]+(")/ms, `$1${v}$2`) },
   'Cargo.toml': { find: (t) => /\[package\][^[]*?^version\s*=\s*"([^"]+)"/ms.exec(t), replace: (t, v) => t.replace(/(\[package\][^[]*?^version\s*=\s*")[^"]+(")/ms, `$1${v}$2`) },
   'Directory.Build.props': { find: (t) => /<Version>([^<]+)<\/Version>/.exec(t), replace: (t, v) => t.replace(/(<Version>)[^<]+(<\/Version>)/, `$1${v}$2`) },
   csproj: { find: (t) => /<Version>([^<]+)<\/Version>/.exec(t), replace: (t, v) => t.replace(/(<Version>)[^<]+(<\/Version>)/, `$1${v}$2`) },
   'version.txt': { find: (t) => /^\s*(v?\d+\.\d+\.\d+[^\s]*)\s*$/.exec(t), replace: (t, v) => t.replace(/\S+/, v) },
-  plugin: KINDS_PLUGIN(),
+  plugin: JSON_KIND,
 };
-
-function KINDS_PLUGIN() {
-  return { find: (t) => /"version"\s*:\s*"([^"]+)"/.exec(t), replace: (t, v) => t.replace(/("version"\s*:\s*")[^"]+(")/, `$1${v}$2`) };
-}
 
 function kindOfFile(rel) {
   const name = basename(rel);
@@ -142,21 +186,23 @@ export function bumpVersion(root, spec, { file, plugin } = {}) {
   if (!d.ok) return d;
   const to = nextVersion(d.source.current, spec);
   if (!to) return { ok: false, error: d.source.current && parseSemver(spec) ? `${spec} is not greater than the current version ${d.source.current}` : `cannot bump ${d.source.current || '(none)'} with ${spec}; use patch, minor, major, or x.y.z` };
-  const written = [];
+  const edits = [];
   for (const f of d.source.files) {
-    const kind = d.source.kind === 'plugin' ? 'plugin' : d.source.kind;
-    let text = read(root, f.path);
+    const text = read(root, f.path);
+    let next;
     if (f.entry) {
-      // Replace only inside the named marketplace entry; other plugins keep their versions.
-      const entryRe = new RegExp(`("name"\\s*:\\s*"${f.entry.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"[^}]*?"version"\\s*:\\s*")[^"]+(")`);
-      if (!entryRe.test(text)) return { ok: false, error: `could not find the version of ${f.entry} in ${f.path}` };
-      text = text.replace(entryRe, `$1${to}$2`);
+      const r = jsonMarketplaceEntry(text, f.entry);
+      if (!r) return { ok: false, error: `could not find the version of ${f.entry} in ${f.path}` };
+      next = text.slice(0, r.start) + to + text.slice(r.end);
     } else {
-      text = KINDS[kind].replace(text, to);
+      const kind = d.source.kind === 'plugin' ? 'plugin' : d.source.kind;
+      if (!KINDS[kind].find(text)) return { ok: false, error: `could not find the version in ${f.path}` };
+      next = KINDS[kind].replace(text, to);
     }
-    write(root, f.path, text);
-    written.push(f.path);
+    edits.push({ path: f.path, next });
   }
+  for (const e of edits) write(root, e.path, e.next);
+  const written = edits.map((e) => e.path);
   const tag = d.source.kind === 'plugin' ? `${d.source.pluginName}--v${to}` : `v${to}`;
   return { ok: true, kind: d.source.kind, from: d.source.current, to, files: written, tag, summary: [`${d.source.current || '(none)'} → ${to} in ${written.length ? written.join(', ') : 'no file (tags only)'}; tag ${tag}`] };
 }

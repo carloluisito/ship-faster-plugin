@@ -128,3 +128,26 @@ test('tags-only repositories, --file, and the CLI', () => {
   const nocmd = runScript('version', ['--root', root, '--json']);
   assert.equal(nocmd.json.ok, false);
 });
+
+test('the top-level version is bumped even when a nested object has its own version key first', () => {
+  const pkg = '{\n  "name": "x",\n  "engines": { "node": ">=20", "version": "20.0.0" },\n  "version": "1.4.9"\n}\n';
+  const { root } = makeRepo({ files: { 'package.json': pkg } });
+  assert.equal(detectVersion(root).source.current, '1.4.9');
+  const b = bumpVersion(root, 'patch');
+  assert.equal(b.to, '1.4.10');
+  assert.equal(readFileSync(join(root, 'package.json'), 'utf8'), pkg.replace('"version": "1.4.9"', '"version": "1.4.10"'));
+});
+
+test('a marketplace whose own name collides with a plugin name bumps only that plugin entry', () => {
+  const mk = '{\n  "name": "b",\n  "plugins": [\n    { "name": "a", "source": "./plugins/a", "version": "1.0.0" },\n    { "name": "b", "source": "./plugins/b", "version": "2.0.0" }\n  ]\n}\n';
+  const { root } = makeRepo({ files: {
+    '.claude-plugin/marketplace.json': mk,
+    'plugins/a/.claude-plugin/plugin.json': '{ "name": "a", "version": "1.0.0" }\n',
+    'plugins/b/.claude-plugin/plugin.json': '{ "name": "b", "version": "2.0.0" }\n',
+  } });
+  const r = bumpVersion(root, 'minor', { plugin: 'b' });
+  assert.deepEqual([r.ok, r.to, r.tag], [true, '2.1.0', 'b--v2.1.0']);
+  assert.equal(readFileSync(join(root, '.claude-plugin/marketplace.json'), 'utf8'), mk.replace('"version": "2.0.0"', '"version": "2.1.0"'));
+  assert.match(readFileSync(join(root, 'plugins/b/.claude-plugin/plugin.json'), 'utf8'), /2\.1\.0/);
+  assert.match(readFileSync(join(root, 'plugins/a/.claude-plugin/plugin.json'), 'utf8'), /1\.0\.0/);
+});
