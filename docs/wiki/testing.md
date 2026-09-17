@@ -3,7 +3,7 @@ title: Testing
 summary: "node:test suites in plugins/ship-faster/tests with real git fixtures, a structure validator, a hook benchmark, and skill evals run from WSL or on CI dispatch."
 read_when: You are adding or fixing a test, need a fixture or mock, or a test cannot run locally.
 covers: [plugins/ship-faster/tests/**, plugins/ship-faster/evals/**, .github/workflows/evals.yml]
-verified: c2b59ed7f81346348d2e95b0bb502271a89f0c65
+verified: bceb66230bd36e48f6b127d21837329c9dbf76d4
 updated: 2026-09-17
 ---
 # Testing
@@ -34,7 +34,7 @@ updated: 2026-09-17
 | a commit dated in the past (old TODOs, stale recipes) | `commitAt(root, date, message)` sets `GIT_AUTHOR_DATE` and `GIT_COMMITTER_DATE` | `plugins/ship-faster/tests/health.test.mjs` |
 | a recorded preflight run | `writeJsonAtomic(join(preflightDir(root), 'last.json'), ...)` | `plugins/ship-faster/scripts/lib/state.mjs` |
 
-`makeRepo` sets a local user, disables commit signing, and runs git with `GIT_TERMINAL_PROMPT=0` and `GIT_CONFIG_NOSYSTEM=1`. No test needs credentials or a service beyond `git`. There is no coverage configuration.
+`makeRepo` sets a local user, disables commit signing, and runs git with `GIT_TERMINAL_PROMPT=0` and `GIT_CONFIG_NOSYSTEM=1`. A test that commits into a checkout the plugin created (a worktree from `worktree.mjs add`) leaves `GIT_CONFIG_NOSYSTEM` out, so it reads the same configuration those git calls do (`docs/wiki/gotchas.md` g-20260917-system-git-config). No test needs credentials or a service beyond `git`. There is no coverage configuration.
 
 ## Eval cases
 Each `plugins/ship-faster/evals/<skill>/` holds `prompt.md` (frontmatter such as `description`, `tags`, `max_turns`, `timeout_seconds`, `allowed_tools`; the body is the slash command for a slash-only skill, a plain request for a model-invocable one, as in `plugins/ship-faster/evals/preflight/prompt.md`), `case.yaml` (`schema_version: "1.1"`, `name`, `context.scaffold_script: scaffold.sh`), a `scaffold.sh` that builds the fixture repository, and `graders/*.md`. A grader that must never fire uses `type: tool_used` with `input_match`, `min: 0`, `max: 0`, as `plugins/ship-faster/evals/ship/graders/never-pushed.md` does for `git push` (including `git -C <path> push`) and `gh pr create`; git patterns allow the `-C <path>` form because agents often address the workspace that way. A skill may have more than one case (`evals/kickoff-worktree/` covers `kickoff --worktree`, `evals/ship-shared/` covers `ship` in a checkout another session is changing); the validator only requires that every skill has at least the case named after it. A case that needs another session's state writes it from the scaffold into `.git/ship-faster/sessions/` and `.git/ship-faster/edits/`, which sandboxed commands can read while the plugin data directory is hidden from them, and backdates its commits so seeded edit claims count as newer, as `plugins/ship-faster/evals/ship-shared/scaffold.sh` does.

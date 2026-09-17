@@ -3,7 +3,7 @@ title: Gotchas
 summary: Hook stdin hangs, Windows renames and 8.3 temp paths, BOM shebangs, long-history staleness, tag pushes, test state leaks, and eval sandbox traps, with evidence.
 read_when: Something behaves in a way the code does not explain, or before touching the areas listed in covers.
 covers: [plugins/ship-faster/scripts/lib/cli.mjs, plugins/ship-faster/scripts/lib/state.mjs, plugins/ship-faster/scripts/lib/root.mjs, plugins/ship-faster/evals/*/scaffold.sh, plugins/ship-faster/evals/*/graders/*.md, plugins/ship-faster/scripts/stale.mjs, plugins/ship-faster/scripts/hook-ship-guard.mjs, plugins/ship-faster/tests/run.mjs, plugins/ship-faster/tests/helpers.mjs]
-verified: c2b59ed7f81346348d2e95b0bb502271a89f0c65
+verified: bceb66230bd36e48f6b127d21837329c9dbf76d4
 updated: 2026-09-17
 ---
 # Gotchas
@@ -73,3 +73,9 @@ Symptom: The installed plugin's hooks wrote session records under `plugins/data/
 Cause: Claude Code sets `CLAUDE_PLUGIN_DATA` (`<plugins>/data/<name>-<marketplace>`, or `<name>-inline` for `--plugin-dir`) only for hooks, so scripts started through Bash used a fallback path; a sandboxed Bash also cannot see the Claude config directory at all.
 Rule: Resolve plugin state only through `dataDir()`, which rebuilds the hooks' directory from the script's install path, and keep state that skills must read from a sandbox (session records, edit claims) in the checkout's git directory through `checkoutDir()`.
 Evidence: `plugins/ship-faster/scripts/lib/state.mjs:17`, `plugins/ship-faster/scripts/lib/state.mjs:36`, 2026-09-17.
+
+### GitHub's Windows runners keep core.autocrlf in the system git config <!-- id: g-20260917-system-git-config -->
+Symptom: `worktree.test.mjs` passed on Windows locally and failed only on `windows-latest`: `clear` reported a file nobody had carried as shipped, because the worktree commit held its CRLF bytes.
+Cause: the fixture committed with `GIT_CONFIG_NOSYSTEM=1` while `git worktree add` (through `lib/git.mjs`) read the system config, where those runners set `core.autocrlf=true`; locally the same setting also sits in the global config, which the flag leaves alone, so the two halves agreed.
+Rule: In a test that commits into a checkout the plugin's own git calls created, use the same configuration they do: pass `GIT_TERMINAL_PROMPT=0` only, never `GIT_CONFIG_NOSYSTEM`.
+Evidence: `plugins/ship-faster/tests/worktree.test.mjs:16`, CI run 35259384942, 2026-09-17.
