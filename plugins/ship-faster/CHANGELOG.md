@@ -5,6 +5,9 @@ versions follow semver.
 
 ## [Unreleased]
 
+### Added
+- `tests/evals.sh` and `tests/evals.ps1` run the eval suite with the CI flags, on Linux and from Windows through WSL, and `tests/eval-report.mjs` prints the per-case table.
+
 ## [0.1.1] - 2026-09-17
 
 ### Fixed

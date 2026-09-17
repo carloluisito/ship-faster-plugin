@@ -34,7 +34,7 @@ node plugins/ship-faster/tests/run.mjs
 claude plugin validate --strict plugins/ship-faster
 ```
 
-Evals (`claude plugin eval`) need Linux, a sandbox backend for Bash, and model credit: run them from WSL (see `docs/wiki/testing.md`) or dispatch `.github/workflows/evals.yml` by hand once the repository has an `ANTHROPIC_API_KEY` secret.
+Evals (`claude plugin eval`) need Linux, a sandbox backend for Bash, and model credit: `plugins/ship-faster/tests/evals.sh [case]` runs them on Linux, `plugins\ship-faster\tests\evals.ps1 [case]` runs them from Windows through WSL (`-Setup` the first time; see `docs/wiki/testing.md`), and `.github/workflows/evals.yml` runs them on dispatch once the repository has an `ANTHROPIC_API_KEY` secret.
 
 ## License
 
