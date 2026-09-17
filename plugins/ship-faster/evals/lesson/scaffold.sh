@@ -5,6 +5,19 @@ git config user.email eval@example.com
 git config user.name eval
 cat > .gitignore <<'EOF'
 scaffold.sh
+.bash_profile
+.bashrc
+.claude
+.eval-artifacts
+.gitconfig
+.gitmodules
+.idea
+.mcp.json
+.profile
+.ripgreprc
+.vscode
+.zprofile
+.zshrc
 EOF
 mkdir -p src config docs/wiki
 cat > package.json <<'EOF'

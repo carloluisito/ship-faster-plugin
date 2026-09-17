@@ -11,7 +11,7 @@ cat > package.json <<'EOF'
   "type": "module",
   "scripts": {
     "start": "node src/index.js",
-    "test": "node --test tests/",
+    "test": "node --test tests/*.test.js",
     "lint": "node scripts/lint.js"
   }
 }
@@ -24,6 +24,19 @@ EOF
 cat > .gitignore <<'EOF'
 node_modules/
 scaffold.sh
+.bash_profile
+.bashrc
+.claude
+.eval-artifacts
+.gitconfig
+.gitmodules
+.idea
+.mcp.json
+.profile
+.ripgreprc
+.vscode
+.zprofile
+.zshrc
 EOF
 cat > src/lib/db.js <<'EOF'
 const rows = new Map();

@@ -10,6 +10,19 @@ EOF
 cat > .gitignore <<'EOF'
 node_modules/
 scaffold.sh
+.bash_profile
+.bashrc
+.claude
+.eval-artifacts
+.gitconfig
+.gitmodules
+.idea
+.mcp.json
+.profile
+.ripgreprc
+.vscode
+.zprofile
+.zshrc
 EOF
 cat > src/greet.js <<'EOF'
 export function greet(name) { return `Hello, ${name}`; }

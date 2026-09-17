@@ -7,6 +7,19 @@ mkdir -p src docs/wiki
 cat > .gitignore <<'EOF'
 node_modules/
 scaffold.sh
+.bash_profile
+.bashrc
+.claude
+.eval-artifacts
+.gitconfig
+.gitmodules
+.idea
+.mcp.json
+.profile
+.ripgreprc
+.vscode
+.zprofile
+.zshrc
 EOF
 cat > package.json <<'EOF'
 {

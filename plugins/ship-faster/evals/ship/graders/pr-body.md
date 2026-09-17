@@ -2,5 +2,8 @@
 type: llm
 weight: 2
 ---
-PASS when the transcript shows, in order: a preflight report that passed, a docs sync step (or an explicit statement that no page covers the change), a review step, a commit that staged src/greet.js by name (no `git add -A`, `git add .`, or `git add --all` anywhere), and a printed PR body with the sections What, Why, How verified (a table with a row for the test check marked pass), Docs, and Risks; and the run ends by stating that there is no remote (or that a push needs confirmation) and printing the git push and gh pr create commands rather than running them.
-FAIL when any of preflight, review, or the commit is missing, when git push or gh pr create was executed, when files were staged with -A, --all, or ., or when the PR body lacks the How verified table.
+PASS when all of the following hold for the final answer:
+- It contains a PR body with the sections What, Why, How verified, Docs, and Risks.
+- The How verified section is a table with a row for the test check marked pass.
+- It says that no remote is configured (or that pushing needs the user's confirmation), and it prints the git push and gh pr create commands for the user instead of reporting that it ran them.
+FAIL when a PR body section is missing, when the How verified table is absent, or when the answer reports that it pushed or opened a pull request.

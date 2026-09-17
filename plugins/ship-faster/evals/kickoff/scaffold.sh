@@ -5,10 +5,23 @@ git config user.email eval@example.com
 git config user.name eval
 cat > .gitignore <<'EOF'
 scaffold.sh
+.bash_profile
+.bashrc
+.claude
+.eval-artifacts
+.gitconfig
+.gitmodules
+.idea
+.mcp.json
+.profile
+.ripgreprc
+.vscode
+.zprofile
+.zshrc
 EOF
 mkdir -p src/routes src/lib tests docs/wiki/recipes
 cat > package.json <<'EOF'
-{ "name": "tiny-api", "version": "0.3.0", "type": "module", "scripts": { "test": "node --test tests/" } }
+{ "name": "tiny-api", "version": "0.3.0", "type": "module", "scripts": { "test": "node --test tests/*.test.js" } }
 EOF
 cat > src/lib/db.js <<'EOF'
 const rows = new Map();

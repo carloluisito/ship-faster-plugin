@@ -5,6 +5,19 @@ git config user.email eval@example.com
 git config user.name eval
 cat > .gitignore <<'EOF'
 scaffold.sh
+.bash_profile
+.bashrc
+.claude
+.eval-artifacts
+.gitconfig
+.gitmodules
+.idea
+.mcp.json
+.profile
+.ripgreprc
+.vscode
+.zprofile
+.zshrc
 EOF
 mkdir -p src docs/wiki
 cat > package.json <<'EOF'
@@ -93,6 +106,6 @@ git commit -q -m "docs: verify pages"
 mkdir -p tests
 git mv add.test.js tests/add.test.js
 sed -i "s#'./src/add.js'#'../src/add.js'#" tests/add.test.js
-sed -i 's#"test": "node --test"#"test": "node --test tests/"#' package.json
+sed -i 's#"test": "node --test"#"test": "node --test tests/*.test.js"#' package.json
 git add package.json tests/add.test.js
 git commit -q -m "test: move tests into tests/"
