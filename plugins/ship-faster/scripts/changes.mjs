@@ -45,6 +45,7 @@ export function changes(root, { config, base } = {}) {
     onProtected: branch !== null && protectedSet.has(branch),
     upstream: upstreamRef,
     remote: git.remoteUrl(root),
+    worktree: git.worktreeInfo(root),
     ahead,
     behind: counts.behind,
     dirty,
