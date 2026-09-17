@@ -3,13 +3,13 @@ title: Overview
 summary: ship-faster is a Claude Code plugin that writes a router CLAUDE.md and a verified wiki, keeps them true, and ships changes through repo-aware skills.
 read_when: You are new to the repository or need the domain vocabulary and system boundaries.
 covers: [README.md, plugins/ship-faster/README.md, plugins/ship-faster/.claude-plugin/plugin.json, .claude-plugin/marketplace.json]
-verified: 6ca8f23a63d3fee182ad0833ef2a4c46065d39d2
+verified: 633f2ede45443fa2a056259bbdb00f916c8b6e36
 updated: 2026-09-17
 ---
 # Overview
 
 ## What it is
-ship-faster is a Claude Code plugin that makes an agent effective in a repository within one session: it generates a router `CLAUDE.md`, a wiki under `docs/wiki/` whose pages declare the files they cover and the commit they were verified at, and path-scoped rules under `.claude/rules/`. A shipping workflow builds on that knowledge: checks come from `commands.md`, reviews cite the repository's own rules, and PR bodies carry the verification table. This repository is both the marketplace (`.claude-plugin/marketplace.json`) and the plugin (`plugins/ship-faster/`), version 0.1.0.
+ship-faster is a Claude Code plugin that makes an agent effective in a repository within one session: it generates a router `CLAUDE.md`, a wiki under `docs/wiki/` whose pages declare the files they cover and the commit they were verified at, and path-scoped rules under `.claude/rules/`. A shipping workflow builds on that knowledge: checks come from `commands.md`, reviews cite the repository's own rules, and PR bodies carry the verification table. This repository is both the marketplace (`.claude-plugin/marketplace.json`) and the plugin (`plugins/ship-faster/`); the current version is the one in `plugins/ship-faster/.claude-plugin/plugin.json`.
 
 It ships nine skills: knowledge (`onboard`, `sync-docs`, `lesson`) and shipping (`kickoff`, `preflight`, `review`, `ship`, `release`, `health`); five agents (`repo-analyst`, `doc-verifier`, `check-runner`, `rules-reviewer`, `health-auditor`); five hooks; and the scripts they run. `preflight`, `review`, `sync-docs`, and `lesson` are model-invocable; the others are slash-only.
 

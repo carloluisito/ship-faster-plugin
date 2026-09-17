@@ -3,7 +3,7 @@ title: Ops
 summary: One GitHub Actions workflow gates PRs on tests and Claude Code validation, another runs skill evals on manual dispatch; releases go through the release skill.
 read_when: You are changing CI, preparing a release, or need to know how and where the software runs.
 covers: [.github/workflows/ci.yml, .github/workflows/evals.yml, .claude-plugin/marketplace.json, plugins/ship-faster/.claude-plugin/plugin.json, plugins/ship-faster/CHANGELOG.md]
-verified: 1eeff4846a11978c84a07002ffa3bf99422c4437
+verified: 633f2ede45443fa2a056259bbdb00f916c8b6e36
 updated: 2026-09-17
 ---
 # Ops
@@ -31,7 +31,7 @@ Measured locally: validate 0.4 s, tests 33.4 s, each `claude plugin validate` ab
 There is no deploy step. Users add the marketplace with `/plugin marketplace add carloluisito/ship-faster-plugin`, install with `/plugin install ship-faster@ship-faster`, and restart Claude Code so the hooks register.
 
 ## Release
-- Version: semver, set in `plugins/ship-faster/.claude-plugin/plugin.json` and on the plugin entry in `.claude-plugin/marketplace.json`; `plugins/ship-faster/tests/validate.mjs` fails when they differ. Current: 0.1.0.
+- Version: semver, set in `plugins/ship-faster/.claude-plugin/plugin.json` and on the plugin entry in `.claude-plugin/marketplace.json`; `plugins/ship-faster/tests/validate.mjs` fails when they differ. Released versions are the `ship-faster--vX.Y.Z` tags.
 - Changelog: `plugins/ship-faster/CHANGELOG.md` in Keep a Changelog format; changes collect under `[Unreleased]`.
 - Cut a release with `/ship-faster:release <patch|minor|major|x.y.z>`: `version.mjs bump` sets `plugin.json` and the marketplace entry together and names the tag `ship-faster--vX.Y.Z`; the skill tags with `claude plugin tag` when `claude --version` succeeds, else `git tag -a` (steps in `docs/wiki/recipes/bump-the-version.md`).
 - No workflow is triggered by tags, so the release skill runs `gh release create` itself after the user confirms publishing.
