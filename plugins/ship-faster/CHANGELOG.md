@@ -5,6 +5,8 @@ versions follow semver.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-09-18
+
 ### Added
 - `ship` works with several sessions in one checkout: the edit hook records which files each session changes, and `ship` takes only this session's files (plus `--include`), commits them in a worktree of their own on a new branch, and removes them from the shared checkout, leaving its branch and the other sessions' work alone. Files another open session also changed, files left by a session that ended or has been idle for two hours, and changes no session's edits explain are asked about; a staged rename ships as a pair. `--here` ships everything in place as before, and `--root <worktree>` ships review follow-ups from that worktree.
 - New worktrees get their dependencies installed: `checks.mjs setup` runs the `setup` list from `commands.md`, or the install its lockfiles call for, in `ship`'s worktrees and in `kickoff --worktree`. `onboard` writes the `setup` list.

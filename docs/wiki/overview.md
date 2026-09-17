@@ -3,7 +3,7 @@ title: Overview
 summary: ship-faster is a Claude Code plugin that writes a router CLAUDE.md and a verified wiki, keeps them true, and ships changes through repo-aware skills.
 read_when: You are new to the repository or need the domain vocabulary and system boundaries.
 covers: [README.md, plugins/ship-faster/README.md, plugins/ship-faster/.claude-plugin/plugin.json, .claude-plugin/marketplace.json]
-verified: c2b59ed7f81346348d2e95b0bb502271a89f0c65
+verified: bd45cc0ae75fe1e58274b8f9f2bfa6f9fcc317a0
 updated: 2026-09-17
 ---
 # Overview
