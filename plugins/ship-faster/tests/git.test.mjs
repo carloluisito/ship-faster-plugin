@@ -4,6 +4,7 @@ import { realpathSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { makeRepo, tmpDir, cleanupAll } from './helpers.mjs';
 import * as g from '../scripts/lib/git.mjs';
+import { worktrees, worktreeInfo } from '../scripts/lib/git.mjs';
 
 after(cleanupAll);
 
@@ -198,4 +199,30 @@ test('git() disables core.quotepath so a non-ASCII path round-trips unescaped', 
   git(['commit', '-q', '-m', 'feat: add non-ascii file']);
   assert.deepEqual(g.log(root, { n: 1 })[0].files, [name]);
   assert.deepEqual(g.commitsSince(root, first).commits[0].files, [name]);
+});
+
+test('worktrees lists every checkout and worktreeInfo tells a worktree from the main checkout', () => {
+  const { root, git: g } = makeRepo({ files: { 'a.txt': 'a\n' } });
+  const wt = join(tmpDir('sf-wt-'), 'feat-x');
+  g(['worktree', 'add', wt, '-b', 'feat/x']);
+  const norm = (p) => realpathSync.native(p).replace(/\\/g, '/').toLowerCase();
+  const list = worktrees(root);
+  assert.equal(list.length, 2);
+  assert.equal(list[0].isMain, true);
+  assert.equal(norm(list[0].path), norm(root));
+  assert.equal(list[0].branch, 'main');
+  assert.equal(list[1].isMain, false);
+  assert.equal(norm(list[1].path), norm(wt));
+  assert.equal(list[1].branch, 'feat/x');
+  assert.equal(list[1].detached, false);
+  assert.match(list[1].head, /^[0-9a-f]{40}$/);
+  const main = worktreeInfo(root);
+  assert.equal(main.isWorktree, false);
+  assert.equal(norm(main.mainRoot), norm(root));
+  const inner = worktreeInfo(wt);
+  assert.equal(inner.isWorktree, true);
+  assert.equal(norm(inner.mainRoot), norm(root));
+  assert.equal(norm(inner.path), norm(wt));
+  assert.equal(worktrees(tmpDir('sf-nogit-')), null);
+  assert.equal(worktreeInfo(tmpDir('sf-nogit-')), null);
 });

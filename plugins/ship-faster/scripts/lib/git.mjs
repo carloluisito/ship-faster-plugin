@@ -1,4 +1,5 @@
 import { spawnSync } from 'node:child_process';
+import { dirname, resolve } from 'node:path';
 import { normalizePath } from './glob.mjs';
 
 export function git(args, { cwd, timeoutMs = 2000 } = {}) {
@@ -195,4 +196,48 @@ export function remoteUrl(cwd, name = 'origin') {
 export function isAncestor(cwd, a, b) {
   if (!a || !b) return false;
   return git(['merge-base', '--is-ancestor', a, b], { cwd }).ok;
+}
+
+export function worktrees(cwd) {
+  const r = git(['worktree', 'list', '--porcelain'], { cwd, timeoutMs: 5000 });
+  if (!r.ok) return null;
+  const list = [];
+  let cur = null;
+  for (const line of r.stdout.split('\n')) {
+    if (line.startsWith('worktree ')) {
+      cur = { path: normalizePath(line.slice(9).trim()), head: null, branch: null, detached: false, bare: false };
+      list.push(cur);
+    } else if (!cur) {
+      continue;
+    } else if (line.startsWith('HEAD ')) {
+      cur.head = line.slice(5).trim();
+    } else if (line.startsWith('branch ')) {
+      cur.branch = line.slice(7).trim().replace(/^refs\/heads\//, '');
+    } else if (line.trim() === 'detached') {
+      cur.detached = true;
+    } else if (line.trim() === 'bare') {
+      cur.bare = true;
+    }
+  }
+  return list.map((w, i) => ({ ...w, isMain: i === 0 }));
+}
+
+function absoluteGitPath(cwd, flag) {
+  const modern = out(['rev-parse', '--path-format=absolute', flag], cwd);
+  if (modern) return modern;
+  const legacy = out(['rev-parse', flag], cwd);
+  return legacy ? resolve(cwd, legacy) : null;
+}
+
+export function worktreeInfo(cwd) {
+  const path = repoRoot(cwd);
+  if (!path) return null;
+  const gitDir = absoluteGitPath(cwd, '--git-dir');
+  const common = absoluteGitPath(cwd, '--git-common-dir');
+  if (!gitDir || !common) return null;
+  return {
+    isWorktree: normalizePath(gitDir) !== normalizePath(common),
+    mainRoot: normalizePath(dirname(common)),
+    path,
+  };
 }
