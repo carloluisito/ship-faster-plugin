@@ -25,7 +25,7 @@ test('add creates a sibling worktree on a new branch and list sees it from both 
   assert.equal(norm(r.path), norm(expected));
   assert.equal(r.branch, 'feat/x');
   assert.equal(norm(r.mainRoot), norm(root));
-  assert.match(r.open, /^cd ".+" && claude$/);
+  assert.deepEqual(r.open, [`cd "${r.path}"`, 'claude']);
   assert.ok(existsSync(join(r.path, 'a.txt')));
   assert.equal(currentBranch(r.path), 'feat/x');
 

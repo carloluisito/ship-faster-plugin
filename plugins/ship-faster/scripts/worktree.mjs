@@ -47,12 +47,12 @@ export function addWorktree(root, { branch, from } = {}) {
   if (!info) return { ok: false, error: 'cannot resolve the main checkout' };
   if (git.branchExists(root, branch)) return { ok: false, error: `branch ${branch} already exists` };
   const path = worktreePath(info.mainRoot, branch);
-  if (existsSync(path)) return { ok: false, error: `${path} already exists` };
+  if (existsSync(path)) return { ok: false, error: `${path} already exists (another branch may map to the same directory name)` };
   const args = ['worktree', 'add', path, '-b', branch];
   if (from) args.push(from);
   const r = git.git(args, { cwd: root, timeoutMs: 60000 });
   if (!r.ok) return { ok: false, error: `git worktree add failed: ${(r.stderr || r.stdout).trim()}` };
-  const open = `cd "${path}" && claude`;
+  const open = [`cd "${path}"`, 'claude'];
   return {
     ok: true,
     path,
@@ -60,7 +60,7 @@ export function addWorktree(root, { branch, from } = {}) {
     from: from || null,
     mainRoot: info.mainRoot,
     open,
-    summary: [`worktree ${path} on new branch ${branch}`, `open a session there: ${open}`],
+    summary: [`worktree ${path} on new branch ${branch}`, `open a session there: ${open[0]} then ${open[1]}`],
   };
 }
 
