@@ -2,13 +2,15 @@
 
 ## Branch protection
 
-`gh --version` fails or `remote` is null: print the commands for the unprotected path below and stop.
+Two things can protect `<default>`: this plugin's guard and GitHub. The guard always counts the default branch as protected, so when `config.guard.pushProtected` in the repository facts is `deny` (the default), a direct `git push origin <default>` would be refused: take the Protected path and skip the GitHub check. With `allow` or `ask`, ask GitHub:
 
 ```
 gh api repos/{owner}/{repo}/branches/<default>/protection
 ```
 
 Exit 0 means protected; a 404 (exit 1 with "Branch not protected") means unprotected. Any other failure: treat as protected, and say so.
+
+`remote` is null: print `git remote add origin <url>` followed by the commands of the Protected path when the guard denies, otherwise of the Unprotected path, and stop. `gh --version` fails: when the guard denies, run Protected steps 1 to 3, print the compare URL `<remote url without .git>/compare/<default>...release/<version>?expand=1` in place of the `gh` steps, and stop; otherwise print the Unprotected path's commands and stop.
 
 ## Unprotected
 

@@ -3,7 +3,7 @@ title: Bump the version
 summary: Cut a new plugin version with the release skill, or by hand in both manifests and the changelog so validation passes.
 read_when: You need to cut a new plugin version.
 covers: [plugins/ship-faster/.claude-plugin/plugin.json, .claude-plugin/marketplace.json, plugins/ship-faster/CHANGELOG.md, plugins/ship-faster/README.md, plugins/ship-faster/scripts/version.mjs, plugins/ship-faster/scripts/changelog.mjs, plugins/ship-faster/skills/release/**]
-verified: a701e622675657389001379b0420c2eba7706328
+verified: 83129c8256e680d495fb13e2761f69606c1741fb
 updated: 2026-09-17
 ---
 # Bump the version
@@ -11,7 +11,7 @@ updated: 2026-09-17
 ## Steps
 1. On a clean `main`, run `/ship-faster:release <patch|minor|major|x.y.z>`. `version.mjs detect` finds the marketplace entry and `plugins/ship-faster/.claude-plugin/plugin.json` and fails when their versions disagree; `version.mjs bump` sets both.
 2. The skill writes the changelog section from the commits since the last `ship-faster--v*` tag, and `changelog.mjs insert` folds the `[Unreleased]` bullets into it. The skill passes `--file plugins/ship-faster/CHANGELOG.md`, so the plugin's changelog is the one updated; without `--file` the script edits `CHANGELOG.md` at the repository root.
-3. The skill runs preflight, commits `release: v<version>`, and tags `ship-faster--v<version>` with `claude plugin tag plugins/ship-faster` (or `git tag -a` when the `claude` CLI is missing); pushing and the GitHub release wait for your yes.
+3. The skill runs preflight, commits `release: v<version>`, and tags `ship-faster--v<version>` with `claude plugin tag plugins/ship-faster` (or `git tag -a` when the `claude` CLI is missing); pushing and the GitHub release wait for your yes. With the guard's default `pushProtected: deny`, the release commit reaches `main` through a `release/<version>` pull request and the tag is recreated on the merged commit, because the guard refuses a direct push of `main`.
 4. By hand instead: set `version` in `plugins/ship-faster/.claude-plugin/plugin.json` and the same `version` on the `ship-faster` entry of `plugins` in `.claude-plugin/marketplace.json`, and move the `[Unreleased]` entries of `plugins/ship-faster/CHANGELOG.md` under a heading for the new version.
 
 ## Files
