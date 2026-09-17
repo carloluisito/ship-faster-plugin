@@ -10,3 +10,4 @@ paths: ["plugins/ship-faster/scripts/**", "plugins/ship-faster/hooks/hooks.json"
 - Run a script's CLI only when `process.argv[1]` ends with its own path, so it can be imported. (docs/wiki/conventions.md)
 - Exempt a `--tags` push from the protected-branch check only when it names no refspec. (docs/wiki/gotchas.md g-20260916-push-tags)
 - Re-run `node plugins/ship-faster/tests/bench.mjs` after changing a hook or `stale.mjs`. (docs/wiki/architecture.md)
+- Resolve plugin state only through `dataDir()` and `checkoutDir()` in `scripts/lib/state.mjs`; never build a `plugins/data` path by hand. (docs/wiki/gotchas.md g-20260917-plugin-data-dir)

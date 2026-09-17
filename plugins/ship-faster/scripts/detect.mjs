@@ -163,6 +163,8 @@ export function detect(root, { brief = false } = {}) {
     topDirs, workspaces, existing,
     config,
     dataDir: normalizePath(projectDir(root)),
+    // Claude Code sets this to "0" when no one can answer a question (claude -p, an eval, a hook-driven run).
+    attended: process.env.CLAUDE_CODE_SESSION_ATTENDED !== '0',
     suggestedChecks: checks,
   };
   result.summary = [
@@ -170,8 +172,8 @@ export function detect(root, { brief = false } = {}) {
     `checks: ${checks.map((c) => c.run).join(' | ') || 'none detected'}`,
   ];
   if (brief) {
-    const { ok, root: r, git: g, stacks: s, ci: c, existing: e, config: cfg, dataDir, summary } = result;
-    return { ok, root: r, git: g, stacks: s, ci: c, existing: e, config: cfg, dataDir, summary };
+    const { ok, root: r, git: g, stacks: s, ci: c, existing: e, config: cfg, dataDir, attended, summary } = result;
+    return { ok, root: r, git: g, stacks: s, ci: c, existing: e, config: cfg, dataDir, attended, summary };
   }
   return result;
 }

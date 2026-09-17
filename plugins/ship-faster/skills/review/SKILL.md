@@ -2,7 +2,7 @@
 name: review
 description: Review the current branch's diff against this repository's own documented rules (conventions, gotchas, architecture decisions, matching recipes), not generic best practice, and print findings coded R1..Rn with the quoted rule and a fix.
 when_to_use: Use before committing or opening a PR, after finishing a change in an area gotchas.md covers, or when the user asks for a review, a self-review, or whether a change follows the project's rules. ship invokes it before committing.
-argument-hint: "[--base <branch>]"
+argument-hint: "[--base <branch>] [--root <path>]"
 allowed-tools: Bash(node *), Agent, Read, Grep
 ---
 
@@ -16,7 +16,7 @@ Arguments: $ARGUMENTS
 node "${CLAUDE_PLUGIN_ROOT}/scripts/review.mjs" prepare --json
 ```
 
-Append `--base <branch>` when the arguments contain it. `ok: false`: print the error and stop. Empty `files` and empty `untracked`: say there is nothing to review and stop. No rule page with `exists: true`: say the repository has no documented rules yet, that `/ship-faster:onboard` writes them, and stop.
+Append `--base <branch>` and `--root <path>` when the arguments contain them; with `--root` the diff and the rule pages come from that checkout, and the chunk, copy, rule page, and recipe paths it returns are absolute. `ok: false`: print the error and stop. Empty `files` and empty `untracked`: say there is nothing to review and stop. No rule page with `exists: true`: say the repository has no documented rules yet, that `/ship-faster:onboard` writes them, and stop.
 
 ## 2. Fan out
 

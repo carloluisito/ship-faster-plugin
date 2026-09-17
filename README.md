@@ -19,7 +19,7 @@ From a local checkout, add the marketplace by its absolute path instead of the G
 | `/ship-faster:kickoff <feature>` | before starting a feature: a grounded plan and a branch |
 | `/ship-faster:preflight` | before claiming a change works: the repository's checks |
 | `/ship-faster:review` | before a PR: the diff against the repository's own rules |
-| `/ship-faster:ship` | when the work is ready: preflight, docs sync, review, commit, PR |
+| `/ship-faster:ship` | when the work is ready: this session's changes only, even with other sessions in the same checkout; preflight, docs sync, review, commit, PR |
 | `/ship-faster:release <bump>` | to cut a version: changelog, bump, tag, release |
 | `/ship-faster:health` | every two weeks: dependencies, tests, docs, hygiene, CI, plans |
 | `/ship-faster:sync-docs`, `/ship-faster:lesson` | Claude invokes these itself when docs go stale or a lesson is learned |

@@ -243,3 +243,37 @@ test('worktreeInfo reports the checkout itself as mainRoot when the git dir live
   assert.equal(info.isWorktree, false);
   assert.equal(norm(info.mainRoot), norm(repo));
 });
+
+test('dirtyFiles names the source of a staged rename; commit times, blob ids, and file hashes line up with git', () => {
+  const { root, git } = makeRepo({ files: { 'old.txt': 'o\n', 'a.txt': 'a\n', 'b.txt': 'b\n' } });
+  git(['mv', 'old.txt', 'new.txt']);
+  const renamed = g.dirtyFiles(root).find((d) => d.path === 'new.txt');
+  assert.equal(renamed.status, 'R');
+  assert.equal(renamed.from, 'old.txt');
+  git(['commit', '-q', '-m', 'rename']);
+  writeFileSync(join(root, 'b.txt'), 'b2\n');
+  git(['add', 'b.txt']);
+  git(['commit', '-q', '-m', 'b again']);
+  const times = g.lastCommitTimes(root, ['a.txt', 'b.txt', 'missing.txt']);
+  const epoch = (ref) => Number(git(['log', '-1', '--format=%ct', ref])) * 1000;
+  assert.equal(times.get('b.txt'), epoch('HEAD'));
+  assert.equal(times.get('a.txt'), epoch('HEAD~2'));
+  assert.equal(times.has('missing.txt'), false);
+  assert.equal(g.lastCommitTimes(tmpDir(), ['a.txt']).size, 0);
+
+  const ids = g.blobIds(root, 'HEAD', ['a.txt', 'b.txt', 'nope.txt']);
+  assert.equal(ids.get('b.txt'), git(['rev-parse', 'HEAD:b.txt']));
+  assert.equal(ids.has('nope.txt'), false);
+  assert.equal(g.blobIds(root, '--evil', ['a.txt']).size, 0);
+  writeFileSync(join(root, 'fresh.txt'), 'b2\n');
+  const hashes = g.hashFiles(root, ['b.txt', 'fresh.txt', 'gone.txt']);
+  assert.equal(hashes.get('b.txt'), ids.get('b.txt'));
+  assert.equal(hashes.get('fresh.txt'), ids.get('b.txt'));
+  assert.equal(hashes.has('gone.txt'), false);
+
+  const piped = g.git(['hash-object', '--stdin'], { cwd: root, input: 'b2\n' });
+  assert.equal(piped.stdout.trim(), ids.get('b.txt'));
+  const raw = g.git(['cat-file', 'blob', 'HEAD:b.txt'], { cwd: root, raw: true });
+  assert.ok(Buffer.isBuffer(raw.stdout));
+  assert.equal(raw.stdout.toString('utf8'), 'b2\n');
+});

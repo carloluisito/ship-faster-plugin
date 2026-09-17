@@ -18,26 +18,28 @@ Requires `node` (20 or newer) and `git` on your PATH. `gh` is optional: skills t
 | Skill | Invoke | What it does |
 |---|---|---|
 | `onboard` | `/ship-faster:onboard [--force]` | Analyses the repository with parallel read-only agents, runs its checks, writes the wiki under `docs/wiki/`, verifies every page against the code, writes path-scoped rules under `.claude/rules/`, and generates or updates the managed block of `CLAUDE.md`. An existing CLAUDE.md is backed up first and its hand-written text preserved. Slash-only. |
-| `sync-docs` | `/ship-faster:sync-docs [--scope all\|diff\|session] [--since <branch>]` | Re-checks each stale, dirty, invalid, or unverifiable page against the files that changed, fixes or deletes what no longer holds, covers changed files no page describes, verifies the edits, and re-stamps `verified` at HEAD. Claude may invoke it after changing behaviour a page describes. |
+| `sync-docs` | `/ship-faster:sync-docs [--scope all\|diff\|session] [--since <branch>] [--root <path>]` | Re-checks each stale, dirty, invalid, or unverifiable page against the files that changed, fixes or deletes what no longer holds, covers changed files no page describes, verifies the edits, and re-stamps `verified` at HEAD. Claude may invoke it after changing behaviour a page describes. |
 | `lesson` | `/ship-faster:lesson [sentence]` | Records a non-obvious cause, decision, or convention as symptom, cause, rule, and evidence, plus one line in `.claude/rules/<area>.md` when the rule has a file scope. Claude may invoke it after fixing a bug whose cause was not visible in the code it edited. |
-| `kickoff` | `/ship-faster:kickoff <feature> [--no-branch\|--worktree]` | Reads the pages and recipe that match the feature, writes a complete plan (goal, scope, ordered touchpoints naming real files, tests, docs impact, risks quoting gotchas, verification) to `docs/plans/`, and creates the branch. Slash-only. `--worktree` creates the branch in a sibling checkout (`<repo>-<branch>`) and writes the plan there, so a second session can take the ticket while this one continues. |
-| `preflight` | `/ship-faster:preflight [--continue]` | Runs the repository's checks (from `commands.md`, else CI, else stack detection) inside the `check-runner` agent and reports the table plus the first failure's tail, log path, and diagnosis. Read-only. Claude may invoke it before claiming a change works. |
-| `ship` | `/ship-faster:ship [branch-or-description] [--merge] [--draft] [--base <branch>] [--no-review]` | Branches off a protected branch, runs preflight, syncs the docs the change touches, reviews against the repository's rules, checks the plan, commits by name, then (after your yes) pushes and opens the PR with a verification table; `--merge` squash-merges after checks pass and a second yes. In a worktree, the report ends with the commands that remove the worktree and its branch from the main checkout. Slash-only. |
+| `kickoff` | `/ship-faster:kickoff <feature> [--no-branch\|--worktree]` | Reads the pages and recipe that match the feature, writes a complete plan (goal, scope, ordered touchpoints naming real files, tests, docs impact, risks quoting gotchas, verification) to `docs/plans/`, and creates the branch. Slash-only. `--worktree` creates the branch in a sibling checkout (`<repo>-<branch>`), installs its dependencies, and writes the plan there, so a second session can take the ticket while this one continues. |
+| `preflight` | `/ship-faster:preflight [--continue] [--root <path>]` | Runs the repository's checks (from `commands.md`, else CI, else stack detection) inside the `check-runner` agent and reports the table plus the first failure's tail, log path, and diagnosis; `--root` runs them in another checkout. Read-only. Claude may invoke it before claiming a change works. |
+| `ship` | `/ship-faster:ship [branch-or-description] [--include <paths>] [--here] [--root <worktree>] [--merge] [--draft] [--base <branch>] [--no-review]` | Ships this session's work: alone in the checkout it branches off a protected branch in place; when other sessions share the checkout it takes only this session's files (plus `--include`), builds the commit in a worktree of its own, and removes them from the checkout afterwards. Then preflight, docs sync, review against the repository's rules, plan check, commit by name, and (after your yes) push and PR with a verification table; `--merge` squash-merges after checks pass and a second yes. `--here` ships every change in place as before; `--root` ships follow-ups from that worktree. Slash-only. |
 | `release` | `/ship-faster:release <patch\|minor\|major\|x.y.z> [--file <version file>] [--plugin <name>]` | From a clean default branch: docs checkpoint, Keep a Changelog section from the commits since the last tag, version bump, re-stamp of the wiki pages covering the bumped files, preflight, `release: vX.Y.Z` commit, tag (`claude plugin tag` in a plugin repository), then (after your yes) push or release PR, and a GitHub release. Slash-only. |
 | `health` | `/ship-faster:health [--fix <codes>\|safe]` | Fans out `health-auditor` agents over dependencies, tests, docs, hygiene, CI, and plans and prints one table of coded findings with effort and fix; `--fix` applies chosen fixes behind preflight and reverts them on failure. Slash-only. |
-| `review` | `/ship-faster:review [--base <branch>]` | Reviews the branch diff against `conventions.md`, `gotchas.md`, architecture decisions, and matching recipes through the `rules-reviewer` agent; findings coded R1..Rn quote the rule they cite. Inside `ship`, a `block` finding stops the commit. Claude may invoke it before a PR. |
+| `review` | `/ship-faster:review [--base <branch>] [--root <path>]` | Reviews the branch diff against `conventions.md`, `gotchas.md`, architecture decisions, and matching recipes through the `rules-reviewer` agent; findings coded R1..Rn quote the rule they cite. Inside `ship`, a `block` finding stops the commit. Claude may invoke it before a PR. |
 
-Every skill runs the plugin's scripts for the deterministic parts and asks the model only for judgement. Safety rules the skills state: never force push, never push to a protected branch, never `--no-verify`, never `git add -A` (the PreToolUse hook denies pushes to protected branches, `--no-verify`, and an add-all that would stage a risky file), never skip preflight, never merge without `--merge`. Outward-facing steps (push, PR, merge, publish) wait for your explicit yes; in a non-interactive run the skill stops before them and prints the commands.
+Every skill runs the plugin's scripts for the deterministic parts and asks the model only for judgement. Safety rules the skills state: never force push, never push to a protected branch, never `--no-verify`, never `git add -A` (the PreToolUse hook denies pushes to protected branches, `--no-verify`, and an add-all that would stage a risky file), never skip preflight, never merge without `--merge`. Outward-facing steps (push, PR, merge, publish) wait for your explicit yes; when nobody can answer (`claude -p`, an eval, a hook-driven run, which `detect.mjs` reports as `attended: false`) the skill stops before them and prints the commands.
 
 ## Several tickets at once
 
-One session per worktree, one worktree per ticket. From the main checkout:
+Several sessions can work in one checkout. The edit hook records which files each session changes, and `/ship-faster:ship` in any of them ships only that session's files: it creates a sibling worktree (`<repo>-<branch>`) on a new branch from the checkout's current commit, installs dependencies there, copies the files in, runs preflight, docs sync, and review against that worktree, commits there, and takes the shipped changes back out of the shared checkout. The checkout keeps its branch and every other session's work. Files that another open session also changed, files left by a session that ended or has been idle for two hours, and changes no session's edits explain (a formatter or code generator run through Bash) are asked about, or left out in a non-interactive run; `--include <paths>` adds files, and `--here` ships everything in place as before. Review follow-ups go into the worktree and ship with `/ship-faster:ship --root <worktree>`.
+
+To keep tickets apart from the start instead, begin each in its own worktree from the main checkout:
 
 ```
 /ship-faster:kickoff <ticket description> --worktree
 ```
 
-writes the plan into a new sibling checkout (`<repo>-<branch>`) on a new branch and prints the command to open a session there. Work and `/ship-faster:ship` in that session; the PR belongs to that branch alone. Session start in either checkout names the other worktrees, and warns when two sessions share one checkout, because one working tree holds one branch. Plans live on their branch (`docs/plans/` in the worktree) until the PR merges. After the merge, ship prints the `git worktree remove` and `git branch -D` commands to run from the main checkout (a squash merge leaves the branch unmerged in git's eyes, so `-d` would refuse).
+It writes the plan into a new sibling checkout on a new branch, installs its dependencies, and prints the commands to open a session there (`claude --worktree` starts a session in a fresh worktree, without the plan or the install). Session start in any checkout names the other worktrees and says when another session used the same checkout in the last two hours. Plans live on their branch until the PR merges. After a merge, ship prints the `git worktree remove` and `git branch -D` commands to run from the main checkout (a squash merge leaves the branch unmerged in git's eyes, so `-d` would refuse).
 
 ## Agents
 
@@ -54,7 +56,7 @@ Agents never write into the repository. `check-runner` writes only check logs un
 ## What gets generated in your repository
 
 - `CLAUDE.md`: under 150 lines, a managed block of at most 90 lines between `<!-- ship-faster:managed:start -->` and `<!-- ship-faster:managed:end -->`, and a hand-written `## Rules` section regeneration never touches.
-- `docs/wiki/`: `index.md` (generated), `overview.md`, `architecture.md`, `layout.md`, `commands.md` (with the `checks` list preflight runs), `conventions.md`, `testing.md`, `gotchas.md`, `dependencies.md`, `ops.md`, `recipes/<task>.md`, and `packages/<name>.md` in monorepos. Each page is under 200 lines and carries `title`, `summary`, `read_when`, `covers`, `verified`, and `updated`.
+- `docs/wiki/`: `index.md` (generated), `overview.md`, `architecture.md`, `layout.md`, `commands.md` (with the `checks` list preflight runs and the `setup` list new worktrees install with), `conventions.md`, `testing.md`, `gotchas.md`, `dependencies.md`, `ops.md`, `recipes/<task>.md`, and `packages/<name>.md` in monorepos. Each page is under 200 lines and carries `title`, `summary`, `read_when`, `covers`, `verified`, and `updated`.
 - `.claude/rules/<area>.md`: at most 25 lines each, with a `paths:` list so Claude Code loads them only when a matching file is read.
 - `docs/plans/<date>-<slug>.md`: written by `kickoff`, marked `shipped` by `ship`, flagged by `health` when the branch is gone.
 
@@ -64,11 +66,11 @@ A page is stale when a covered file changed in a commit that did not also touch 
 
 | Event | Script | What it does | Cost |
 |---|---|---|---|
-| SessionStart | `hook-session-start.mjs` | Prints where the wiki is, how many pages are stale, the active plan for the branch, and whether the health audit is overdue. Suggests `/ship-faster:onboard` in a repo with 20+ files and no CLAUDE.md. | one `git log` per distinct verified commit, or one pass over the history from three; under 1.5 s on 30 pages |
+| SessionStart | `hook-session-start.mjs` | Prints where the wiki is, how many pages are stale, the active plan for the branch, the other worktrees, a note when another session used this checkout in the last two hours, and whether the health audit is overdue. Suggests `/ship-faster:onboard` in a repo with 20+ files and no CLAUDE.md. | one `git log` per distinct verified commit, or one pass over the history from three; under 1.5 s on 30 pages |
 | PreToolUse (Bash) | `hook-ship-guard.mjs` | Denies force pushes and direct pushes to protected branches, `--no-verify` on commit, merge, and push, and `git add -A` when it would stage secrets, dependency directories, build output, log files, or files over 5 MB. | no git call unless the command contains a `git push`, `git add`, `git commit`, or `git merge`; the repository root is cached for a day |
-| PostToolUse (Edit, Write, MultiEdit, NotebookEdit) | `hook-drift-marker.mjs` | Records which wiki pages cover the file you edited. Prints nothing. | no git call after the first per working directory |
+| PostToolUse (Edit, Write, MultiEdit, NotebookEdit) | `hook-drift-marker.mjs` | Records that this session changed the file (so `ship` can tell sessions apart) and which wiki pages cover it. Prints nothing. | no git call after the first per working directory |
 | UserPromptSubmit | `hook-prompt-report.mjs` | Once per page per session, tells Claude which pages the session's edits touched and are not yet re-verified. | one small file read |
-| SessionEnd | `hook-session-end.mjs` | Deletes the session record and prunes records older than 7 days. | one directory prune |
+| SessionEnd | `hook-session-end.mjs` | Deletes the session record, keeps its record of edited files, and prunes both kinds older than 7 days. | one directory prune |
 
 Every hook exits 0 on every error path and prints nothing when it has nothing to say. A deny from the guard names the alternative and the config key that overrides it.
 
@@ -106,11 +108,10 @@ Guard values are `deny`, `ask`, or `allow`. Defaults never use `ask`: a hook `de
 
 ## What is stored, and where
 
-Under the plugin data directory Claude Code provides (`~/.claude/plugins/data/ship-faster/`, or the same path under `CLAUDE_CONFIG_DIR`):
+Under the plugin data directory Claude Code provides, `<config>/plugins/data/ship-faster-<marketplace>/` (`~/.claude/plugins/data/ship-faster-ship-faster/` for this marketplace, `ship-faster-inline` with `--plugin-dir`); scripts run from skills rebuild the same path, so hooks and skills share it:
 
 ```
 projects/<hash16>/project.json        { root, createdAt }
-projects/<hash16>/sessions/<id>.json  pages touched this session
 projects/<hash16>/wiki-cache.json     page covers and verified commits, keyed by mtime
 projects/<hash16>/preflight/          check logs and last.json, last 10 runs
 projects/<hash16>/ship/, release/     commit messages, PR bodies, changelog sections
@@ -119,33 +120,40 @@ projects/<hash16>/health.json         last health run
 cwd-cache/<hash16>.json               working directory → repository root
 ```
 
-Everything here is metadata except `preflight/*.log` (the output of the check commands your repository defines) and `backup/` (your pre-onboard CLAUDE.md). The diff chunks the reviewer agent reads live under `ship-faster/review/` in the system temp directory, last 5 runs per repository. Nothing leaves your machine. `/plugin uninstall ship-faster` deletes this directory; pass `--keep-data` to keep it.
+In each checkout's git directory (`.git/ship-faster/`, or the worktree's own directory under `.git/worktrees/`), where hooks, skills, and sandboxed commands all read the same files:
+
+```
+sessions/<id>.json                    pages touched this session, its branch, and when it was last active
+edits/<id>.json                       files this session changed and when, until 7 days after its last edit
+```
+
+Everything here is metadata except `preflight/*.log` (the output of the check commands your repository defines) and `backup/` (your pre-onboard CLAUDE.md). The diff chunks the reviewer agent reads live under `ship-faster/review/` in the system temp directory, last 5 runs per repository. Nothing leaves your machine. `/plugin uninstall ship-faster` deletes the plugin data directory (pass `--keep-data` to keep it); `.git/ship-faster/` is pruned after 7 days and goes with `git worktree remove`.
 
 ## Scripts
 
 Every script under `scripts/` runs standalone with `--json`:
 
 ```
-node scripts/detect.mjs        stacks, CI files, scripts, workspaces, suggested checks, resolved config, data dir (--brief for orientation only)
+node scripts/detect.mjs        stacks, CI files, scripts, workspaces, suggested checks, resolved config, data dir, whether a user can answer (--brief for orientation only)
 node scripts/footprints.mjs    files that change together, from git history
 node scripts/stale.mjs         which wiki pages are stale, dirty, or unverifiable (--since <ref> marks pages in a branch's scope, --session all merges every session record)
 node scripts/index.mjs         regenerate docs/wiki/index.md (--check to only compare)
-node scripts/lint.mjs          budgets, links, covers, checks shape, secrets
-node scripts/checks.mjs        resolve | run the repository's checks
+node scripts/lint.mjs          budgets, links, covers, checks and setup shape, secrets
+node scripts/checks.mjs        resolve | run the repository's checks | setup: install dependencies (commands.md setup list, else lockfiles)
 node scripts/plan.mjs          find --branch | stale | set-status
 node scripts/page.mjs          verify <page>... | touch <page>...: stamp verified (HEAD) and updated (today)
 node scripts/claude-md.mjs     sections | splice --block <file> | backup: read, regenerate, and back up CLAUDE.md's managed block
-node scripts/changes.mjs       branch, base, ahead/behind, uncommitted files with risk flags, commit style (ship's inventory)
+node scripts/changes.mjs       branch, base, ahead/behind, uncommitted files with risk flags and owner, commit style (ship's inventory; --session <id> [--include <globs>] [--here] decides what ships)
 node scripts/version.mjs       detect | bump <patch|minor|major|x.y.z>: version source (manifests, plugin.json + marketplace, or tags) and bump
 node scripts/changelog.mjs     since [--tag <tag>] | insert --section <file>: commits since the last tag grouped Added / Fixed / Changed
 node scripts/review.mjs        prepare [--base <branch>]: write the branch diff in chunks plus new files to the data directory and name the rule pages
 node scripts/health.mjs        scan | record: old TODOs by blame, large files, skipped tests, slow checks, stale recipes and plans, docs counts
-node scripts/worktree.mjs      list | add --branch <name> [--from <ref>]: the repository's worktrees, and a new sibling worktree on a new branch
+node scripts/worktree.mjs      list | add --branch <name> [--from <ref>] | carry --to <worktree> <files> | clear --from <worktree> <files>: worktrees, a new sibling worktree, and moving a session's files into one and back out once committed
 ```
 
 ## Evals
 
-`evals/<skill>/` holds one case per skill: a prompt, a `case.yaml` naming a scaffold script that builds a fixture repository, and graders (deterministic checks plus one rubric a judge model scores). Runs spend real model credit and need a sandbox backend for `Bash`, so they never gate a PR. Run them on Linux, from Windows through WSL, or with `.github/workflows/evals.yml` on manual dispatch (it needs an `ANTHROPIC_API_KEY` repository secret):
+`evals/<case>/` holds at least one case per skill (`ship` and `kickoff` have a second): a prompt, a `case.yaml` naming a scaffold script that builds a fixture repository, and graders (deterministic checks plus one rubric a judge model scores). Runs spend real model credit and need a sandbox backend for `Bash`, so they never gate a PR. Run them on Linux, from Windows through WSL, or with `.github/workflows/evals.yml` on manual dispatch (it needs an `ANTHROPIC_API_KEY` repository secret):
 
 ```
 plugins/ship-faster/tests/evals.sh [case ...]

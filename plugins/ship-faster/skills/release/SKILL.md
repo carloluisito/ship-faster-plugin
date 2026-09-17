@@ -18,7 +18,7 @@ Repository facts:
 
 Arguments: $ARGUMENTS
 
-The first argument is the bump: `patch`, `minor`, `major`, or an explicit `x.y.z`; nothing else is accepted. `--file` and `--plugin` pass through to the version script. `<default>` = `defaultBranch` from the inventory; `<dataDir>` = `dataDir` from the facts. Publishing (push, PR, GitHub release) is outward-facing and needs the user's explicit yes; in a non-interactive run stop before it and print the commands. Read `${CLAUDE_SKILL_DIR}/reference/publish.md` before step 10.
+The first argument is the bump: `patch`, `minor`, `major`, or an explicit `x.y.z`; nothing else is accepted. `--file` and `--plugin` pass through to the version script. `<default>` = `defaultBranch` from the inventory; `<dataDir>` = `dataDir` from the facts. Publishing (push, PR, GitHub release) is outward-facing and needs the user's explicit yes; with `attended: false` in the facts nobody can answer (`claude -p`, an eval, a hook-driven run), so never ask: stop before it and print the commands in your final message. Read `${CLAUDE_SKILL_DIR}/reference/publish.md` before step 10.
 
 ## 1. Clean tree on the default branch
 
@@ -116,7 +116,7 @@ Stage by name: the version `files`, `<changelog path>`, and every wiki file step
 
 ## 10. Publish
 
-Follow reference/publish.md. Ask first; in a non-interactive run print the commands and stop.
+Follow reference/publish.md. Ask first; with `attended: false` print the commands and stop.
 
 ## 11. GitHub release
 

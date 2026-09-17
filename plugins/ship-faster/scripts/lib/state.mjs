@@ -1,16 +1,49 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { normalizePath } from './glob.mjs';
 
-export function dataDir() {
-  const env = process.env.CLAUDE_PLUGIN_DATA;
-  if (env && env.trim() && !env.includes('${')) return env;
-  const cfg = process.env.CLAUDE_CONFIG_DIR && process.env.CLAUDE_CONFIG_DIR.trim()
-    ? process.env.CLAUDE_CONFIG_DIR
-    : join(homedir(), '.claude');
-  return join(cfg, 'plugins', 'data', 'ship-faster');
+const PLUGIN_ROOT = dirname(dirname(dirname(fileURLToPath(import.meta.url))));
+
+function pluginName(pluginRoot) {
+  const manifest = readJson(join(pluginRoot, '.claude-plugin', 'plugin.json'), null);
+  return manifest && typeof manifest.name === 'string' && manifest.name ? manifest.name : 'ship-faster';
+}
+
+// Claude Code gives only hooks CLAUDE_PLUGIN_DATA. Scripts that skills run through Bash rebuild the same
+// path: <plugins dir>/data/<name@marketplace>, or <name@inline> for --plugin-dir, with other characters as "-".
+export function dataDir({ env = process.env, pluginRoot = PLUGIN_ROOT, home = homedir() } = {}) {
+  const given = env.CLAUDE_PLUGIN_DATA;
+  if (given && given.trim() && !given.includes('${')) return given;
+  const parts = normalizePath(pluginRoot).replace(/\/+$/, '').split('/');
+  let pluginsDir;
+  let source;
+  if (parts.length >= 5 && parts[parts.length - 4] === 'cache') {
+    pluginsDir = parts.slice(0, parts.length - 4).join('/');
+    source = `${pluginName(pluginRoot)}@${parts[parts.length - 3]}`;
+  } else {
+    const config = env.CLAUDE_CONFIG_DIR && env.CLAUDE_CONFIG_DIR.trim() ? env.CLAUDE_CONFIG_DIR : join(home, '.claude');
+    pluginsDir = env.CLAUDE_CODE_PLUGIN_CACHE_DIR && env.CLAUDE_CODE_PLUGIN_CACHE_DIR.trim() ? env.CLAUDE_CODE_PLUGIN_CACHE_DIR : join(config, 'plugins');
+    source = `${pluginName(pluginRoot)}@inline`;
+  }
+  return join(pluginsDir, 'data', source.replace(/[^a-zA-Z0-9\-_]/g, '-'));
+}
+
+// Session records and edit claims describe one working tree, so they live in its git directory, where hooks,
+// skills, and sandboxed commands all see the same files; outside git they fall back to the project directory.
+export function checkoutDir(root) {
+  const dotGit = join(root, '.git');
+  try {
+    const st = statSync(dotGit);
+    if (st.isDirectory()) return join(dotGit, 'ship-faster');
+    if (st.isFile()) {
+      const m = /^gitdir:\s*(.+?)\s*$/m.exec(readFileSync(dotGit, 'utf8'));
+      if (m) return join(resolve(root, m[1]), 'ship-faster');
+    }
+  } catch {}
+  return projectDir(root);
 }
 
 export function projectHash(root) {
@@ -60,7 +93,7 @@ function safeId(sid) {
 }
 
 export function sessionFile(root, sid) {
-  return join(projectDir(root), 'sessions', `${safeId(sid)}.json`);
+  return join(checkoutDir(root), 'sessions', `${safeId(sid)}.json`);
 }
 
 export function loadSession(root, sid) {
@@ -100,7 +133,7 @@ export function updateSession(root, sid, mutate) {
 export function loadAllSessions(root) {
   const merged = { pages: {} };
   let names = [];
-  const dir = join(projectDir(root), 'sessions');
+  const dir = join(checkoutDir(root), 'sessions');
   try { names = readdirSync(dir).filter((n) => n.endsWith('.json')); } catch { return merged; }
   for (const name of names) {
     const rec = readJson(join(dir, name), null);
@@ -117,22 +150,92 @@ export function loadAllSessions(root) {
 
 export function pruneSessions(root, { maxAgeDays = 7, deadlineMs = 1000 } = {}) {
   try {
-    const dir = join(projectDir(root), 'sessions');
     const started = Date.now();
     const cutoff = started - maxAgeDays * 86400_000;
     let removed = 0;
-    if (!existsSync(dir)) return { removed };
-    for (const name of readdirSync(dir)) {
-      if (Date.now() - started > deadlineMs) break;
-      const file = join(dir, name);
-      try {
-        if (statSync(file).mtimeMs < cutoff) { rmSync(file, { force: true }); removed++; }
-      } catch {}
+    for (const sub of ['sessions', 'edits']) {
+      const dir = join(checkoutDir(root), sub);
+      if (!existsSync(dir)) continue;
+      for (const name of readdirSync(dir)) {
+        if (Date.now() - started > deadlineMs) break;
+        const file = join(dir, name);
+        try {
+          if (statSync(file).mtimeMs < cutoff) { rmSync(file, { force: true }); removed++; }
+        } catch {}
+      }
     }
     return { removed };
   } catch {
     return { removed: 0 };
   }
+}
+
+const MAX_CLAIMS = 1000;
+
+export function editsFile(root, sid) {
+  return join(checkoutDir(root), 'edits', `${safeId(sid)}.json`);
+}
+
+function readEdits(file) {
+  const v = readJson(file, null);
+  const files = v && typeof v === 'object' && !Array.isArray(v) && v.files && typeof v.files === 'object' && !Array.isArray(v.files) ? v.files : {};
+  return { updatedAt: v && typeof v.updatedAt === 'string' ? v.updatedAt : null, files };
+}
+
+export function recordEdit(root, sid, rel, { tool = null, at = new Date().toISOString() } = {}) {
+  try {
+    const file = editsFile(root, sid);
+    const files = { ...readEdits(file).files, [rel]: { at, tool } };
+    // Parallel tool calls run their hooks at the same moment; fold in whatever another process wrote meanwhile.
+    for (const [path, claim] of Object.entries(readEdits(file).files)) {
+      if (!files[path] || Date.parse(claim && claim.at) > Date.parse(files[path].at)) files[path] = claim;
+    }
+    const kept = Object.entries(files)
+      .filter(([, claim]) => claim && !Number.isNaN(Date.parse(claim.at)))
+      .sort((a, b) => Date.parse(b[1].at) - Date.parse(a[1].at))
+      .slice(0, MAX_CLAIMS);
+    return writeJsonAtomic(file, { sid: safeId(sid), updatedAt: kept.length ? kept[0][1].at : at, files: Object.fromEntries(kept) });
+  } catch {
+    return false;
+  }
+}
+
+export function loadEdits(root) {
+  const dir = join(checkoutDir(root), 'edits');
+  let names = [];
+  try { names = readdirSync(dir).filter((n) => n.endsWith('.json')); } catch { return []; }
+  return names.map((name) => ({ sid: name.replace(/\.json$/, ''), ...readEdits(join(dir, name)) }));
+}
+
+export function dropClaims(root, rels, { sid = null } = {}) {
+  const drop = new Set(rels);
+  let dropped = 0;
+  for (const record of loadEdits(root)) {
+    if (sid && record.sid !== safeId(sid)) continue;
+    const hits = Object.keys(record.files).filter((p) => drop.has(p));
+    if (!hits.length) continue;
+    for (const p of hits) delete record.files[p];
+    if (writeJsonAtomic(editsFile(root, record.sid), { sid: record.sid, updatedAt: record.updatedAt || new Date().toISOString(), files: record.files })) dropped += hits.length;
+  }
+  return dropped;
+}
+
+export function sessionRecords(root) {
+  const dir = join(checkoutDir(root), 'sessions');
+  let names = [];
+  try { names = readdirSync(dir).filter((n) => n.endsWith('.json')); } catch { return []; }
+  const records = [];
+  for (const name of names) {
+    const rec = readJson(join(dir, name), null);
+    if (!rec || typeof rec !== 'object' || Array.isArray(rec)) continue;
+    const stamps = [rec.updatedAt, rec.startedAt].map((s) => Date.parse(s || '')).filter((n) => !Number.isNaN(n));
+    records.push({
+      sid: name.replace(/\.json$/, ''),
+      branch: typeof rec.branch === 'string' ? rec.branch : null,
+      lastActive: stamps.length ? new Date(Math.max(...stamps)).toISOString() : null,
+    });
+  }
+  return records;
 }
 
 export function preflightDir(root) {
@@ -158,7 +261,7 @@ export function markSessionStart(root, sid, { branch = null, cwd = null } = {}) 
 }
 
 export function liveSessions(root, { exceptSid, maxAgeHours = 2 } = {}) {
-  const dir = join(projectDir(root), 'sessions');
+  const dir = join(checkoutDir(root), 'sessions');
   const cutoff = Date.now() - maxAgeHours * 3600_000;
   let names = [];
   try { names = readdirSync(dir).filter((n) => n.endsWith('.json')); } catch { return []; }

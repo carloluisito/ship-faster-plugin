@@ -9,6 +9,10 @@ checks:
   - name: {{check name}}
     run: {{command}}
     timeout: {{seconds}}
+setup:
+  - name: {{install step}}
+    run: {{install command that writes only inside the project}}
+    timeout: {{seconds}}
 ---
 # Commands
 

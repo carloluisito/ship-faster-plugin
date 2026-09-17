@@ -3,8 +3,8 @@ title: Detect a stack
 summary: Teach detect.mjs a new language or build tool, with its suggested checks, entry points, workspaces, and lockfile.
 read_when: You need detect.mjs to recognise a stack, test framework, linter, or workspace layout it misses.
 covers: [plugins/ship-faster/scripts/detect.mjs, plugins/ship-faster/scripts/footprints.mjs, plugins/ship-faster/tests/detect.test.mjs]
-verified: 57442cc23c96f7b6c7a961a149cf9363f2a5540b
-updated: 2026-09-16
+verified: c2b59ed7f81346348d2e95b0bb502271a89f0c65
+updated: 2026-09-17
 ---
 # Detect a stack
 

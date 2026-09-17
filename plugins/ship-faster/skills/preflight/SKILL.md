@@ -2,7 +2,7 @@
 name: preflight
 description: Run the repository's verification checks (typecheck, lint, test, build, resolved from commands.md, CI, or stack detection) in an isolated agent and report exactly what failed, with the failure tail and the log path. Read-only.
 when_to_use: Use before claiming a change works, before committing or opening a PR, after a fix that could affect other tests, or when the user asks to run the checks, the tests, or CI locally. ship and release invoke it themselves.
-argument-hint: "[--continue]"
+argument-hint: "[--continue] [--root <path>]"
 allowed-tools: Bash(node *), Read
 context: fork
 agent: ship-faster:check-runner
@@ -13,7 +13,7 @@ background: false
 
 Arguments: $ARGUMENTS
 
-You are running inside the check-runner agent; the caller sees only your final message. Run the repository's checks and report what failed. Never edit a file, never re-run a check with different flags, never skip a check.
+You are running inside the check-runner agent; the caller sees only your final message. Run the repository's checks and report what failed. Never edit a file, never re-run a check with different flags, never skip a check. With `--root <path>` in the arguments, append `--root <path>` to both commands below, so the checks run in that checkout (a worktree `ship` created) instead of this one.
 
 ## 1. Resolve
 

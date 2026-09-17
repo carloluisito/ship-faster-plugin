@@ -47,13 +47,13 @@ test('every error rule fires', () => {
   writeFileSync(join(w, 'nomatch.md'), fm({ title: 'NoMatch', covers: ['nothing/**'], verified: sha }) + 'x\n');
   writeFileSync(join(w, 'long.md'), fm({ title: 'Long', covers: ['src/**'], verified: sha }) + 'line\n'.repeat(250));
   writeFileSync(join(w, 'secret.md'), fm({ title: 'Secret', covers: ['src/**'], verified: sha }) + 'token = ghp_' + 'a'.repeat(36) + '\n');
-  writeFileSync(join(w, 'commands.md'), fm({ title: 'Commands', covers: ['package.json'], verified: sha, checks: [{ name: 'test' }] }) + '# C\n');
+  writeFileSync(join(w, 'commands.md'), fm({ title: 'Commands', covers: ['package.json'], verified: sha, checks: [{ name: 'test' }], setup: [{ run: '' }] }) + '# C\n');
   writeFileSync(join(root, 'CLAUDE.md'), 'x\n'.repeat(160));
   writeFileSync(join(root, '.claude', 'rules', 'long.md'), '---\npaths: ["src/**"]\n---\n' + 'rule\n'.repeat(30));
   writeFileSync(join(root, '.claude', 'rules', 'nopaths.md'), '- always\n');
   const r = lint(root, { config: DEFAULTS });
   const got = new Set(r.errors.map((e) => e.rule));
-  for (const rule of ['frontmatter-missing', 'frontmatter-invalid', 'frontmatter-required', 'covers-empty', 'covers-no-match', 'page-too-long', 'index-stale', 'claude-md-too-long', 'rules-too-long', 'link-missing', 'checks-shape', 'duplicate-title', 'secret']) {
+  for (const rule of ['frontmatter-missing', 'frontmatter-invalid', 'frontmatter-required', 'covers-empty', 'covers-no-match', 'page-too-long', 'index-stale', 'claude-md-too-long', 'rules-too-long', 'link-missing', 'checks-shape', 'setup-shape', 'duplicate-title', 'secret']) {
     assert.ok(got.has(rule), `expected ${rule}, got ${[...got].join(', ')}`);
   }
   assert.ok(r.warnings.some((x) => x.rule === 'rules-no-paths'));

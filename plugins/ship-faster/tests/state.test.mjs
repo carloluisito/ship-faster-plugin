@@ -9,13 +9,32 @@ after(cleanupAll);
 let data;
 beforeEach(() => { data = tmpDir('sf-data-'); process.env.CLAUDE_PLUGIN_DATA = data; });
 
-test('dataDir prefers CLAUDE_PLUGIN_DATA, ignores an unexpanded placeholder, falls back to the config dir', () => {
+test('dataDir prefers CLAUDE_PLUGIN_DATA and otherwise rebuilds the directory Claude Code gives the hooks', () => {
   assert.equal(s.dataDir(), data);
-  process.env.CLAUDE_PLUGIN_DATA = '${CLAUDE_PLUGIN_DATA}';
-  process.env.CLAUDE_CONFIG_DIR = join(data, 'cfg');
-  assert.equal(s.dataDir(), join(data, 'cfg', 'plugins', 'data', 'ship-faster'));
-  delete process.env.CLAUDE_CONFIG_DIR;
-  assert.match(s.dataDir().replace(/\\/g, '/'), /\/\.claude\/plugins\/data\/ship-faster$/);
+  const slash = (p) => p.replace(/\\/g, '/');
+  const placeholder = { CLAUDE_PLUGIN_DATA: '${CLAUDE_PLUGIN_DATA}' };
+  assert.equal(slash(s.dataDir({ env: { ...placeholder, CLAUDE_CONFIG_DIR: '/cfg' } })), '/cfg/plugins/data/ship-faster-inline');
+  assert.equal(slash(s.dataDir({ env: { CLAUDE_CODE_PLUGIN_CACHE_DIR: '/pc', CLAUDE_CONFIG_DIR: '/cfg' } })), '/pc/data/ship-faster-inline');
+  assert.equal(slash(s.dataDir({ env: {}, home: '/home/u' })), '/home/u/.claude/plugins/data/ship-faster-inline');
+  const installed = { env: {}, pluginRoot: 'C:/Users/u/.claude/plugins/cache/team.tools/ship-faster/0.3.0' };
+  assert.equal(slash(s.dataDir(installed)), 'C:/Users/u/.claude/plugins/data/ship-faster-team-tools');
+  assert.equal(slash(s.dataDir({ env: {}, pluginRoot: '/x/plugins/cache/ship-faster/ship-faster/0.2.1/' })), '/x/plugins/data/ship-faster-ship-faster');
+});
+
+test('checkoutDir keeps session state in the git directory of the working tree, and outside git in the project directory', () => {
+  const plain = tmpDir('sf-plain-');
+  assert.equal(s.checkoutDir(plain), s.projectDir(plain));
+  const repo = tmpDir('sf-repo-');
+  mkdirSync(join(repo, '.git'));
+  assert.equal(s.checkoutDir(repo), join(repo, '.git', 'ship-faster'));
+  assert.equal(s.sessionFile(repo, 'one'), join(repo, '.git', 'ship-faster', 'sessions', 'one.json'));
+  assert.equal(s.editsFile(repo, 'one'), join(repo, '.git', 'ship-faster', 'edits', 'one.json'));
+  const linked = tmpDir('sf-linked-');
+  writeFileSync(join(linked, '.git'), 'gitdir: ../main/.git/worktrees/linked\n');
+  assert.equal(s.checkoutDir(linked), join(linked, '..', 'main', '.git', 'worktrees', 'linked', 'ship-faster'));
+  const broken = tmpDir('sf-broken-');
+  writeFileSync(join(broken, '.git'), 'not a pointer\n');
+  assert.equal(s.checkoutDir(broken), s.projectDir(broken));
 });
 
 test('projectHash is stable, 16 hex, and distinct per root', () => {
@@ -143,4 +162,57 @@ test('markSessionStart stamps the record and liveSessions lists other recent ses
   s.markSessionStart(root, 'one', { branch: 'feat/renamed', cwd: root });
   assert.equal(s.loadSession(root, 'one').startedAt, rec.startedAt);
   assert.equal(s.loadSession(root, 'one').branch, 'feat/renamed');
+});
+
+test('recordEdit keeps the newest claim per path, merges concurrent writers, caps the list, and dropClaims removes paths', () => {
+  const root = tmpDir('sf-root-');
+  const t = (m) => new Date(Date.UTC(2026, 8, 18, 10, m)).toISOString();
+  assert.equal(s.recordEdit(root, 'one', 'src/a.js', { tool: 'Edit', at: t(1) }), true);
+  s.recordEdit(root, 'one', 'src/a.js', { tool: 'Write', at: t(3) });
+  s.recordEdit(root, 'one', 'src/b.js', { tool: 'Edit', at: t(2) });
+  s.recordEdit(root, 'two', 'src/b.js', { tool: 'MultiEdit', at: t(4) });
+  const byId = Object.fromEntries(s.loadEdits(root).map((e) => [e.sid, e]));
+  assert.deepEqual(byId.one.files, { 'src/a.js': { at: t(3), tool: 'Write' }, 'src/b.js': { at: t(2), tool: 'Edit' } });
+  assert.equal(byId.one.updatedAt, t(3));
+  assert.deepEqual(Object.keys(byId.two.files), ['src/b.js']);
+
+  const file = s.editsFile(root, 'one');
+  s.writeJsonAtomic(file, { sid: 'one', updatedAt: t(5), files: { ...byId.one.files, 'src/c.js': { at: t(5), tool: 'Edit' } } });
+  s.recordEdit(root, 'one', 'src/d.js', { tool: 'Edit', at: t(6) });
+  assert.deepEqual(Object.keys(s.loadEdits(root).find((e) => e.sid === 'one').files).sort(), ['src/a.js', 'src/b.js', 'src/c.js', 'src/d.js']);
+
+  const full = Array.from({ length: 1000 }, (_, k) => [`f${k}.js`, { at: new Date(Date.UTC(2026, 0, 1, 0, 0, k)).toISOString(), tool: 'Edit' }]);
+  s.writeJsonAtomic(s.editsFile(root, 'many'), { files: Object.fromEntries(full) });
+  s.recordEdit(root, 'many', 'newest.js', { at: t(7) });
+  const many = s.loadEdits(root).find((e) => e.sid === 'many').files;
+  assert.equal(Object.keys(many).length, 1000);
+  assert.ok(many['newest.js']);
+  assert.equal(many['f0.js'], undefined);
+
+  assert.equal(s.dropClaims(root, ['src/b.js'], { sid: 'two' }), 1);
+  assert.ok(s.loadEdits(root).find((e) => e.sid === 'one').files['src/b.js']);
+  assert.equal(s.dropClaims(root, ['src/a.js', 'src/b.js', 'nope.js']), 2);
+  assert.deepEqual(Object.keys(s.loadEdits(root).find((e) => e.sid === 'one').files).sort(), ['src/c.js', 'src/d.js']);
+  s.writeJsonAtomic(s.editsFile(root, 'broken'), [1, 2]);
+  assert.deepEqual(s.loadEdits(root).find((e) => e.sid === 'broken').files, {});
+  assert.deepEqual(s.loadEdits(tmpDir('sf-empty-')), []);
+});
+
+test('sessionRecords reports branch and last activity; pruneSessions also removes old claim files', () => {
+  const root = tmpDir('sf-root-');
+  const started = '2026-09-18T08:00:00.000Z';
+  const updated = '2026-09-18T09:30:00.000Z';
+  s.writeJsonAtomic(s.sessionFile(root, 'one'), { startedAt: started, updatedAt: updated, branch: 'feat/one' });
+  s.writeJsonAtomic(s.sessionFile(root, 'two'), { pages: {} });
+  s.writeJsonAtomic(s.sessionFile(root, 'bad'), 'text');
+  assert.deepEqual(s.sessionRecords(root).sort((a, b) => a.sid.localeCompare(b.sid)), [
+    { sid: 'one', branch: 'feat/one', lastActive: updated },
+    { sid: 'two', branch: null, lastActive: null },
+  ]);
+  s.recordEdit(root, 'gone', 'a.js');
+  const old = (Date.now() - 8 * 86400_000) / 1000;
+  utimesSync(s.editsFile(root, 'gone'), old, old);
+  s.recordEdit(root, 'kept', 'a.js');
+  s.pruneSessions(root, { maxAgeDays: 7 });
+  assert.deepEqual(s.loadEdits(root).map((e) => e.sid), ['kept']);
 });
