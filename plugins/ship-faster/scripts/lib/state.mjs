@@ -146,3 +146,30 @@ export function backupDir(root) {
   try { mkdirSync(dir, { recursive: true }); } catch {}
   return dir;
 }
+
+export function markSessionStart(root, sid, { branch = null, cwd = null } = {}) {
+  const now = new Date().toISOString();
+  return updateSession(root, sid, (record) => {
+    record.startedAt = record.startedAt || now;
+    record.updatedAt = now;
+    record.branch = branch;
+    record.cwd = cwd;
+  });
+}
+
+export function liveSessions(root, { exceptSid, maxAgeHours = 2 } = {}) {
+  const dir = join(projectDir(root), 'sessions');
+  const cutoff = Date.now() - maxAgeHours * 3600_000;
+  let names = [];
+  try { names = readdirSync(dir).filter((n) => n.endsWith('.json')); } catch { return []; }
+  const own = `${safeId(exceptSid)}.json`;
+  const live = [];
+  for (const name of names) {
+    if (name === own) continue;
+    const rec = readJson(join(dir, name), null);
+    const at = rec && typeof rec === 'object' ? Date.parse(rec.updatedAt || rec.startedAt || '') : NaN;
+    if (Number.isNaN(at) || at < cutoff) continue;
+    live.push({ sid: name.replace(/\.json$/, ''), branch: typeof rec.branch === 'string' ? rec.branch : null, at: new Date(at).toISOString() });
+  }
+  return live.sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0));
+}

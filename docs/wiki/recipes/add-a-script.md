@@ -3,7 +3,7 @@ title: Add a script
 summary: A new standalone script under plugins/ship-faster/scripts with the JSON output contract, a test, and docs.
 read_when: You need to add a CLI script that skills or hooks call.
 covers: [plugins/ship-faster/scripts/lib/cli.mjs, plugins/ship-faster/scripts/lib/root.mjs, plugins/ship-faster/tests/helpers.mjs, plugins/ship-faster/README.md]
-verified: 88e2c3df70c093ad3df2044b14370835dc34cf89
+verified: a701e622675657389001379b0420c2eba7706328
 updated: 2026-09-17
 ---
 # Add a script

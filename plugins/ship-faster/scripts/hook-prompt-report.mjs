@@ -17,13 +17,18 @@ function compose(names) {
   return HEAD + `${names.length} ${names.length === 1 ? 'page' : 'pages'}` + TAIL;
 }
 
+const HEARTBEAT_MS = 30 * 60_000;
+
 async function main() {
   const input = await readStdinJson(1000);
   if (!input) return;
   const cwd = typeof input.cwd === 'string' ? input.cwd : process.cwd();
   const root = resolveRootCached(cwd);
   const sid = input.session_id || 'default';
-  const known = loadSession(root, sid).pages || {};
+  const record = loadSession(root, sid);
+  const stampedAt = Date.parse(record.updatedAt || '') || 0;
+  if (record.startedAt && Date.now() - stampedAt > HEARTBEAT_MS) updateSession(root, sid, (session) => { session.updatedAt = new Date().toISOString(); });
+  const known = record.pages || {};
   if (!Object.keys(known).some((rel) => !known[rel].reported)) return;
   let pending = [];
   updateSession(root, sid, (session) => {

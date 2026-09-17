@@ -1,6 +1,6 @@
 import { test, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync, realpathSync } from 'node:fs';
 import { join } from 'node:path';
 import { makeRepo, runScript, tmpDir, cleanupAll } from './helpers.mjs';
 import { DEFAULTS } from '../scripts/lib/config.mjs';
@@ -133,4 +133,19 @@ test('on the base branch itself, changes counts commits ahead of the remote-trac
   const r2 = changes(noRemote.root, { config: DEFAULTS });
   assert.equal(r2.ok, true);
   assert.equal(r2.ahead, 0);
+});
+
+test('changes reports whether the checkout is a worktree and where the main checkout is', () => {
+  const { root, git } = makeRepo({ files: { 'src/a.ts': 'a\n' } });
+  const norm = (p) => realpathSync.native(p).replace(/\\/g, '/').toLowerCase();
+  const main = changes(root, { config: DEFAULTS });
+  assert.equal(main.worktree.isWorktree, false);
+  assert.equal(norm(main.worktree.mainRoot), norm(root));
+  const wt = join(tmpDir('sf-wt-'), 'feat-w');
+  git(['worktree', 'add', wt, '-b', 'feat/w']);
+  const inner = changes(wt, { config: DEFAULTS });
+  assert.equal(inner.branch, 'feat/w');
+  assert.equal(inner.worktree.isWorktree, true);
+  assert.equal(norm(inner.worktree.mainRoot), norm(root));
+  assert.equal(norm(inner.worktree.path), norm(wt));
 });

@@ -2,7 +2,7 @@
 name: kickoff
 description: Turn a feature description into a grounded plan (goal, complete scope, ordered touchpoints naming real files, tests to add, docs impact, risks quoting gotchas, verification commands) written under docs/plans/, and start the branch for it.
 disable-model-invocation: true
-argument-hint: "<feature description> [--no-branch]"
+argument-hint: "<feature description> [--no-branch|--worktree]"
 allowed-tools: Read, Glob, Grep, Write, Bash(node *), Bash(git *)
 ---
 
@@ -14,13 +14,13 @@ Repository facts:
 
 Arguments: $ARGUMENTS
 
-`<wikiDir>` = `config.wikiDir`, `<plansDir>` = `config.plansDir`, `<default>` = `git.defaultBranch`. The feature description is every argument except `--no-branch`. With no description, ask for one; when you cannot ask, stop with one line saying what `kickoff` needs. Without a wiki (`existing.wiki` false), plan from the repository files alone and say in the report that the plan is ungrounded because the wiki does not exist yet.
+`<wikiDir>` = `config.wikiDir`, `<plansDir>` = `config.plansDir`, `<default>` = `git.defaultBranch`. The feature description is every argument except `--no-branch` and `--worktree`. `--worktree` puts the branch in its own checkout next to this one, so a second session can work on it while this one continues; `--no-branch` and `--worktree` together contradict each other: stop with one line. With no description, ask for one; when you cannot ask, stop with one line saying what `kickoff` needs. Without a wiki (`existing.wiki` false), plan from the repository files alone and say in the report that the plan is ungrounded because the wiki does not exist yet.
 
 ## 1. Read what the repository already knows
 
 Read `<wikiDir>/index.md`. Open every page whose `read_when` matches the feature, plus `layout.md`, `testing.md`, and `commands.md` when they exist, and the recipe whose task shape matches (a recipe named like the change: add an endpoint, add a migration, add a provider). Read the `gotchas.md` entries whose `covers` include the directories the feature will touch. Note the `checks` list in `commands.md`.
 
-## 2. Write the plan
+## 2. Draft the plan
 
 Copy `${CLAUDE_PLUGIN_ROOT}/templates/plan.md`, replace every placeholder, delete the comments, and follow these rules:
 
@@ -32,11 +32,15 @@ Copy `${CLAUDE_PLUGIN_ROOT}/templates/plan.md`, replace every placeholder, delet
 - **Risks**: quote the applicable gotchas by id and rule line; add integration and data risks you can name.
 - **Verification**: the commands from the `checks` list, in order, plus the single test that proves the feature.
 
-Frontmatter: `title`, `branch` (from step 3), `status: active`, `created` today, `pages` (the pages you read, as `name` or `recipes/<name>`). Path: `<plansDir>/<yyyy-mm-dd>-<slug>.md`, slug 2 to 5 lowercase words joined by hyphens. Print the plan, then write it.
+Frontmatter: `title`, `branch` (from step 3), `status: active`, `created` today, `pages` (the pages you read, as `name` or `recipes/<name>`). The file name is `<yyyy-mm-dd>-<slug>.md`, slug 2 to 5 lowercase words joined by hyphens. Hold the text; step 4 writes it where the branch lives.
 
-## 3. Branch
+## 3. Branch or worktree
 
-Name: `feat/`, `fix/`, `chore/`, `refactor/`, `docs/`, or `test/` plus the slug, chosen by the change's nature. Print it. Unless the arguments contain `--no-branch`:
+Name: `feat/`, `fix/`, `chore/`, `refactor/`, `docs/`, or `test/` plus the slug, chosen by the change's nature. Print it. When `<default>` is null (no git or no default branch) skip this step and say so.
+
+With `--no-branch`: skip this step.
+
+Without `--worktree`:
 
 ```
 git rev-parse --verify --quiet <name>
@@ -48,16 +52,30 @@ If that succeeds the name is taken: append `-2`, `-3`, and so on. Then:
 git switch -c <name> <default>
 ```
 
-When `<default>` is null (no git or no default branch) skip the branch and say so. Uncommitted changes travel with the switch; do not stash or commit them.
+Uncommitted changes travel with the switch; do not stash or commit them.
 
-## 4. Lint and report
+With `--worktree`:
+
+```
+node "${CLAUDE_PLUGIN_ROOT}/scripts/worktree.mjs" add --branch <name> --from <default> --json
+```
+
+`ok: false` because the branch exists: append `-2`, `-3`, and so on and retry; any other `ok: false`: print the error and stop without writing the plan. Note `path` and `open`. The new checkout starts clean at `<default>`; uncommitted changes in this checkout stay here, and say so when `git status --porcelain` is not empty.
+
+## 4. Write the plan and lint
+
+Write the plan to `<plansDir>/<yyyy-mm-dd>-<slug>.md` in this checkout, or, with `--worktree`, to `<path>/<plansDir>/<yyyy-mm-dd>-<slug>.md` so the plan lives on its branch. Then:
 
 ```
 node "${CLAUDE_PLUGIN_ROOT}/scripts/lint.mjs" --json
 ```
 
-Fix any error in the plan's frontmatter. Report three lines: the plan path, the branch (or "no branch"), and the first touchpoint.
+with `--root <path>` appended in the worktree case. Fix any error in the plan's frontmatter.
 
-## 5. Show the plan
+## 5. Report
+
+Three lines: the plan path, the branch (or "no branch"), and the first touchpoint. With `--worktree`, a fourth line: `Worktree: <path> (open it with: <first open command> then <second open command>)`, the two entries of `open` printed one after the other so that every shell accepts them.
+
+## 6. Show the plan
 
 Print the plan file in full, inside one fenced block, so the user reads it before starting. It is the last thing you print: no summary, note, or offer after it.

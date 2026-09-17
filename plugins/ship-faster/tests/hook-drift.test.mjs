@@ -4,7 +4,7 @@ import { existsSync, mkdirSync, realpathSync, statSync, utimesSync, writeFileSyn
 import { join } from 'node:path';
 import { makeRepo, runScript, tmpDir, cleanupAll } from './helpers.mjs';
 import { serializeFrontmatter } from '../scripts/lib/fm.mjs';
-import { loadSession, projectHash, saveSession, sessionFile, writeJsonAtomic } from '../scripts/lib/state.mjs';
+import { loadSession, projectHash, readJson, saveSession, sessionFile, writeJsonAtomic } from '../scripts/lib/state.mjs';
 import { resolveRootCached } from '../scripts/lib/root.mjs';
 
 after(cleanupAll);
@@ -77,6 +77,26 @@ test('a report with nothing pending leaves the session file alone', () => {
   const before = statSync(file).mtimeMs;
   assert.equal(report(root).stdout, '');
   assert.equal(statSync(file).mtimeMs, before);
+});
+
+test('prompt-report refreshes a session record older than thirty minutes and leaves a fresh one alone', () => {
+  const root = repo();
+  const old = new Date(Date.now() - 60 * 60_000).toISOString();
+  writeJsonAtomic(sessionFile(root, 'sid1'), { startedAt: old, updatedAt: old, branch: 'main', pages: {} });
+  assert.equal(report(root).stdout, '');
+  const refreshed = readJson(sessionFile(root, 'sid1'), null);
+  assert.ok(Date.now() - Date.parse(refreshed.updatedAt) < 60_000);
+  assert.equal(refreshed.startedAt, old);
+  const file = sessionFile(root, 'sid1');
+  const before = statSync(file).mtimeMs;
+  assert.equal(report(root).stdout, '');
+  assert.equal(statSync(file).mtimeMs, before);
+});
+
+test('prompt-report never creates a session record on its own', () => {
+  const root = repo();
+  assert.equal(report(root).stdout, '');
+  assert.equal(existsSync(sessionFile(root, 'sid1')), false);
 });
 
 test('resolveRootCached trusts a cached root for a day outside a repository', () => {

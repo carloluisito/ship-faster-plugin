@@ -35,4 +35,16 @@ Only when the arguments contain `--merge`:
 
 1. `gh pr checks <number> --watch --fail-fast`. A failing check stops here with its name.
 2. Ask: "Squash-merge PR #<number> into <base> and delete the remote branch?" On yes: `gh pr merge <number> --squash --delete-branch`.
-3. Report the merge commit and remind that the local branch can be deleted with `git branch -d <branch>` after `git switch <base>` and `git pull --ff-only`.
+3. Report the merge commit. Outside a worktree, remind that the local branch can be deleted with `git branch -D <branch>` (a squash merge leaves it unmerged in git's eyes) after `git switch <base>` and `git pull --ff-only`. Inside a worktree (`worktree.isWorktree` in the inventory), print the commands from the Worktrees section instead; the plan marked shipped reaches the main checkout with the pull.
+
+## Worktrees
+
+When the inventory says `worktree.isWorktree`, this checkout is a worktree of `worktree.mainRoot` at `worktree.path`. Print these commands for the user to run from the main checkout once the PR needs no more work (after the merge with `--merge`); do not run them here, because a worktree cannot remove itself while a session sits in it:
+
+```
+git -C "<mainRoot>" pull --ff-only
+git -C "<mainRoot>" worktree remove "<path>"
+git -C "<mainRoot>" branch -D <branch>
+```
+
+Say that the pull is for when the main checkout is on `<base>`, that the second command refuses while the worktree has uncommitted changes, and that `-D` is needed because a squash merge leaves the branch's commits outside the base's history; `--delete-branch` in the merge step removes only the remote branch when the local one is checked out in a worktree.
