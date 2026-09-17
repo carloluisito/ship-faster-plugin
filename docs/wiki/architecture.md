@@ -3,7 +3,7 @@ title: Architecture
 summary: Skills call deterministic Node scripts and agents; hooks track which wiki pages edits touch and guard risky git commands.
 read_when: You are changing how components interact, adding a component, or need the reason behind a structural decision.
 covers: [plugins/ship-faster/scripts/**, plugins/ship-faster/hooks/hooks.json, plugins/ship-faster/agents/**, plugins/ship-faster/skills/**]
-verified: 1eeff4846a11978c84a07002ffa3bf99422c4437
+verified: 0575e1e9c4e639f1b0c4bd7a1cb6e561543e5a61
 updated: 2026-09-17
 ---
 # Architecture
@@ -28,7 +28,7 @@ Shipping skills:
 1. `preflight` runs in a forked `check-runner` agent (`context: fork`): `checks.mjs resolve`, then `checks.mjs run`, which writes one log per check and `preflight/last.json` in the data directory; the caller receives only the report.
 2. `review` runs `review.mjs prepare`, which writes the diff against the merge base in chunks of up to 4000 lines, copies of untracked files, and a manifest under `ship-faster/review/<project hash>/<timestamp>/` in the system temp directory (where a sandboxed subagent can still read them) and names the rule pages and matching recipes; one `rules-reviewer` per chunk reads them from those paths.
 3. `ship` injects `changes.mjs` (branch, base, ahead/behind, uncommitted files with risk flags, commit style), then invokes preflight, `sync-docs --scope diff`, and review as skills, marks the plan `shipped` with `plan.mjs set-status`, commits by name, and pushes and opens the PR only after the user says yes.
-4. `release` uses `version.mjs detect` and `bump`, `changelog.mjs since` and `insert`, `stale.mjs` with `sync-docs --scope all`, and preflight, then commits `release: vX.Y.Z` and tags; publishing waits for a yes.
+4. `release` uses `version.mjs detect` and `bump`, `changelog.mjs since` and `insert`, `stale.mjs` with `sync-docs --scope all`, then `stale.mjs` again and `page.mjs verify` on the pages dirty only from the version files and the changelog, and preflight; it commits `release: vX.Y.Z` together with those pages, so they stay fresh, and tags; publishing waits for a yes.
 5. `health` injects `health.mjs scan`, fans out one `health-auditor` per area, and ends with `health.mjs record`, which writes `health.json`; `kickoff` reads the wiki, writes a plan from `templates/plan.md`, and creates the branch, or with `--worktree` a sibling checkout through `worktree.mjs add` and writes the plan there.
 
 Session hooks:

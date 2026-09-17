@@ -1,6 +1,6 @@
 ---
 name: release
-description: Cut a version from the default branch: bump the version source, write the Keep a Changelog section from the commits since the last tag, run preflight, commit "release: vX.Y.Z", tag it (claude plugin tag in a plugin repository), then publish with a GitHub release after confirmation.
+description: Cut a version from the default branch: bump the version source, write the Keep a Changelog section from the commits since the last tag, re-stamp the wiki pages that cover the changed files, run preflight, commit "release: vX.Y.Z", tag it (claude plugin tag in a plugin repository), then publish with a GitHub release after confirmation.
 disable-model-invocation: true
 argument-hint: "<patch|minor|major|x.y.z> [--file <version file>] [--plugin <name>]"
 allowed-tools: Read, Glob, Grep, Write, Edit, Skill, Agent, Bash(node *), Bash(git *), Bash(gh *), Bash(claude plugin *), Bash(claude --version)
@@ -18,7 +18,7 @@ Repository facts:
 
 Arguments: $ARGUMENTS
 
-The first argument is the bump: `patch`, `minor`, `major`, or an explicit `x.y.z`; nothing else is accepted. `--file` and `--plugin` pass through to the version script. `<default>` = `defaultBranch` from the inventory; `<dataDir>` = `dataDir` from the facts. Publishing (push, PR, GitHub release) is outward-facing and needs the user's explicit yes; in a non-interactive run stop before it and print the commands. Read `${CLAUDE_SKILL_DIR}/reference/publish.md` before step 9.
+The first argument is the bump: `patch`, `minor`, `major`, or an explicit `x.y.z`; nothing else is accepted. `--file` and `--plugin` pass through to the version script. `<default>` = `defaultBranch` from the inventory; `<dataDir>` = `dataDir` from the facts. Publishing (push, PR, GitHub release) is outward-facing and needs the user's explicit yes; in a non-interactive run stop before it and print the commands. Read `${CLAUDE_SKILL_DIR}/reference/publish.md` before step 10.
 
 ## 1. Clean tree on the default branch
 
@@ -79,29 +79,49 @@ For a plugin repository (`source.kind` is `plugin`) append `--file <plugin direc
 node "${CLAUDE_PLUGIN_ROOT}/scripts/version.mjs" bump <argument> --json
 ```
 
-with `--file` or `--plugin` when given. `ok: false`: revert the changelog edit (`git checkout -- <changelog path>`, or delete it when `created` was true) and stop. Note `to`, `files`, `tag`. Never run `npm version`.
+with `--file` or `--plugin` when given. `ok: false`: revert the changelog edit (`git checkout -- <changelog path>`, or delete it when `created` was true) and stop. Note `from`, `to`, `files`, `tag`. Never run `npm version`.
 
-## 7. Preflight
+## 7. Wiki pages covering the release
 
-Invoke the `ship-faster:preflight` skill. `Preflight: FAIL`: revert every file from step 5, 6, and 4 (`git checkout -- <files>`; delete a <changelog path> that did not exist before), print the failure, and stop.
+Without this step every page covering the version files or the changelog goes stale with the release commit.
 
-## 8. Commit and tag
+```
+node "${CLAUDE_PLUGIN_ROOT}/scripts/stale.mjs" --json
+```
 
-Stage by name: the version `files`, `<changelog path>`, and every wiki file step 4 changed (`git status --porcelain` lists them). Write the message `release: v<to>` to `<dataDir>/release/commit-msg.txt` (or a file under the system temp directory) and `git commit -F <file>`; when no file can be written, `git commit -F -` with the message on stdin. Tag:
+The release pages are the pages whose `status` is `dirty` and whose `changed` lists nothing but the version `files` and `<changelog path>`. A page stale or dirty for any other file is not one; it stays as step 4 left it.
+
+When `from` is not null, Grep every page `stale.mjs` listed for `from` with its dots escaped; that also finds the previous tag. A mention giving `from` as the current or latest version is false after the bump: change it to `to`, or reword it so the page names no current version. A mention of history (a past release, the version something shipped in) stays.
+
+Stamp the release pages and every `fresh` page you edited; with none of either, go on to step 8:
+
+```
+node "${CLAUDE_PLUGIN_ROOT}/scripts/page.mjs" verify <pages> --json
+```
+
+The bump and the changelog section are the only changes these pages cover, so no other claim needs rechecking. The stamp names the commit before the release; committed together with the release, the pages stay fresh. A page whose entry in `pages` has `ok: false` keeps its old stamp; name it in the report.
+
+## 8. Preflight
+
+Invoke the `ship-faster:preflight` skill. `Preflight: FAIL`: revert every file steps 4 to 7 changed (`git checkout -- <files>`; delete a <changelog path> that did not exist before), print the failure, and stop.
+
+## 9. Commit and tag
+
+Stage by name: the version `files`, `<changelog path>`, and every wiki file steps 4 and 7 changed (`git status --porcelain` lists them). Write the message `release: v<to>` to `<dataDir>/release/commit-msg.txt` (or a file under the system temp directory) and `git commit -F <file>`; when no file can be written, `git commit -F -` with the message on stdin. Tag:
 
 - Plugin repository and `claude --version` succeeds: `claude plugin tag <plugin directory> -m "<name> %s"` where the plugin directory is the one holding the `plugin.json` from `source.files`.
 - Otherwise: `git tag -a <tag> -m "<tag>"`.
 
 `git tag -l <tag>` must now list it.
 
-## 9. Publish
+## 10. Publish
 
 Follow reference/publish.md. Ask first; in a non-interactive run print the commands and stop.
 
-## 10. GitHub release
+## 11. GitHub release
 
 Follow reference/publish.md, section GitHub release.
 
-## 11. Report
+## 12. Report
 
-Version, tag, release URL (or the commands still to run), and the commits that were left out of the changelog.
+Version, tag, the pages step 7 stamped and any it could not, release URL (or the commands still to run), and the commits that were left out of the changelog.

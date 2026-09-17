@@ -32,11 +32,11 @@ The release commit cannot land directly. Ask: "Open a release PR for <tag>?" Say
 5. `gh pr checks <number> --watch --fail-fast`; a failure stops here.
 6. Ask again, then `gh pr merge <number> --squash --delete-branch`.
 7. `git switch <default>`, `git pull --ff-only`.
-8. The tag points at the pre-merge commit: `git tag -d <tag>`, then recreate it on the merged commit with the same command as step 8 of SKILL.md, then `git push origin <tag>`.
+8. The tag points at the pre-merge commit: `git tag -d <tag>`, then recreate it on the merged commit with the same command as step 9 of SKILL.md, then `git push origin <tag>`.
 
 ## GitHub release
 
-Only after the push of step 9 happened. Ask: "Create the GitHub release <tag>?" On no, or in a non-interactive run, print the command for the branch below and stop.
+Only after the push of step 10 happened. Ask: "Create the GitHub release <tag>?" On no, or in a non-interactive run, print the command for the branch below and stop.
 
 Look for a workflow triggered by tags: Grep `.github/workflows/*.yml` for `tags:` under `push:`.
 

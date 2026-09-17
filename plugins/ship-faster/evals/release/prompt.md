@@ -1,5 +1,5 @@
 ---
-description: release bumps the version, writes the changelog, runs preflight, commits and tags, and stops before publishing without a remote
+description: release bumps the version, writes the changelog, re-stamps the wiki pages covering the version file, runs preflight, commits and tags, and stops before publishing without a remote
 tags: [release, shipping]
 runs: 1
 max_turns: 80

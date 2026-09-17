@@ -5,6 +5,9 @@ versions follow semver.
 
 ## [Unreleased]
 
+### Fixed
+- Wiki pages that cover the version files or the changelog no longer go stale with every release: `release` corrects lines that still give the old version as current, re-stamps those pages, and commits them with the release.
+
 ## [0.2.0] - 2026-09-17
 
 ### Added
