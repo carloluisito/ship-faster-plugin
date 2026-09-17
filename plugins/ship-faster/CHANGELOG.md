@@ -5,6 +5,8 @@ versions follow semver.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-09-17
+
 ### Added
 - `kickoff --worktree` creates a sibling worktree on the new branch and writes the plan there, so one session per ticket can run in parallel; `ship` prints the worktree cleanup commands after the merge; session start names the other worktrees and warns when two sessions share one checkout.
 - `scripts/worktree.mjs` (`list`, `add`) and the `worktree` field of the branch inventory.
