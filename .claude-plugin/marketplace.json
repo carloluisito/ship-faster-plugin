@@ -6,7 +6,7 @@
     {
       "name": "ship-faster",
       "source": "./plugins/ship-faster",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "description": "Generates a router CLAUDE.md and a verified, freshness-tracked wiki for any repository, then ships with repo-aware preflight, review, PR, release, and maintenance skills.",
       "author": { "name": "carloluisito", "url": "https://github.com/carloluisito" },
       "keywords": ["claude-md", "docs", "wiki", "preflight", "ship", "release", "hooks", "skills"]
