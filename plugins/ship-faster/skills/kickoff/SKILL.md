@@ -72,10 +72,12 @@ node "${CLAUDE_PLUGIN_ROOT}/scripts/lint.mjs" --json
 
 with `--root <path>` appended in the worktree case. Fix any error in the plan's frontmatter.
 
-## 5. Report
+## 5. Report and show the plan
 
-Three lines: the plan path, the branch (or "no branch"), and the first touchpoint. With `--worktree`, a fourth line: `Worktree: <path> (open it with: <first open command> then <second open command>)`, the two entries of `open` printed one after the other so that every shell accepts them.
+Put everything in your final message, in this order and nothing else:
 
-## 6. Show the plan
+1. Three lines: the plan path, the branch (or "no branch"), and the first touchpoint.
+2. With `--worktree`, a fourth line: `Worktree: <path> (open it with: <first open command> then <second open command>)`, the two entries of `open` printed one after the other so that every shell accepts them.
+3. The plan file in full, inside one fenced block, so the user reads it before starting.
 
-Print the plan file in full, inside one fenced block, so the user reads it before starting. It is the last thing you print: no summary, note, or offer after it.
+Nothing after the plan: no summary, note, or offer. Do not split these across messages.
