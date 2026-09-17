@@ -36,7 +36,7 @@ The release commit cannot land directly. Ask: "Open a release PR for <tag>?" Say
 
 ## GitHub release
 
-Only after the push of step 10 happened. Ask: "Create the GitHub release <tag>?" On no, or in a non-interactive run, print the command for the branch below and stop.
+Only after the push of step 10 happened. Ask: "Create the GitHub release <tag>?" On no, or with `attended: false` in the facts, print the command for the branch below and stop.
 
 Look for a workflow triggered by tags: Grep `.github/workflows/*.yml` for `tags:` under `push:`.
 

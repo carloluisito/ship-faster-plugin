@@ -133,10 +133,19 @@ test('detect reports the resolved config and the project data directory, and --b
   assert.ok(r.dataDir.endsWith(`/projects/${projectHash(root)}`), r.dataDir);
   assert.ok(!r.dataDir.includes('\\'));
   const brief = detect(root, { brief: true });
-  assert.deepEqual(Object.keys(brief).sort(), ['ci', 'config', 'dataDir', 'existing', 'git', 'ok', 'root', 'stacks', 'summary']);
+  assert.deepEqual(Object.keys(brief).sort(), ['attended', 'ci', 'config', 'dataDir', 'existing', 'git', 'ok', 'root', 'stacks', 'summary']);
   assert.equal(brief.git.head, r.git.head);
   const cli = runScript('detect', ['--root', root, '--brief', '--json']);
   assert.equal(cli.json.ok, true);
   assert.equal(cli.json.scripts, undefined);
   assert.equal(cli.json.config.wikiDir, 'wiki');
+});
+
+test('attended is false only when Claude Code says nobody can answer', () => {
+  const { root } = makeRepo({ files: { 'a.txt': 'a\n' } });
+  const attended = (value) => runScript('detect', ['--root', root, '--brief', '--json'], { env: { CLAUDE_CODE_SESSION_ATTENDED: value } }).json.attended;
+  assert.equal(attended('0'), false);
+  assert.equal(attended('1'), true);
+  assert.equal(attended(''), true);
+  assert.equal(detect(root).attended, process.env.CLAUDE_CODE_SESSION_ATTENDED !== '0');
 });

@@ -27,7 +27,7 @@ Write it to `<dataDir>/ship/pr-body.md` (same fallback as the commit message: a 
    - `gh --version` fails: print the compare URL `<remote url without .git>/compare/<base>...<branch>?expand=1` and the body path, and stop.
    - `gh pr view <branch> --json number,url,state` reports an open PR: push happened already; post the verification table as a comment: write the table to `<dataDir>/ship/pr-comment.md` and run `gh pr comment <number> --body-file <that file>`. Report the URL and stop.
    - Otherwise `gh pr create --base <base> --head <branch> --title "<commit subject>" --body-file <body path>`, plus `--draft` when the arguments contain it. Report the URL it prints.
-3. In a non-interactive run print the exact commands above instead of asking, and stop.
+3. With `attended: false` in the facts print the exact commands above in the final message instead of asking, and stop.
 
 ## Merge
 
