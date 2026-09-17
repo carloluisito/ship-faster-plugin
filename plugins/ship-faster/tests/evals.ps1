@@ -2,8 +2,10 @@
 Runs the skill evals from Windows through WSL, where the eval sandbox works.
 
   .\plugins\ship-faster\tests\evals.ps1                 every case
-  .\plugins\ship-faster\tests\evals.ps1 review          one case (a glob)
-  .\plugins\ship-faster\tests\evals.ps1 -MaxCost 20
+  .\plugins\ship-faster\tests\evals.ps1 review          one case
+  .\plugins\ship-faster\tests\evals.ps1 ship release    several cases, one harness run each
+  .\plugins\ship-faster\tests\evals.ps1 'kickoff*'      a glob (the harness takes * and ?, not {a,b})
+  .\plugins\ship-faster\tests\evals.ps1 -MaxCost 20     cost ceiling for each harness run
   .\plugins\ship-faster\tests\evals.ps1 -Setup          one-time: installs bubblewrap, socat, the pinned claude CLI, and the eval user
 
 The evals run as a dedicated WSL user (default sfeval) whose home has no Docker Desktop
@@ -11,7 +13,8 @@ symlinks, with a copy of this machine's Claude login placed in its own config di
 That copy is refreshed on every run because the two sides rotate the same login.
 #>
 param(
-  [string]$Case = '',
+  [Parameter(Position = 0, ValueFromRemainingArguments = $true)]
+  [string[]]$Case = @(),
   [double]$MaxCost = 10,
   [string]$Runs = '',
   [switch]$KeepTemp,
@@ -49,6 +52,7 @@ if ($LASTEXITCODE -ne 0) { throw "could not copy the login into WSL (exit $LASTE
 $envPrefix = "export CLAUDE_CONFIG_DIR=/home/$User/.claude-eval EVAL_MAX_COST=$MaxCost"
 if ($Runs) { $envPrefix += " EVAL_RUNS=$Runs" }
 if ($KeepTemp) { $envPrefix += " EVAL_KEEP_TEMP=1" }
-$run = "$envPrefix && bash '$repoWsl/plugins/ship-faster/tests/evals.sh' '$Case'"
+$caseArgs = ($Case | Where-Object { $_ } | ForEach-Object { "'" + ($_ -replace "'", '') + "'" }) -join ' '
+$run = "$envPrefix && bash '$repoWsl/plugins/ship-faster/tests/evals.sh' $caseArgs"
 & wsl.exe -d $Distro -u $User -- bash -c $run
 exit $LASTEXITCODE
