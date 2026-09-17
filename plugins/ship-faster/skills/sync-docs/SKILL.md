@@ -2,7 +2,7 @@
 name: sync-docs
 description: Bring stale wiki pages back to true by re-checking their claims against the code that changed, re-verify them at HEAD, and add coverage for new behaviour no page describes.
 when_to_use: Use after changing behaviour that a docs/wiki page describes, before claiming a feature done, when session-start or a prompt note reports stale pages, or when the user asks to update, refresh, or verify the docs. Pass --scope diff when only the current branch's changes matter.
-argument-hint: "[--scope all|diff|session] [--since <base-branch>]"
+argument-hint: "[--scope all|diff|session] [--since <base-branch>] [--root <path>]"
 allowed-tools: Read, Glob, Grep, Write, Edit, Agent, Bash(node *), Bash(git *)
 ---
 
@@ -15,6 +15,8 @@ Repository facts:
 Arguments: $ARGUMENTS
 
 `<wikiDir>` = `config.wikiDir`. `<base>` = the `--since` argument, else `git.defaultBranch`. No wiki (`existing.wiki` false): stop and say `/ship-faster:onboard` creates it.
+
+With `--root <path>` (a worktree `ship` created), work on that checkout instead of this one: run `node "${CLAUDE_PLUGIN_ROOT}/scripts/detect.mjs" --brief --root <path> --json` and use its facts, append `--root <path>` to every script command below, run git as `git -C <path>`, Read, Edit, and Write pages and source files as `<path>/<relative path>`, and give each agent absolute paths.
 
 ## 1. Classify pages
 

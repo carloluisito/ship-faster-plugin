@@ -65,7 +65,7 @@ node "${CLAUDE_PLUGIN_ROOT}/scripts/checks.mjs" run --continue --json
 
 Every resolved check is executed; keep `status`, `durationMs`, and `log` per check. Commands the analysts found that are not checks (dev server, watch, migrate, generate) are listed with status `not run`. Deploy, publish, and release commands are never run and are listed with status `not run`. Only a command with status `pass` may appear as verified in `commands.md` or in CLAUDE.md. A failing check is still listed, with status `fail` and its log path, so a reader knows it exists.
 
-The `checks:` frontmatter of `commands.md` lists the passing checks in run order; `timeout` is twice the measured duration in seconds, minimum 60.
+The `checks:` frontmatter of `commands.md` lists the passing checks in run order; `timeout` is twice the measured duration in seconds, minimum 60. Its `setup:` frontmatter (same shape) lists the commands that install dependencies inside the project, taken from the Setup table (`npm ci`, `pnpm install --frozen-lockfile`, `uv sync`, `dotnet restore`); `checks.mjs setup` runs them in every worktree `kickoff --worktree` or `ship` creates. Leave `setup:` out when nothing needs installing or the only install writes outside the project, such as a bare `pip install`.
 
 ## 6. Draft pages
 

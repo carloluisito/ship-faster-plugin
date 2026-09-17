@@ -14,7 +14,7 @@ Repository facts:
 
 Arguments: $ARGUMENTS
 
-`<wikiDir>` = `config.wikiDir`, `<plansDir>` = `config.plansDir`, `<default>` = `git.defaultBranch`. The feature description is every argument except `--no-branch` and `--worktree`. `--worktree` puts the branch in its own checkout next to this one, so a second session can work on it while this one continues; `--no-branch` and `--worktree` together contradict each other: stop with one line. With no description, ask for one; when you cannot ask, stop with one line saying what `kickoff` needs. Without a wiki (`existing.wiki` false), plan from the repository files alone and say in the report that the plan is ungrounded because the wiki does not exist yet.
+`<wikiDir>` = `config.wikiDir`, `<plansDir>` = `config.plansDir`, `<default>` = `git.defaultBranch`. The feature description is every argument except `--no-branch` and `--worktree`. `--worktree` puts the branch in its own checkout next to this one, with its dependencies installed, so a second session can work on it while this one continues; `--no-branch` and `--worktree` together contradict each other: stop with one line. With no description, ask for one; when you cannot ask, stop with one line saying what `kickoff` needs. Without a wiki (`existing.wiki` false), plan from the repository files alone and say in the report that the plan is ungrounded because the wiki does not exist yet.
 
 ## 1. Read what the repository already knows
 
@@ -60,7 +60,13 @@ With `--worktree`:
 node "${CLAUDE_PLUGIN_ROOT}/scripts/worktree.mjs" add --branch <name> --from <default> --json
 ```
 
-`ok: false` because the branch exists: append `-2`, `-3`, and so on and retry; any other `ok: false`: print the error and stop without writing the plan. Note `path` and `open`. The new checkout starts clean at `<default>`; uncommitted changes in this checkout stay here, and say so when `git status --porcelain` is not empty.
+`ok: false` because the branch exists: append `-2`, `-3`, and so on and retry; any other `ok: false`: print the error and stop without writing the plan. Note `path` and `open`. The new checkout starts clean at `<default>`; uncommitted changes in this checkout stay here, and say so when `git status --porcelain` is not empty. Then install its dependencies, so the session opened there can run the checks at once:
+
+```
+node "${CLAUDE_PLUGIN_ROOT}/scripts/checks.mjs" setup --root <path> --json
+```
+
+`passed: false`: keep going and write the plan, but note the failing command and its exit code for the report. `source: none`: nothing needed installing.
 
 ## 4. Write the plan and lint
 
@@ -77,7 +83,7 @@ with `--root <path>` appended in the worktree case. Fix any error in the plan's 
 Put everything in your final message, in this order and nothing else:
 
 1. Three lines: the plan path, the branch (or "no branch"), and the first touchpoint.
-2. With `--worktree`, a fourth line: `Worktree: <path> (open it with: <first open command> then <second open command>)`, the two entries of `open` printed one after the other so that every shell accepts them.
+2. With `--worktree`, a fourth line: `Worktree: <path> (open it with: <first open command> then <second open command>)`, the two entries of `open` printed one after the other so that every shell accepts them; when the setup failed, a fifth line naming the command and its exit code.
 3. The plan file in full, inside one fenced block, so the user reads it before starting.
 
 Nothing after the plan: no summary, note, or offer. Do not split these across messages.

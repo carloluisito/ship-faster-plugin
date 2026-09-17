@@ -29,7 +29,7 @@ A page with no verified content is not written. Never pad a page to justify it.
 - `covers`: gitignore-style globs relative to the root, inline list, each matching at least one tracked file. Prefer the manifests, configs, and directories whose change would falsify the page. Never `**` alone.
 - `verified`: `unverified` while drafting; step 9 stamps HEAD.
 - `updated`: today, `yyyy-mm-dd`.
-- `commands.md` also carries `checks:` (name, run, timeout) for every passing check, in run order.
+- `commands.md` also carries `checks:` (name, run, timeout) for every passing check, in run order, and `setup:` (same shape) for the install commands that stay inside the project, when there are any.
 
 ## Content rules
 - Recipes beat prose. Every step names a file.
