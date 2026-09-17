@@ -219,6 +219,7 @@ test('worktrees lists every checkout and worktreeInfo tells a worktree from the 
   const main = worktreeInfo(root);
   assert.equal(main.isWorktree, false);
   assert.equal(norm(main.mainRoot), norm(root));
+  assert.equal(norm(main.path), norm(root));
   const inner = worktreeInfo(wt);
   assert.equal(inner.isWorktree, true);
   assert.equal(norm(inner.mainRoot), norm(root));

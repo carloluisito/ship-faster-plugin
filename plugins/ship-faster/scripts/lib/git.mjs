@@ -224,7 +224,7 @@ export function worktrees(cwd) {
 
 function absoluteGitPath(cwd, flag) {
   const modern = out(['rev-parse', '--path-format=absolute', flag], cwd);
-  if (modern) return modern;
+  if (modern && !modern.includes('\n') && !modern.startsWith('--')) return modern;
   const legacy = out(['rev-parse', flag], cwd);
   return legacy ? resolve(cwd, legacy) : null;
 }
