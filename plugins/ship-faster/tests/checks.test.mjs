@@ -6,7 +6,7 @@ import { makeRepo, runScript, tmpDir, cleanupAll } from './helpers.mjs';
 import { serializeFrontmatter } from '../scripts/lib/fm.mjs';
 import { DEFAULTS } from '../scripts/lib/config.mjs';
 import { preflightDir } from '../scripts/lib/state.mjs';
-import { resolveChecks, runChecks } from '../scripts/checks.mjs';
+import { resolveChecks, resolveSetup, runChecks, runSetup } from '../scripts/checks.mjs';
 
 after(cleanupAll);
 beforeEach(() => { process.env.CLAUDE_PLUGIN_DATA = tmpDir('sf-data-'); });
@@ -254,4 +254,54 @@ test('a sequence item continued with a trailing operator joins without its dash'
   const r = resolveChecks(makeRepo({ files: { '.gitlab-ci.yml': GITLAB } }).root, { config: DEFAULTS });
   assert.equal(r.source, 'ci');
   assert.deepEqual(r.checks.map((c) => c.run), ['npm run lint && npm run build', 'npm test']);
+});
+
+const commandsPage = (root, extra) => {
+  const w = join(root, 'docs', 'wiki');
+  mkdirSync(w, { recursive: true });
+  writeFileSync(join(w, 'commands.md'), serializeFrontmatter({ title: 'Commands', summary: 's', read_when: 'r', covers: ['package.json'], verified: 'abc', updated: '2026-09-18', ...extra }) + '# C\n');
+};
+
+test('setup comes from the wiki setup list, else from lockfiles and manifests that install inside the project', () => {
+  const dir = (files) => makeRepo({ files }).root;
+  const runs = (root) => resolveSetup(root, { config: DEFAULTS }).setup.map((c) => c.run);
+  const noDeps = dir({ 'package.json': JSON.stringify({ name: 'x' }) });
+  assert.deepEqual(resolveSetup(noDeps, { config: DEFAULTS }), { ok: true, source: 'none', setup: [], excluded: [] });
+  assert.deepEqual(runs(dir({ 'package.json': JSON.stringify({ dependencies: { a: '1' } }) })), ['npm install --no-package-lock']);
+  assert.deepEqual(runs(dir({ 'package.json': '{}', 'package-lock.json': '{}' })), ['npm ci']);
+  assert.deepEqual(runs(dir({ 'package.json': '{}', 'pnpm-lock.yaml': '' })), ['pnpm install --frozen-lockfile']);
+  assert.deepEqual(runs(dir({ 'package.json': '{}', 'yarn.lock': '' })), ['yarn install --frozen-lockfile']);
+  assert.deepEqual(runs(dir({ 'package.json': '{}', 'yarn.lock': '', '.yarnrc.yml': '' })), ['yarn install --immutable']);
+  assert.deepEqual(runs(dir({ 'package.json': '{}', 'bun.lock': '' })), ['bun install --frozen-lockfile']);
+  assert.deepEqual(runs(dir({ 'go.mod': 'module x\n', 'go.sum': '' })), ['go mod download']);
+  assert.deepEqual(runs(dir({ 'go.mod': 'module x\n' })), []);
+  assert.deepEqual(runs(dir({ 'Cargo.toml': '[package]\n', 'Cargo.lock': '' })), ['cargo fetch']);
+  assert.deepEqual(runs(dir({ 'pyproject.toml': '', 'uv.lock': '' })), ['uv sync']);
+  assert.deepEqual(runs(dir({ 'pyproject.toml': '', 'poetry.lock': '' })), ['poetry install']);
+  assert.deepEqual(runs(dir({ 'requirements.txt': 'requests\n' })), []);
+  assert.deepEqual(runs(dir({ 'app.csproj': '<Project />' })), ['dotnet restore']);
+
+  const wiki = dir({ 'package.json': '{}', 'package-lock.json': '{}' });
+  commandsPage(wiki, { setup: [{ name: 'deps', run: 'npm ci --ignore-scripts', timeout: 90 }, { name: 'broken' }] });
+  const r = resolveSetup(wiki, { config: DEFAULTS });
+  assert.equal(r.source, 'wiki');
+  assert.deepEqual(r.setup, [{ name: 'deps', run: 'npm ci --ignore-scripts', timeout: 90, source: 'wiki' }]);
+  assert.deepEqual(r.excluded.map((e) => e.why), ['invalid setup entry: missing run']);
+});
+
+test('runSetup runs the commands in order, stops at the first failure, and logs next to the preflight logs', () => {
+  const { root } = makeRepo({ files: { 'package.json': '{}' } });
+  commandsPage(root, { setup: [{ name: 'one', run: 'node -e "console.log(1)"' }, { name: 'two', run: 'node -e "process.exit(3)"' }, { name: 'three', run: 'node -e 0' }] });
+  const r = runSetup(root, { config: DEFAULTS });
+  assert.equal(r.passed, false);
+  assert.deepEqual(r.commands.map((c) => c.status), ['pass', 'fail', 'skipped']);
+  assert.equal(r.commands[1].exitCode, 3);
+  assert.match(r.summary[0], /^setup: FAIL at two \(fail exit 3\)/);
+  assert.ok(readdirSync(preflightDir(root)).some((n) => n.startsWith('setup-') && n.endsWith('-02-two.log')));
+  assert.equal(existsSync(join(preflightDir(root), 'last.json')), false);
+
+  const empty = makeRepo({ files: { 'README.md': 'x\n' } }).root;
+  const none = runScript('checks', ['setup', '--root', empty, '--json'], { env: { CLAUDE_PLUGIN_DATA: process.env.CLAUDE_PLUGIN_DATA } });
+  assert.deepEqual([none.json.passed, none.json.source, none.json.commands], [true, 'none', []]);
+  assert.match(runScript('checks', ['nope', '--root', empty, '--json']).json.error, /use resolve, run, or setup/);
 });

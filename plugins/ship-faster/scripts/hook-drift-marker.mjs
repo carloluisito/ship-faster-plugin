@@ -3,7 +3,7 @@ import { readStdinJson } from './lib/cli.mjs';
 import { loadConfig } from './lib/config.mjs';
 import { anyMatch, normalizePath } from './lib/glob.mjs';
 import { resolveRootCached } from './lib/root.mjs';
-import { updateSession } from './lib/state.mjs';
+import { recordEdit, updateSession } from './lib/state.mjs';
 import { loadWikiCache } from './lib/wiki.mjs';
 
 const TOOLS = new Set(['Edit', 'Write', 'MultiEdit', 'NotebookEdit']);
@@ -19,6 +19,7 @@ async function main() {
   const abs = isAbsolute(file) ? file : join(cwd, file);
   const rel = normalizePath(relative(root, abs));
   if (!rel || rel.startsWith('..') || isAbsolute(rel)) return;
+  if (typeof input.session_id === 'string' && input.session_id) recordEdit(root, input.session_id, rel, { tool: input.tool_name });
   const { config } = loadConfig(root);
   for (const dir of [config.wikiDir, config.plansDir, config.rulesDir]) if (rel.startsWith(dir.replace(/\/+$/, '') + '/')) return;
   const cache = loadWikiCache(root, config);

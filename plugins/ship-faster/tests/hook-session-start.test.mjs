@@ -140,7 +140,7 @@ test('startup warns when another session used this checkout recently, and record
   assert.equal(rec.branch, 'main');
   assert.ok(Date.parse(rec.startedAt) > 0);
   const second = hook({ session_id: 'second', cwd: root, source: 'startup' }, root);
-  assert.match(second.stdout, /^ship-faster: another session started .+ ago in this checkout \(branch main\); for parallel work start a second session with claude --worktree\.$/m);
+  assert.match(second.stdout, /^ship-faster: another session started .+ ago in this checkout \(branch main\); \/ship-faster:ship ships only this session's changes, from a worktree of their own, and claude --worktree keeps parallel sessions apart from the start\.$/m);
   const resumed = hook({ session_id: 'first', cwd: root, source: 'resume' }, root);
   assert.match(resumed.stdout, /another session/);
   const old = new Date(Date.now() - 30 * 3600_000).toISOString();

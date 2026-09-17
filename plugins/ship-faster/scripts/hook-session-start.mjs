@@ -31,7 +31,7 @@ async function main() {
     markSessionStart(root, sid, { branch, cwd });
     if (others.length) {
       const newest = others[0];
-      lines.push(`ship-faster: another session started ${ago(newest.at)} ago in this checkout (branch ${newest.branch || 'unknown'}); for parallel work start a second session with claude --worktree.`);
+      lines.push(`ship-faster: another session started ${ago(newest.at)} ago in this checkout (branch ${newest.branch || 'unknown'}); /ship-faster:ship ships only this session's changes, from a worktree of their own, and claude --worktree keeps parallel sessions apart from the start.`);
     }
   }
 

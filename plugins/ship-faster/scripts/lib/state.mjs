@@ -117,22 +117,92 @@ export function loadAllSessions(root) {
 
 export function pruneSessions(root, { maxAgeDays = 7, deadlineMs = 1000 } = {}) {
   try {
-    const dir = join(projectDir(root), 'sessions');
     const started = Date.now();
     const cutoff = started - maxAgeDays * 86400_000;
     let removed = 0;
-    if (!existsSync(dir)) return { removed };
-    for (const name of readdirSync(dir)) {
-      if (Date.now() - started > deadlineMs) break;
-      const file = join(dir, name);
-      try {
-        if (statSync(file).mtimeMs < cutoff) { rmSync(file, { force: true }); removed++; }
-      } catch {}
+    for (const sub of ['sessions', 'edits']) {
+      const dir = join(projectDir(root), sub);
+      if (!existsSync(dir)) continue;
+      for (const name of readdirSync(dir)) {
+        if (Date.now() - started > deadlineMs) break;
+        const file = join(dir, name);
+        try {
+          if (statSync(file).mtimeMs < cutoff) { rmSync(file, { force: true }); removed++; }
+        } catch {}
+      }
     }
     return { removed };
   } catch {
     return { removed: 0 };
   }
+}
+
+const MAX_CLAIMS = 1000;
+
+export function editsFile(root, sid) {
+  return join(projectDir(root), 'edits', `${safeId(sid)}.json`);
+}
+
+function readEdits(file) {
+  const v = readJson(file, null);
+  const files = v && typeof v === 'object' && !Array.isArray(v) && v.files && typeof v.files === 'object' && !Array.isArray(v.files) ? v.files : {};
+  return { updatedAt: v && typeof v.updatedAt === 'string' ? v.updatedAt : null, files };
+}
+
+export function recordEdit(root, sid, rel, { tool = null, at = new Date().toISOString() } = {}) {
+  try {
+    const file = editsFile(root, sid);
+    const files = { ...readEdits(file).files, [rel]: { at, tool } };
+    // Parallel tool calls run their hooks at the same moment; fold in whatever another process wrote meanwhile.
+    for (const [path, claim] of Object.entries(readEdits(file).files)) {
+      if (!files[path] || Date.parse(claim && claim.at) > Date.parse(files[path].at)) files[path] = claim;
+    }
+    const kept = Object.entries(files)
+      .filter(([, claim]) => claim && !Number.isNaN(Date.parse(claim.at)))
+      .sort((a, b) => Date.parse(b[1].at) - Date.parse(a[1].at))
+      .slice(0, MAX_CLAIMS);
+    return writeJsonAtomic(file, { sid: safeId(sid), updatedAt: kept.length ? kept[0][1].at : at, files: Object.fromEntries(kept) });
+  } catch {
+    return false;
+  }
+}
+
+export function loadEdits(root) {
+  const dir = join(projectDir(root), 'edits');
+  let names = [];
+  try { names = readdirSync(dir).filter((n) => n.endsWith('.json')); } catch { return []; }
+  return names.map((name) => ({ sid: name.replace(/\.json$/, ''), ...readEdits(join(dir, name)) }));
+}
+
+export function dropClaims(root, rels, { sid = null } = {}) {
+  const drop = new Set(rels);
+  let dropped = 0;
+  for (const record of loadEdits(root)) {
+    if (sid && record.sid !== safeId(sid)) continue;
+    const hits = Object.keys(record.files).filter((p) => drop.has(p));
+    if (!hits.length) continue;
+    for (const p of hits) delete record.files[p];
+    if (writeJsonAtomic(editsFile(root, record.sid), { sid: record.sid, updatedAt: record.updatedAt || new Date().toISOString(), files: record.files })) dropped += hits.length;
+  }
+  return dropped;
+}
+
+export function sessionRecords(root) {
+  const dir = join(projectDir(root), 'sessions');
+  let names = [];
+  try { names = readdirSync(dir).filter((n) => n.endsWith('.json')); } catch { return []; }
+  const records = [];
+  for (const name of names) {
+    const rec = readJson(join(dir, name), null);
+    if (!rec || typeof rec !== 'object' || Array.isArray(rec)) continue;
+    const stamps = [rec.updatedAt, rec.startedAt].map((s) => Date.parse(s || '')).filter((n) => !Number.isNaN(n));
+    records.push({
+      sid: name.replace(/\.json$/, ''),
+      branch: typeof rec.branch === 'string' ? rec.branch : null,
+      lastActive: stamps.length ? new Date(Math.max(...stamps)).toISOString() : null,
+    });
+  }
+  return records;
 }
 
 export function preflightDir(root) {

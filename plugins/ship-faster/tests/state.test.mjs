@@ -144,3 +144,56 @@ test('markSessionStart stamps the record and liveSessions lists other recent ses
   assert.equal(s.loadSession(root, 'one').startedAt, rec.startedAt);
   assert.equal(s.loadSession(root, 'one').branch, 'feat/renamed');
 });
+
+test('recordEdit keeps the newest claim per path, merges concurrent writers, caps the list, and dropClaims removes paths', () => {
+  const root = tmpDir('sf-root-');
+  const t = (m) => new Date(Date.UTC(2026, 8, 18, 10, m)).toISOString();
+  assert.equal(s.recordEdit(root, 'one', 'src/a.js', { tool: 'Edit', at: t(1) }), true);
+  s.recordEdit(root, 'one', 'src/a.js', { tool: 'Write', at: t(3) });
+  s.recordEdit(root, 'one', 'src/b.js', { tool: 'Edit', at: t(2) });
+  s.recordEdit(root, 'two', 'src/b.js', { tool: 'MultiEdit', at: t(4) });
+  const byId = Object.fromEntries(s.loadEdits(root).map((e) => [e.sid, e]));
+  assert.deepEqual(byId.one.files, { 'src/a.js': { at: t(3), tool: 'Write' }, 'src/b.js': { at: t(2), tool: 'Edit' } });
+  assert.equal(byId.one.updatedAt, t(3));
+  assert.deepEqual(Object.keys(byId.two.files), ['src/b.js']);
+
+  const file = s.editsFile(root, 'one');
+  s.writeJsonAtomic(file, { sid: 'one', updatedAt: t(5), files: { ...byId.one.files, 'src/c.js': { at: t(5), tool: 'Edit' } } });
+  s.recordEdit(root, 'one', 'src/d.js', { tool: 'Edit', at: t(6) });
+  assert.deepEqual(Object.keys(s.loadEdits(root).find((e) => e.sid === 'one').files).sort(), ['src/a.js', 'src/b.js', 'src/c.js', 'src/d.js']);
+
+  const full = Array.from({ length: 1000 }, (_, k) => [`f${k}.js`, { at: new Date(Date.UTC(2026, 0, 1, 0, 0, k)).toISOString(), tool: 'Edit' }]);
+  s.writeJsonAtomic(s.editsFile(root, 'many'), { files: Object.fromEntries(full) });
+  s.recordEdit(root, 'many', 'newest.js', { at: t(7) });
+  const many = s.loadEdits(root).find((e) => e.sid === 'many').files;
+  assert.equal(Object.keys(many).length, 1000);
+  assert.ok(many['newest.js']);
+  assert.equal(many['f0.js'], undefined);
+
+  assert.equal(s.dropClaims(root, ['src/b.js'], { sid: 'two' }), 1);
+  assert.ok(s.loadEdits(root).find((e) => e.sid === 'one').files['src/b.js']);
+  assert.equal(s.dropClaims(root, ['src/a.js', 'src/b.js', 'nope.js']), 2);
+  assert.deepEqual(Object.keys(s.loadEdits(root).find((e) => e.sid === 'one').files).sort(), ['src/c.js', 'src/d.js']);
+  s.writeJsonAtomic(s.editsFile(root, 'broken'), [1, 2]);
+  assert.deepEqual(s.loadEdits(root).find((e) => e.sid === 'broken').files, {});
+  assert.deepEqual(s.loadEdits(tmpDir('sf-empty-')), []);
+});
+
+test('sessionRecords reports branch and last activity; pruneSessions also removes old claim files', () => {
+  const root = tmpDir('sf-root-');
+  const started = '2026-09-18T08:00:00.000Z';
+  const updated = '2026-09-18T09:30:00.000Z';
+  s.writeJsonAtomic(s.sessionFile(root, 'one'), { startedAt: started, updatedAt: updated, branch: 'feat/one' });
+  s.writeJsonAtomic(s.sessionFile(root, 'two'), { pages: {} });
+  s.writeJsonAtomic(s.sessionFile(root, 'bad'), 'text');
+  assert.deepEqual(s.sessionRecords(root).sort((a, b) => a.sid.localeCompare(b.sid)), [
+    { sid: 'one', branch: 'feat/one', lastActive: updated },
+    { sid: 'two', branch: null, lastActive: null },
+  ]);
+  s.recordEdit(root, 'gone', 'a.js');
+  const old = (Date.now() - 8 * 86400_000) / 1000;
+  utimesSync(s.editsFile(root, 'gone'), old, old);
+  s.recordEdit(root, 'kept', 'a.js');
+  s.pruneSessions(root, { maxAgeDays: 7 });
+  assert.deepEqual(s.loadEdits(root).map((e) => e.sid), ['kept']);
+});

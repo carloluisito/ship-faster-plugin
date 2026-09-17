@@ -1,7 +1,8 @@
-import { runMain } from './lib/cli.mjs';
+import { flagList, runMain } from './lib/cli.mjs';
 import { loadConfig } from './lib/config.mjs';
 import * as git from './lib/git.mjs';
 import { normalizePath } from './lib/glob.mjs';
+import { ownership } from './lib/ownership.mjs';
 import { isLarge, riskyReason } from './lib/risky.mjs';
 import { resolveRoot } from './lib/root.mjs';
 
@@ -14,7 +15,7 @@ export function commitStyle(subjects) {
   return { kind: sampled && share >= 0.6 ? 'conventional' : 'plain', share: Number(share.toFixed(2)), sampled };
 }
 
-export function changes(root, { config, base } = {}) {
+export function changes(root, { config, base, session = null, include = [], here = false } = {}) {
   config = config || loadConfig(root).config;
   if (!git.isRepo(root)) return { ok: false, error: 'not a git repository' };
   const branch = git.currentBranch(root);
@@ -26,8 +27,10 @@ export function changes(root, { config, base } = {}) {
   const baseRef = localBase ? resolvedBase : remoteBase ? `refs/remotes/origin/${resolvedBase}` : null;
   const protectedSet = new Set(config.protectedBranches);
   if (defaultBranch) protectedSet.add(defaultBranch);
-  const dirty = git.dirtyFiles(root).map((d) => ({ path: d.path, status: d.status, risky: riskyReason(d.path), large: isLarge(root, d.path) }));
-  const excluded = dirty.filter((d) => d.risky || d.large).map((d) => d.path);
+  const found = git.dirtyFiles(root).map((d) => ({ ...d, risky: riskyReason(d.path), large: isLarge(root, d.path) }));
+  const excluded = found.filter((d) => d.risky || d.large).map((d) => d.path);
+  const { owner, ...owned } = ownership(root, { sid: session, dirty: found, excluded, includes: include, here });
+  const dirty = found.map((d) => ({ ...d, owner: owner[d.path] }));
   const upstreamRef = git.upstream(root);
   const onBase = branch !== null && branch === resolvedBase;
   const counts = onBase
@@ -50,17 +53,25 @@ export function changes(root, { config, base } = {}) {
     behind: counts.behind,
     dirty,
     excluded,
+    ownership: owned,
     commitStyle: commitStyle(subjects),
     subjects,
     hasWork: dirty.length > 0 || ahead > 0,
   };
+  const others = owned.others.map((o) => `${o.branch || 'unknown branch'}${o.files.length ? `, ${o.files.length} file(s)` : ''}`).join('; ');
   result.summary = [
     `${branch ? `branch ${branch}` : 'detached HEAD'} vs ${result.base || '(no base)'}: ${ahead} ahead, ${result.behind} behind, ${dirty.length} uncommitted file(s)${excluded.length ? `, ${excluded.length} excluded (${excluded.slice(0, 3).join(', ')}${excluded.length > 3 ? ', …' : ''})` : ''}`,
+    `ownership: ${owned.mode} (${owned.reason})${owned.mode === 'shared' ? `: ship ${owned.ship.length}, ask ${owned.ask.length}, leave ${owned.leave.length}; others: ${others}` : ''}`,
     `commit style: ${result.commitStyle.kind} (${Math.round(result.commitStyle.share * 100)}% of ${result.commitStyle.sampled})`,
   ];
   return result;
 }
 
 if (process.argv[1] && normalizePath(process.argv[1]).endsWith('/scripts/changes.mjs')) {
-  runMain((_, flags) => changes(resolveRoot(flags), { base: typeof flags.base === 'string' ? flags.base : undefined }));
+  runMain((_, flags) => changes(resolveRoot(flags), {
+    base: typeof flags.base === 'string' ? flags.base : undefined,
+    session: typeof flags.session === 'string' ? flags.session : null,
+    include: flagList(flags, 'include'),
+    here: Boolean(flags.here),
+  }));
 }

@@ -4,7 +4,7 @@ import { existsSync, mkdirSync, realpathSync, statSync, utimesSync, writeFileSyn
 import { join } from 'node:path';
 import { makeRepo, runScript, tmpDir, cleanupAll } from './helpers.mjs';
 import { serializeFrontmatter } from '../scripts/lib/fm.mjs';
-import { loadSession, projectHash, readJson, saveSession, sessionFile, writeJsonAtomic } from '../scripts/lib/state.mjs';
+import { loadEdits, loadSession, projectHash, readJson, saveSession, sessionFile, writeJsonAtomic } from '../scripts/lib/state.mjs';
 import { resolveRootCached } from '../scripts/lib/root.mjs';
 
 after(cleanupAll);
@@ -128,4 +128,23 @@ test('session-end removes the session file and prunes old ones; cwd cache avoids
   assert.equal(runScript('hook-drift-marker', [], { cwd: root, stdin: 'garbage', env: env() }).code, 0);
   assert.equal(runScript('hook-prompt-report', [], { cwd: root, stdin: '', env: env() }).code, 0);
   assert.equal(runScript('hook-session-end', [], { cwd: root, stdin: 'garbage', env: env() }).code, 0);
+});
+
+test('drift-marker claims every file the session edits inside the repository, wiki files included, and the claims outlive the session', () => {
+  const root = repo();
+  edit(root, join(root, 'README.md'));
+  edit(root, 'src/api/users.ts', 'Write');
+  edit(root, join(root, 'docs', 'wiki', 'testing.md'), 'MultiEdit');
+  edit(root, join(root, 'tests', 'a.test.ts'), 'NotebookEdit');
+  edit(root, join(root, 'src', 'api', 'read-only.ts'), 'Read');
+  edit(root, join(tmpDir(), 'outside.ts'));
+  runScript('hook-drift-marker', [], { cwd: root, stdin: { cwd: root, tool_name: 'Edit', tool_input: { file_path: join(root, 'anonymous.txt') } }, env: env() });
+  const records = loadEdits(root);
+  assert.deepEqual(records.map((e) => e.sid), ['sid1']);
+  const claims = records[0].files;
+  assert.deepEqual(Object.keys(claims).sort(), ['README.md', 'docs/wiki/testing.md', 'src/api/users.ts', 'tests/a.test.ts']);
+  assert.equal(claims['src/api/users.ts'].tool, 'Write');
+  assert.ok(Date.now() - Date.parse(claims['README.md'].at) < 60_000);
+  end(root);
+  assert.deepEqual(loadEdits(root).map((e) => e.sid), ['sid1']);
 });

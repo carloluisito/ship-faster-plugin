@@ -1,19 +1,22 @@
 import { spawnSync } from 'node:child_process';
-import { dirname, resolve } from 'node:path';
+import { lstatSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
 import { normalizePath } from './glob.mjs';
 
-export function git(args, { cwd, timeoutMs = 2000 } = {}) {
+export function git(args, { cwd, timeoutMs = 2000, input, raw = false } = {}) {
   try {
     const r = spawnSync('git', ['-c', 'core.quotepath=false', ...args], {
       cwd: cwd || process.cwd(),
-      encoding: 'utf8',
+      encoding: raw ? 'buffer' : 'utf8',
+      input,
       timeout: timeoutMs,
       maxBuffer: 64 * 1024 * 1024,
       env: { ...process.env, GIT_TERMINAL_PROMPT: '0', GIT_OPTIONAL_LOCKS: '0' },
       windowsHide: true,
     });
-    if (r.error) return { ok: false, stdout: '', stderr: String(r.error.message || r.error), code: null };
-    return { ok: r.status === 0, stdout: r.stdout || '', stderr: r.stderr || '', code: r.status };
+    if (r.error) return { ok: false, stdout: raw ? Buffer.alloc(0) : '', stderr: String(r.error.message || r.error), code: null };
+    const stdout = raw ? (r.stdout || Buffer.alloc(0)) : (r.stdout || '');
+    return { ok: r.status === 0, stdout, stderr: String(r.stderr || ''), code: r.status };
   } catch (e) {
     return { ok: false, stdout: '', stderr: String((e && e.message) || e), code: null };
   }
@@ -93,11 +96,66 @@ export function dirtyFiles(cwd, { timeoutMs = 5000 } = {}) {
   for (let i = 0; i < parts.length; i++) {
     const entry = parts[i];
     const status = entry.slice(0, 2);
-    const path = entry.slice(3);
-    if (status[0] === 'R' || status[0] === 'C') i++;
-    result.push({ path: normalizePath(path), status: status.trim() || '??' });
+    const item = { path: normalizePath(entry.slice(3)), status: status.trim() || '??' };
+    if (status[0] === 'R' || status[0] === 'C') {
+      if (parts[i + 1] !== undefined) item.from = normalizePath(parts[i + 1]);
+      i++;
+    }
+    result.push(item);
   }
   return result;
+}
+
+function chunks(list, size = 100) {
+  const out = [];
+  for (let i = 0; i < list.length; i += size) out.push(list.slice(i, i + size));
+  return out;
+}
+
+export function lastCommitTimes(cwd, paths, { n = 2000 } = {}) {
+  const times = new Map();
+  for (const chunk of chunks([...new Set(paths)].filter(Boolean))) {
+    const r = git(['log', `-n${n}`, '--pretty=format:__C__%ct', '--name-only', 'HEAD', '--', ...chunk], { cwd, timeoutMs: 10000 });
+    if (!r.ok) continue;
+    let at = null;
+    for (const line of r.stdout.split(/\r?\n/)) {
+      if (line.startsWith('__C__')) { at = Number(line.slice(5)) * 1000; continue; }
+      const p = normalizePath(line.trim());
+      if (p && at !== null && !times.has(p)) times.set(p, at);
+    }
+  }
+  return times;
+}
+
+export function blobIds(cwd, ref, paths) {
+  const ids = new Map();
+  if (!ref || String(ref).startsWith('-')) return ids;
+  for (const chunk of chunks([...new Set(paths)].filter(Boolean))) {
+    const r = git(['ls-tree', '-r', '-z', ref, '--', ...chunk], { cwd, timeoutMs: 10000 });
+    if (!r.ok) continue;
+    for (const entry of splitZ(r.stdout)) {
+      const m = /^\d+ blob ([0-9a-f]{40})\t(.+)$/s.exec(entry);
+      if (m) ids.set(normalizePath(m[2]), m[1]);
+    }
+  }
+  return ids;
+}
+
+export function hashFiles(cwd, paths) {
+  const ids = new Map();
+  // hash-object fails the whole batch on one missing path, so only regular files go in.
+  const regular = [...new Set(paths)].filter((p) => {
+    if (!p || p.includes('\n')) return false;
+    try { return lstatSync(join(cwd, p)).isFile(); } catch { return false; }
+  });
+  for (const chunk of chunks(regular)) {
+    const r = git(['hash-object', '--stdin-paths'], { cwd, input: chunk.join('\n') + '\n', timeoutMs: 10000 });
+    if (!r.ok) continue;
+    const lines = r.stdout.trim().split(/\r?\n/);
+    if (lines.length !== chunk.length) continue;
+    chunk.forEach((p, i) => { if (/^[0-9a-f]{40}$/.test(lines[i])) ids.set(p, lines[i]); });
+  }
+  return ids;
 }
 
 export function trackedFiles(cwd) {

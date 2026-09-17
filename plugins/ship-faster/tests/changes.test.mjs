@@ -5,6 +5,8 @@ import { join } from 'node:path';
 import { makeRepo, runScript, tmpDir, cleanupAll } from './helpers.mjs';
 import { DEFAULTS } from '../scripts/lib/config.mjs';
 import { riskyReason, isLarge } from '../scripts/lib/risky.mjs';
+import { recordEdit, sessionFile, writeJsonAtomic } from '../scripts/lib/state.mjs';
+import { splitIncludes } from '../scripts/lib/ownership.mjs';
 import { changes } from '../scripts/changes.mjs';
 
 after(cleanupAll);
@@ -148,4 +150,120 @@ test('changes reports whether the checkout is a worktree and where the main chec
   assert.equal(inner.worktree.isWorktree, true);
   assert.equal(norm(inner.worktree.mainRoot), norm(root));
   assert.equal(norm(inner.worktree.path), norm(wt));
+});
+
+const soon = (ms = 5000) => new Date(Date.now() + ms).toISOString();
+const ago = (ms) => new Date(Date.now() - ms).toISOString();
+const openSession = (root, sid, { branch = 'main', at = new Date().toISOString() } = {}) =>
+  writeJsonAtomic(sessionFile(root, sid), { startedAt: at, updatedAt: at, branch, pages: {} });
+
+function sharedRepo() {
+  const files = { 'a.txt': 'a\n', 'b.txt': 'b\n', 'c.txt': 'c\n', 'd.txt': 'd\n', 'e.txt': 'e\n' };
+  const { root, git } = makeRepo({ files });
+  for (const name of Object.keys(files)) writeFileSync(join(root, name), `${name} changed\n`);
+  writeFileSync(join(root, '.env'), 'TOKEN=x\n');
+  return { root, git };
+}
+
+test('ownership is solo without a session id or without another session, and ships every uncommitted file as before', () => {
+  const { root } = sharedRepo();
+  openSession(root, 'them');
+  recordEdit(root, 'them', 'b.txt', { at: soon() });
+  const anonymous = changes(root, { config: DEFAULTS });
+  assert.equal(anonymous.ownership.mode, 'solo');
+  assert.equal(anonymous.ownership.session, null);
+  assert.match(anonymous.ownership.reason, /no session id/);
+  assert.deepEqual(anonymous.ownership.ship, ['a.txt', 'b.txt', 'c.txt', 'd.txt', 'e.txt']);
+
+  const { root: alone } = sharedRepo();
+  openSession(alone, 'me');
+  recordEdit(alone, 'me', 'a.txt', { at: soon() });
+  const solo = changes(alone, { config: DEFAULTS, session: 'me' });
+  assert.equal(solo.ownership.mode, 'solo');
+  assert.deepEqual(solo.ownership.others, []);
+  assert.deepEqual(solo.ownership.ship, ['a.txt', 'b.txt', 'c.txt', 'd.txt', 'e.txt']);
+  assert.deepEqual([solo.ownership.ask, solo.ownership.leave], [[], []]);
+  assert.equal(solo.dirty.find((d) => d.path === 'a.txt').owner, 'mine');
+  assert.equal(solo.dirty.find((d) => d.path === 'b.txt').owner, 'unclaimed');
+});
+
+test('shared ownership splits files into mine, both, theirs, earlier, and unclaimed, and ships only mine plus includes', () => {
+  const { root } = sharedRepo();
+  openSession(root, 'me');
+  openSession(root, 'them', { branch: 'feat/them' });
+  recordEdit(root, 'me', 'a.txt', { at: soon() });
+  recordEdit(root, 'me', '.env', { at: soon() });
+  recordEdit(root, 'them', 'b.txt', { at: soon() });
+  recordEdit(root, 'me', 'c.txt', { at: soon() });
+  recordEdit(root, 'them', 'c.txt', { at: soon() });
+  recordEdit(root, 'ended', 'd.txt', { at: soon() });
+  const r = changes(root, { config: DEFAULTS, session: 'me' });
+  const own = r.ownership;
+  assert.equal(own.mode, 'shared');
+  assert.equal(own.forced, false);
+  assert.deepEqual(own.others.map((o) => [o.sid, o.branch, o.files]), [['them', 'feat/them', ['b.txt', 'c.txt']]]);
+  assert.deepEqual(Object.fromEntries(r.dirty.map((d) => [d.path, d.owner])), { '.env': 'mine', 'a.txt': 'mine', 'b.txt': 'theirs', 'c.txt': 'both', 'd.txt': 'earlier', 'e.txt': 'unclaimed' });
+  assert.deepEqual(own.ship, ['a.txt']);
+  assert.deepEqual(own.ask, [
+    { path: 'c.txt', owner: 'both', sessions: ['them'] },
+    { path: 'd.txt', owner: 'earlier', sessions: ['ended'] },
+    { path: 'e.txt', owner: 'unclaimed', sessions: [] },
+  ]);
+  assert.deepEqual(own.leave, [{ path: 'b.txt', sessions: ['them'] }]);
+  assert.match(r.summary.join('\n'), /ownership: shared \(1 other session uses this checkout\): ship 1, ask 3, leave 1; others: feat\/them, 2 file\(s\)/);
+
+  const included = changes(root, { config: DEFAULTS, session: 'me', include: ['b.txt,e.*', '.env'] });
+  assert.deepEqual([...included.ownership.included].sort(), ['.env', 'b.txt', 'e.txt']);
+  assert.deepEqual(included.ownership.ship, ['a.txt', 'b.txt', 'e.txt']);
+  assert.deepEqual(included.ownership.leave, []);
+  assert.deepEqual(included.ownership.ask.map((x) => x.path), ['c.txt', 'd.txt']);
+
+  const here = changes(root, { config: DEFAULTS, session: 'me', here: true });
+  assert.equal(here.ownership.mode, 'solo');
+  assert.equal(here.ownership.forced, true);
+  assert.deepEqual(here.ownership.ship, ['a.txt', 'b.txt', 'c.txt', 'd.txt', 'e.txt']);
+});
+
+test('a session counts as another user of the checkout when recently active or holding current claims, and a committed claim goes stale', () => {
+  const { root, git } = sharedRepo();
+  openSession(root, 'me');
+  openSession(root, 'idle', { at: ago(3 * 3600_000) });
+  assert.equal(changes(root, { config: DEFAULTS, session: 'me' }).ownership.mode, 'solo');
+
+  recordEdit(root, 'idle', 'b.txt', { at: soon() });
+  const claimed = changes(root, { config: DEFAULTS, session: 'me' });
+  assert.equal(claimed.ownership.mode, 'shared');
+  assert.deepEqual(claimed.ownership.others.map((o) => o.sid), ['idle']);
+
+  const { root: other } = sharedRepo();
+  openSession(other, 'me');
+  openSession(other, 'old', { at: ago(3 * 3600_000) });
+  recordEdit(other, 'old', 'b.txt', { at: ago(150 * 60_000) });
+  const stale = changes(other, { config: DEFAULTS, session: 'me' });
+  assert.equal(stale.dirty.find((d) => d.path === 'b.txt').owner, 'unclaimed');
+  assert.equal(stale.ownership.mode, 'solo');
+
+  const { root: live } = sharedRepo();
+  openSession(live, 'me');
+  openSession(live, 'fresh');
+  const recent = changes(live, { config: DEFAULTS, session: 'me' });
+  assert.equal(recent.ownership.mode, 'shared');
+  assert.deepEqual(recent.ownership.ship, []);
+  assert.equal(recent.ownership.ask.length, 5);
+});
+
+test('splitIncludes flattens comma lists and repeated flags, and the CLI passes session, include, and here', () => {
+  assert.deepEqual(splitIncludes(['src/a.js, ./b.js', 'c/**', true]), ['src/a.js', 'b.js', 'c/**']);
+  assert.deepEqual(splitIncludes(undefined), []);
+  const { root } = sharedRepo();
+  openSession(root, 'me');
+  openSession(root, 'them');
+  recordEdit(root, 'me', 'a.txt', { at: soon() });
+  const env = { CLAUDE_PLUGIN_DATA: process.env.CLAUDE_PLUGIN_DATA };
+  const shared = runScript('changes', ['--root', root, '--session', 'me', '--include', 'e.txt', '--json'], { env });
+  assert.deepEqual(shared.json.ownership.ship, ['a.txt', 'e.txt']);
+  const forced = runScript('changes', ['--root', root, '--session', 'me', '--here', '--json'], { env });
+  assert.equal(forced.json.ownership.mode, 'solo');
+  const unsubstituted = runScript('changes', ['--root', root, '--session', '${CLAUDE_SESSION_ID}', '--json'], { env });
+  assert.equal(unsubstituted.json.ownership.session, null);
 });

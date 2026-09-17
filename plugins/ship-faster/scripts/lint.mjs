@@ -53,10 +53,11 @@ export function lint(root, { config } = {}) {
       if (typeof p.data.verified === 'string' && p.data.verified !== 'unverified' && isRepo && !git.commitExists(root, p.data.verified)) {
         warn(p.rel, 1, 'verified-missing', `verified commit ${p.data.verified.slice(0, 7)} is not in history`);
       }
-      if (p.rel.endsWith('/commands.md') && 'checks' in p.data) {
-        const c = p.data.checks;
+      for (const field of ['checks', 'setup']) {
+        if (!p.rel.endsWith('/commands.md') || !(field in p.data)) continue;
+        const c = p.data[field];
         const okShape = Array.isArray(c) && c.every((x) => x && typeof x === 'object' && typeof x.run === 'string' && x.run.trim());
-        if (!okShape) err(p.rel, 1, 'checks-shape', 'checks must be a list of maps with a non-empty run');
+        if (!okShape) err(p.rel, 1, `${field}-shape`, `${field} must be a list of maps with a non-empty run`);
       }
     }
     if (p.lines > config.pageMaxLines) err(p.rel, null, 'page-too-long', `${p.lines} lines, limit ${config.pageMaxLines}`);
