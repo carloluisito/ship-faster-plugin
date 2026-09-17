@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -10,7 +10,7 @@ export const SCRIPTS = join(PLUGIN_ROOT, 'scripts');
 const created = [];
 
 export function tmpDir(prefix = 'sf-') {
-  const dir = mkdtempSync(join(tmpdir(), prefix));
+  const dir = realpathSync.native(mkdtempSync(join(tmpdir(), prefix)));
   created.push(dir);
   return dir;
 }

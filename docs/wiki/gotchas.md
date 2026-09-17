@@ -1,9 +1,9 @@
 ---
 title: Gotchas
-summary: Hook stdin hangs, Windows renames, BOM shebangs, long-history staleness, tag pushes, test state leaks, and eval sandbox traps, with evidence.
+summary: Hook stdin hangs, Windows renames and 8.3 temp paths, BOM shebangs, long-history staleness, tag pushes, test state leaks, and eval sandbox traps, with evidence.
 read_when: Something behaves in a way the code does not explain, or before touching the areas listed in covers.
-covers: [plugins/ship-faster/scripts/lib/cli.mjs, plugins/ship-faster/scripts/lib/state.mjs, plugins/ship-faster/evals/*/scaffold.sh, plugins/ship-faster/scripts/stale.mjs, plugins/ship-faster/scripts/hook-ship-guard.mjs, plugins/ship-faster/tests/run.mjs]
-verified: a07432d57e5f412d4c900ee2d4e537917c4d70c1
+covers: [plugins/ship-faster/scripts/lib/cli.mjs, plugins/ship-faster/scripts/lib/state.mjs, plugins/ship-faster/scripts/lib/root.mjs, plugins/ship-faster/evals/*/scaffold.sh, plugins/ship-faster/scripts/stale.mjs, plugins/ship-faster/scripts/hook-ship-guard.mjs, plugins/ship-faster/tests/run.mjs, plugins/ship-faster/tests/helpers.mjs]
+verified: 88e2c3df70c093ad3df2044b14370835dc34cf89
 updated: 2026-09-17
 ---
 # Gotchas
@@ -55,3 +55,9 @@ Symptom: In an eval or a `claude -p` run, the Write tool fails on `<dataDir>/shi
 Cause: Claude Code's permission settings deny the model's tools those paths when nobody can answer a prompt; scripts spawned through Bash are not subject to the tool-level rule.
 Rule: Skills that need a scratch file fall back to the system temp directory and then to stdin (`git commit -F -`), and a skill that cannot write a rules file prints the rule line instead of failing.
 Evidence: `plugins/ship-faster/skills/ship/reference/commit-and-pr.md:7`, `plugins/ship-faster/skills/lesson/SKILL.md:59`, 2026-09-17.
+
+### GitHub's Windows runners hand out an 8.3 temp path <!-- id: g-20260917-short-temp-path -->
+Symptom: Six tests pass on every developer machine and on the Ubuntu jobs but fail on `windows-latest` with paths like `c:/users/runner~1/appdata/local/temp/...` where `c:/users/runneradmin/...` was expected, or with session records that cannot be found.
+Cause: The runner's `TEMP` uses the short (8.3) form of the profile directory, while `git rev-parse --show-toplevel` reports the long form; a fixture path and the repository root then hash to different project directories.
+Rule: Create fixture directories through `tmpDir()` in `plugins/ship-faster/tests/helpers.mjs`, which resolves the real path, and resolve a working directory with `realpathSync.native` before comparing or hashing it, as `plugins/ship-faster/scripts/lib/root.mjs` does.
+Evidence: CI run 35189638968 on 2026-09-17, `plugins/ship-faster/tests/helpers.mjs:13`, `plugins/ship-faster/scripts/lib/root.mjs:7`, 2026-09-17.
