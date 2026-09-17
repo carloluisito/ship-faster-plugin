@@ -15,6 +15,9 @@ test('parseArgs handles values, equals, booleans, repeats, positionals and --', 
   assert.deepEqual(flagList(r.flags, 'changed'), ['a', 'b']);
   assert.deepEqual(flagList(r.flags, 'root'), ['/x']);
   assert.deepEqual(flagList(r.flags, 'missing'), []);
+  const files = parseArgs(['carry', '--to', '/wt', '--json', 'a.txt', '--here', 'b.txt', '--brief', 'c.txt', '--dry-run', 'd.txt']);
+  assert.deepEqual(files._, ['carry', 'a.txt', 'b.txt', 'c.txt', 'd.txt']);
+  assert.deepEqual([files.flags.to, files.flags.json, files.flags.here, files.flags.brief, files.flags['dry-run']], ['/wt', true, true, true, true]);
 });
 
 test('emit prints JSON and exit 0 even when ok is false under --json', () => {

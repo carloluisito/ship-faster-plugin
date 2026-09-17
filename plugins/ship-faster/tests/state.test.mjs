@@ -9,13 +9,32 @@ after(cleanupAll);
 let data;
 beforeEach(() => { data = tmpDir('sf-data-'); process.env.CLAUDE_PLUGIN_DATA = data; });
 
-test('dataDir prefers CLAUDE_PLUGIN_DATA, ignores an unexpanded placeholder, falls back to the config dir', () => {
+test('dataDir prefers CLAUDE_PLUGIN_DATA and otherwise rebuilds the directory Claude Code gives the hooks', () => {
   assert.equal(s.dataDir(), data);
-  process.env.CLAUDE_PLUGIN_DATA = '${CLAUDE_PLUGIN_DATA}';
-  process.env.CLAUDE_CONFIG_DIR = join(data, 'cfg');
-  assert.equal(s.dataDir(), join(data, 'cfg', 'plugins', 'data', 'ship-faster'));
-  delete process.env.CLAUDE_CONFIG_DIR;
-  assert.match(s.dataDir().replace(/\\/g, '/'), /\/\.claude\/plugins\/data\/ship-faster$/);
+  const slash = (p) => p.replace(/\\/g, '/');
+  const placeholder = { CLAUDE_PLUGIN_DATA: '${CLAUDE_PLUGIN_DATA}' };
+  assert.equal(slash(s.dataDir({ env: { ...placeholder, CLAUDE_CONFIG_DIR: '/cfg' } })), '/cfg/plugins/data/ship-faster-inline');
+  assert.equal(slash(s.dataDir({ env: { CLAUDE_CODE_PLUGIN_CACHE_DIR: '/pc', CLAUDE_CONFIG_DIR: '/cfg' } })), '/pc/data/ship-faster-inline');
+  assert.equal(slash(s.dataDir({ env: {}, home: '/home/u' })), '/home/u/.claude/plugins/data/ship-faster-inline');
+  const installed = { env: {}, pluginRoot: 'C:/Users/u/.claude/plugins/cache/team.tools/ship-faster/0.3.0' };
+  assert.equal(slash(s.dataDir(installed)), 'C:/Users/u/.claude/plugins/data/ship-faster-team-tools');
+  assert.equal(slash(s.dataDir({ env: {}, pluginRoot: '/x/plugins/cache/ship-faster/ship-faster/0.2.1/' })), '/x/plugins/data/ship-faster-ship-faster');
+});
+
+test('checkoutDir keeps session state in the git directory of the working tree, and outside git in the project directory', () => {
+  const plain = tmpDir('sf-plain-');
+  assert.equal(s.checkoutDir(plain), s.projectDir(plain));
+  const repo = tmpDir('sf-repo-');
+  mkdirSync(join(repo, '.git'));
+  assert.equal(s.checkoutDir(repo), join(repo, '.git', 'ship-faster'));
+  assert.equal(s.sessionFile(repo, 'one'), join(repo, '.git', 'ship-faster', 'sessions', 'one.json'));
+  assert.equal(s.editsFile(repo, 'one'), join(repo, '.git', 'ship-faster', 'edits', 'one.json'));
+  const linked = tmpDir('sf-linked-');
+  writeFileSync(join(linked, '.git'), 'gitdir: ../main/.git/worktrees/linked\n');
+  assert.equal(s.checkoutDir(linked), join(linked, '..', 'main', '.git', 'worktrees', 'linked', 'ship-faster'));
+  const broken = tmpDir('sf-broken-');
+  writeFileSync(join(broken, '.git'), 'not a pointer\n');
+  assert.equal(s.checkoutDir(broken), s.projectDir(broken));
 });
 
 test('projectHash is stable, 16 hex, and distinct per root', () => {

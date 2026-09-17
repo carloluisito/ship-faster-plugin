@@ -1,3 +1,6 @@
+// Switches never take a value, so `carry --json a.txt b.txt` keeps a.txt as a path instead of the value of --json.
+const SWITCHES = new Set(['json', 'brief', 'continue', 'here', 'check', 'force', 'dry-run']);
+
 export function parseArgs(argv) {
   const out = { _: [], flags: {} };
   for (let i = 0; i < argv.length; i++) {
@@ -8,7 +11,7 @@ export function parseArgs(argv) {
     if (eq !== -1) { setFlag(out.flags, a.slice(2, eq), a.slice(eq + 1)); continue; }
     const key = a.slice(2);
     const next = argv[i + 1];
-    if (next !== undefined && !next.startsWith('--')) { setFlag(out.flags, key, next); i++; }
+    if (!SWITCHES.has(key) && next !== undefined && !next.startsWith('--')) { setFlag(out.flags, key, next); i++; }
     else setFlag(out.flags, key, true);
   }
   return out;

@@ -67,3 +67,9 @@ Symptom: The release case's `pages-stamped` grader reported "Bash called 0x (exp
 Cause: `tool_used` matches `input_match` against the serialized tool input, where every double quote of the command is escaped as a backslash and a quote, so a pattern holding a bare quote (`["']?`) never meets one.
 Rule: Never put a literal quote in an `input_match`: write `\S*` or `[^ ]+` where the command quotes a path, as `git( -C ("[^"]*"|[^ ]+))?` does, and test a new pattern against a kept trace (`-KeepTemp`) before believing a zero-match verdict.
 Evidence: `plugins/ship-faster/evals/release/graders/pages-stamped.md:4`, 2026-09-17.
+
+### Hooks and skill scripts kept plugin state in different directories <!-- id: g-20260917-plugin-data-dir -->
+Symptom: The installed plugin's hooks wrote session records under `plugins/data/ship-faster-ship-faster/`, while scripts run from skills wrote under `plugins/data/ship-faster/`; in an eval, `ship` found no second session although its session and claim files existed.
+Cause: Claude Code sets `CLAUDE_PLUGIN_DATA` (`<plugins>/data/<name>-<marketplace>`, or `<name>-inline` for `--plugin-dir`) only for hooks, so scripts started through Bash used a fallback path; a sandboxed Bash also cannot see the Claude config directory at all.
+Rule: Resolve plugin state only through `dataDir()`, which rebuilds the hooks' directory from the script's install path, and keep state that skills must read from a sandbox (session records, edit claims) in the checkout's git directory through `checkoutDir()`.
+Evidence: `plugins/ship-faster/scripts/lib/state.mjs:17`, `plugins/ship-faster/scripts/lib/state.mjs:36`, 2026-09-17.
