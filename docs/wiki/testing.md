@@ -3,8 +3,8 @@ title: Testing
 summary: "node:test suites in plugins/ship-faster/tests with real git fixtures, a structure validator, a hook benchmark, and skill evals run in CI."
 read_when: You are adding or fixing a test, need a fixture or mock, or a test cannot run locally.
 covers: [plugins/ship-faster/tests/**, plugins/ship-faster/evals/**, .github/workflows/evals.yml]
-verified: 5a02df2ff9fc60e125f40384fd2cb83945d97276
-updated: 2026-09-16
+verified: a07432d57e5f412d4c900ee2d4e537917c4d70c1
+updated: 2026-09-17
 ---
 # Testing
 
@@ -40,5 +40,5 @@ updated: 2026-09-16
 Each `plugins/ship-faster/evals/<skill>/` holds `prompt.md` (frontmatter such as `description`, `tags`, `max_turns`, `timeout_seconds`, `allowed_tools`; the body is the slash command for a slash-only skill, a plain request for a model-invocable one, as in `plugins/ship-faster/evals/preflight/prompt.md`), `case.yaml` (`schema_version: "1.1"`, `name`, `context.scaffold_script: scaffold.sh`), a `scaffold.sh` that builds the fixture repository, and `graders/*.md`. A grader that must never fire uses `type: tool_used` with `input_match`, `min: 0`, `max: 0`, as `plugins/ship-faster/evals/ship/graders/never-pushed.md` does for `git push|gh pr create`.
 
 ## Not runnable locally
-- Skill evals: they spend real model credit and need a sandbox backend for `Bash`, so they run only in `.github/workflows/evals.yml` (manual dispatch and weekly), never as a PR gate (`plugins/ship-faster/README.md:138`).
+- Skill evals: they spend real model credit and need a sandbox backend for `Bash`, so they run in `.github/workflows/evals.yml` (manual dispatch and weekly), never as a PR gate (`plugins/ship-faster/README.md:138`). On Windows the harness refuses them (no sandbox); run them from WSL Ubuntu as a user whose `~/.docker` holds no symlinks, with `bubblewrap`, `socat`, and the pinned `claude` CLI installed. The eval workspace doubles as the sandbox home, so fixtures ignore the harness dotfiles and the model's writes to `.git/` and the plugin data directory are denied (`docs/wiki/gotchas.md` g-20260917-eval-home, g-20260917-denied-writes).
 - The CI matrix (ubuntu-latest and windows-latest, Node 20 and 22) runs only in GitHub Actions; locally you test one OS and one Node version.

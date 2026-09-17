@@ -1,10 +1,10 @@
 ---
 title: Gotchas
-summary: Hook stdin hangs, Windows renames, BOM shebangs, long-history staleness, tag pushes, and test state leaks, with evidence.
+summary: Hook stdin hangs, Windows renames, BOM shebangs, long-history staleness, tag pushes, test state leaks, and eval sandbox traps, with evidence.
 read_when: Something behaves in a way the code does not explain, or before touching the areas listed in covers.
 covers: [plugins/ship-faster/scripts/lib/cli.mjs, plugins/ship-faster/scripts/lib/state.mjs, plugins/ship-faster/evals/*/scaffold.sh, plugins/ship-faster/scripts/stale.mjs, plugins/ship-faster/scripts/hook-ship-guard.mjs, plugins/ship-faster/tests/run.mjs]
-verified: adff26e938d9b6784cf24b932eb5259856a1951e
-updated: 2026-09-16
+verified: a07432d57e5f412d4c900ee2d4e537917c4d70c1
+updated: 2026-09-17
 ---
 # Gotchas
 
@@ -43,3 +43,15 @@ Symptom: A test file run with `node --test` that reaches `lib/state.mjs` without
 Cause: `dataDir()` falls back to the user's Claude config directory when `CLAUDE_PLUGIN_DATA` is unset, and only `tests/run.mjs` sets it for the whole run.
 Rule: In every test file that reaches `lib/state.mjs`, set `process.env.CLAUDE_PLUGIN_DATA = tmpDir('sf-data-')` in `beforeEach`.
 Evidence: `plugins/ship-faster/scripts/lib/state.mjs:7`, `plugins/ship-faster/tests/run.mjs:14`, 2026-09-16.
+
+### The eval workspace is the sandbox home, full of device-node dotfiles <!-- id: g-20260917-eval-home -->
+Symptom: A release eval stops on a dirty tree, and `git status` in any fixture lists `.bashrc`, `.idea`, `.vscode`, `.eval-artifacts`, and `.claude/...` entries the scaffold never created.
+Cause: `claude plugin eval` runs each case in a throwaway home directory that is also the working directory; the harness masks its own dotfiles as character devices, so directory-style ignore patterns such as `.idea/` do not match them.
+Rule: Every `evals/*/scaffold.sh` commits a `.gitignore` naming those paths without a trailing slash (copy the block from an existing scaffold), and `review.mjs` copies only regular, readable untracked files.
+Evidence: `plugins/ship-faster/evals/release/scaffold.sh:7`, `plugins/ship-faster/scripts/review.mjs:60`, 2026-09-17.
+
+### Non-interactive runs deny writes under .git, .claude, and the plugin data directory <!-- id: g-20260917-denied-writes -->
+Symptom: In an eval or a `claude -p` run, the Write tool fails on `<dataDir>/ship/commit-msg.txt`, `.git/SHIP_COMMIT_MSG`, and `.claude/rules/<area>.md`, while the plugin's own scripts write to the data directory without trouble.
+Cause: Claude Code's permission settings deny the model's tools those paths when nobody can answer a prompt; scripts spawned through Bash are not subject to the tool-level rule.
+Rule: Skills that need a scratch file fall back to the system temp directory and then to stdin (`git commit -F -`), and a skill that cannot write a rules file prints the rule line instead of failing.
+Evidence: `plugins/ship-faster/skills/ship/reference/commit-and-pr.md:7`, `plugins/ship-faster/skills/lesson/SKILL.md:59`, 2026-09-17.

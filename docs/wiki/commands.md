@@ -3,8 +3,8 @@ title: Commands
 summary: Verified validation, test, and benchmark commands for the plugin, run from the repository root, with durations.
 read_when: You need to run, test, build, or debug the environment, or preflight needs the check list.
 covers: [.github/workflows/ci.yml, .github/workflows/evals.yml, plugins/ship-faster/tests/run.mjs, plugins/ship-faster/tests/validate.mjs, plugins/ship-faster/tests/bench.mjs, plugins/ship-faster/README.md]
-verified: adff26e938d9b6784cf24b932eb5259856a1951e
-updated: 2026-09-16
+verified: a07432d57e5f412d4c900ee2d4e537917c4d70c1
+updated: 2026-09-17
 checks:
   - name: validate
     run: node plugins/ship-faster/tests/validate.mjs
@@ -46,7 +46,7 @@ No ports, no servers, no watchers.
 | Claude Code plugin validation | `claude plugin validate --strict plugins/ship-faster` | 1.0s | pass |
 | Claude Code marketplace validation | `claude plugin validate --strict .` | 1.0s | pass |
 | Hook latency benchmark | `node plugins/ship-faster/tests/bench.mjs` | 12.8s | pass |
-| Skill evals (spend model credit) | `claude plugin eval plugins/ship-faster --ablation none --runs 1 --scaffold --allow-tools Bash Write Edit --no-publish --trust-plugin --max-cost-usd 20` | — | not run; CI runs them through `.github/workflows/evals.yml` |
+| Skill evals (spend model credit) | `claude plugin eval plugins/ship-faster --ablation none --runs 1 --scaffold --allow-tools Bash Write Edit --no-publish --trust-plugin --max-cost-usd 20` | 18 to 23 min, about 4.5 USD | all 9 cases pass in WSL (2026-09-17: a full run plus reruns of health, ship, and kickoff); CI runs them through `.github/workflows/evals.yml` |
 
 ## Checks
 1. `node plugins/ship-faster/tests/validate.mjs` — manifests, hooks, skills, agents, evals, and templates are well formed, under 1s

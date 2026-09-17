@@ -5,6 +5,14 @@ versions follow semver.
 
 ## [Unreleased]
 
+### Fixed
+- `review` skips untracked entries that are not regular readable files instead of failing on device nodes and symlinks.
+- `kickoff` prints the plan it wrote; `health` records its run before the report; `lesson` prints the rule line when the rules file cannot be written.
+
+### Changed
+- `ship` and `release` keep their commit message and PR body under the system temp directory when the plugin data directory is unwritable, and commit through `git commit -F -` when no file can be written.
+- Eval fixtures ignore the harness's dotfiles and use `node --test tests/*.test.js`; judges read the final answer (release's reads the trace) instead of a file whose name varies.
+
 ## [0.1.0] - 2026-09-17
 
 ### Added
