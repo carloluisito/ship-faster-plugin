@@ -3,7 +3,7 @@ title: Ops
 summary: One GitHub Actions workflow gates PRs on tests and Claude Code validation, another runs skill evals on manual dispatch; releases go through the release skill.
 read_when: You are changing CI, preparing a release, or need to know how and where the software runs.
 covers: [.github/workflows/ci.yml, .github/workflows/evals.yml, .claude-plugin/marketplace.json, plugins/ship-faster/.claude-plugin/plugin.json, plugins/ship-faster/CHANGELOG.md]
-verified: 0575e1e9c4e639f1b0c4bd7a1cb6e561543e5a61
+verified: dec01697c96af9f0f0c698c0501b143d7fa60ef4
 updated: 2026-09-17
 ---
 # Ops
