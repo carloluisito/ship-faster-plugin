@@ -1,6 +1,6 @@
 import { test, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, symlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { makeRepo, runScript, tmpDir, cleanupAll } from './helpers.mjs';
 import { serializeFrontmatter } from '../scripts/lib/fm.mjs';
@@ -98,4 +98,16 @@ test('a renamed file appears once at its new path, not the old one', () => {
   const r = prepareReview(root, { config: DEFAULTS });
   assert.equal(r.ok, true);
   assert.deepEqual(r.files.map((f) => f.path), ['src/new.ts']);
+});
+
+test('untracked entries that are not regular files are left out of the review', () => {
+  const { root } = fixture();
+  let linked = true;
+  try { symlinkSync(join(root, 'src', 'lib', 'db.ts'), join(root, 'db-link.ts'), 'file'); } catch { linked = false; }
+  const r = prepareReview(root, { config: DEFAULTS });
+  assert.equal(r.ok, true);
+  const paths = r.untracked.map((u) => u.path);
+  assert.ok(paths.includes('src/api/new.ts'));
+  if (linked) assert.ok(!paths.includes('db-link.ts'));
+  assert.ok(!r.files.some((f) => f.path === 'db-link.ts'));
 });

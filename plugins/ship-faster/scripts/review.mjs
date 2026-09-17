@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { runMain } from './lib/cli.mjs';
 import { loadConfig } from './lib/config.mjs';
@@ -57,7 +57,7 @@ export function prepareReview(root, { config, base, maxLines = 4000 } = {}) {
   const perFile = splitPerFile(diff.stdout);
   const untrackedPaths = git.dirtyFiles(root).filter((d) => d.status === '??').map((d) => d.path)
     .filter((p) => !riskyReason(p))
-    .filter((p) => { try { return statSync(join(root, p)).size <= UNTRACKED_MAX_BYTES; } catch { return false; } });
+    .filter((p) => { try { const s = lstatSync(join(root, p)); return s.isFile() && s.size <= UNTRACKED_MAX_BYTES; } catch { return false; } });
   const stamp = new Date().toISOString().replace(/[:.]/g, '-');
   const reviewRoot = join(projectDir(root), 'review');
   const dir = join(reviewRoot, stamp);
@@ -67,14 +67,16 @@ export function prepareReview(root, { config, base, maxLines = 4000 } = {}) {
     writeFileSync(file, c.text);
     return { file: normalizePath(file), lines: c.lines, paths: c.paths };
   });
-  const untracked = untrackedPaths.map((p, i) => {
-    const file = join(dir, `untracked-${String(i + 1).padStart(2, '0')}.txt`);
-    const text = readFileSync(join(root, p), 'utf8');
+  const untracked = [];
+  for (const p of untrackedPaths) {
+    let text;
+    try { text = readFileSync(join(root, p), 'utf8'); } catch { continue; }
+    const file = join(dir, `untracked-${String(untracked.length + 1).padStart(2, '0')}.txt`);
     writeFileSync(file, `# new file: ${p}\n${text}`);
-    return { path: p, file: normalizePath(file), lines: text.split('\n').length };
-  });
+    untracked.push({ path: p, file: normalizePath(file), lines: text.split('\n').length });
+  }
   const files = perFile.map((f) => ({ path: f.path, lines: f.lines, chunk: chunks.findIndex((c) => c.paths.includes(f.path)) + 1 }));
-  const changed = [...files.map((f) => f.path), ...untrackedPaths];
+  const changed = [...files.map((f) => f.path), ...untracked.map((u) => u.path)];
   const wiki = loadWiki(root, config);
   const wikiRel = (name) => `${config.wikiDir}/${name}`;
   const gotchaPages = wiki.pages.filter((p) => /\/gotchas(-[\w-]+)?\.md$/.test(p.rel)).map((p) => p.rel)
