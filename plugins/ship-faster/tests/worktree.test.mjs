@@ -13,9 +13,11 @@ after(() => { for (const p of extra) { try { rmSync(p, { recursive: true, force:
 beforeEach(() => { process.env.CLAUDE_PLUGIN_DATA = tmpDir('sf-data-'); });
 
 const lf = (file) => readFileSync(file, 'utf8').replace(/\r\n/g, '\n');
+// The system git config stays in play here: `git worktree add` reads it, so a commit that ignored it would
+// re-encode line endings the checkout wrote (GitHub's Windows runners set core.autocrlf there).
 const commitIn = (cwd, message) => {
   for (const args of [['add', '-A'], ['commit', '-q', '-m', message]]) {
-    const r = spawnSync('git', args, { cwd, encoding: 'utf8', env: { ...process.env, GIT_TERMINAL_PROMPT: '0', GIT_CONFIG_NOSYSTEM: '1' } });
+    const r = spawnSync('git', args, { cwd, encoding: 'utf8', env: { ...process.env, GIT_TERMINAL_PROMPT: '0' } });
     assert.equal(r.status, 0, r.stderr);
   }
 };
