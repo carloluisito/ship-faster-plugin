@@ -23,9 +23,16 @@ export function ownership(root, { sid, dirty = [], excluded = [], includes = [],
   const session = typeof sid === 'string' && SID.test(sid) && sid !== 'default' ? sid : null;
   const paths = dirty.map((d) => d.path);
   const dirtySet = new Set(paths);
+  const renamedTo = new Map(dirty.filter((d) => d.renamedTo && dirtySet.has(d.renamedTo)).map((d) => [d.path, d.renamedTo]));
   const edits = loadEdits(root);
-  const records = sessionRecords(root).filter((r) => r.sid !== 'default');
-  const open = new Set(records.map((r) => r.sid));
+  const editsBySid = new Map(edits.map((e) => [e.sid, e]));
+  const records = sessionRecords(root)
+    .filter((r) => r.sid !== 'default')
+    .map((r) => ({ ...r, lastActive: latest(r.lastActive, editsBySid.get(r.sid) && editsBySid.get(r.sid).updatedAt) }));
+  const recent = (r) => r.lastActive !== null && now - Date.parse(r.lastActive) <= RECENT_MS;
+  // A record left behind by a session that never ran SessionEnd looks like an open one; once it has been idle
+  // for two hours its files are asked about (earlier) instead of being left out as another session's.
+  const open = new Set(records.filter(recent).map((r) => r.sid));
 
   const claimedDirty = new Set();
   for (const e of edits) for (const p of Object.keys(e.files)) if (dirtySet.has(p)) claimedDirty.add(p);
@@ -50,17 +57,13 @@ export function ownership(root, { sid, dirty = [], excluded = [], includes = [],
     const openOthers = cs.filter((s) => s !== session && open.has(s));
     owner[p] = mine ? (openOthers.length ? 'both' : 'mine') : openOthers.length ? 'theirs' : cs.length ? 'earlier' : 'unclaimed';
   }
+  // The old path of a rename ships, or stays, together with the new one.
+  for (const [from, to] of renamedTo) owner[from] = owner[to];
 
-  const editsBySid = new Map(edits.map((e) => [e.sid, e]));
   const others = records
     .filter((r) => r.sid !== session)
-    .map((r) => ({
-      sid: r.sid,
-      branch: r.branch,
-      lastActive: latest(r.lastActive, editsBySid.get(r.sid) && editsBySid.get(r.sid).updatedAt),
-      files: paths.filter((p) => claimants.get(p).has(r.sid)),
-    }))
-    .filter((o) => o.files.length > 0 || (o.lastActive !== null && now - Date.parse(o.lastActive) <= RECENT_MS))
+    .map((r) => ({ sid: r.sid, branch: r.branch, lastActive: r.lastActive, files: paths.filter((p) => claimants.get(p).has(r.sid)) }))
+    .filter((o) => o.files.length > 0 || recent(o))
     .sort((a, b) => Date.parse(b.lastActive || 0) - Date.parse(a.lastActive || 0));
 
   let mode = 'shared';
@@ -70,11 +73,14 @@ export function ownership(root, { sid, dirty = [], excluded = [], includes = [],
   else if (here) { mode = 'solo'; reason = '--here: every uncommitted file ships from this checkout'; }
 
   const patterns = splitIncludes(includes);
-  const included = patterns.length ? paths.filter((p) => anyMatch(patterns, p)) : [];
-  const includedSet = new Set(included);
+  const includedSet = new Set(patterns.length ? paths.filter((p) => anyMatch(patterns, p)) : []);
+  for (const [from, to] of renamedTo) {
+    if (includedSet.has(from) || includedSet.has(to)) { includedSet.add(from); includedSet.add(to); }
+  }
+  const included = paths.filter((p) => includedSet.has(p));
   const skip = new Set(excluded);
   const eligible = paths.filter((p) => !skip.has(p));
-  const sessionsOf = (p) => [...claimants.get(p)].filter((s) => s !== session);
+  const sessionsOf = (p) => [...new Set([...claimants.get(p), ...(renamedTo.has(p) ? claimants.get(renamedTo.get(p)) : [])])].filter((s) => s !== session);
   const solo = mode === 'solo';
 
   return {

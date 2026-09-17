@@ -186,3 +186,20 @@ test('carry and clear refuse a path that is not another worktree of this reposit
   assert.deepEqual(cleared.json.cleared, ['a.txt'], JSON.stringify(cleared.json));
   assert.equal(lf(join(root, 'a.txt')), 'a\n');
 });
+
+test('carrying a staged rename as a pair commits the rename and clear leaves this checkout clean', () => {
+  const { root, git } = makeRepo({ files: { 'old.js': 'o\n', 'keep.txt': 'k\n' } });
+  const wt = worktreePath(root, 'feat/rename');
+  extra.push(wt);
+  git(['mv', 'old.js', 'new.js']);
+  assert.equal(addWorktree(root, { branch: 'feat/rename', from: 'HEAD' }).ok, true);
+  const carried = carryFiles(root, { to: wt, files: ['new.js', 'old.js'] });
+  assert.deepEqual([carried.copied, carried.deleted], [['new.js'], ['old.js']]);
+  commitIn(wt, 'refactor: rename');
+  const cleared = clearFiles(root, { from: wt, files: ['new.js', 'old.js'] });
+  assert.deepEqual([...cleared.cleared].sort(), ['new.js', 'old.js'], JSON.stringify(cleared));
+  assert.deepEqual(dirtyFiles(root), []);
+  assert.equal(lf(join(root, 'old.js')), 'o\n');
+  assert.equal(existsSync(join(root, 'new.js')), false);
+  assert.match(git(['-C', wt, 'show', '--name-status', '--format=', 'HEAD']), /^R\d*\s+old\.js\s+new\.js$/m);
+});

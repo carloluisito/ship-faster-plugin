@@ -267,3 +267,30 @@ test('splitIncludes flattens comma lists and repeated flags, and the CLI passes 
   const unsubstituted = runScript('changes', ['--root', root, '--session', '${CLAUDE_SESSION_ID}', '--json'], { env });
   assert.equal(unsubstituted.json.ownership.session, null);
 });
+
+test('a staged rename ships as a pair, and an idle session record with claims keeps shared mode but has its files asked about', () => {
+  const { root, git } = makeRepo({ files: { 'old.js': 'o\n', 'b.txt': 'b\n', 'c.txt': 'c\n' } });
+  git(['mv', 'old.js', 'new.js']);
+  writeFileSync(join(root, 'b.txt'), 'b changed\n');
+  writeFileSync(join(root, 'c.txt'), 'c changed\n');
+  openSession(root, 'me');
+  openSession(root, 'them');
+  openSession(root, 'crashed', { at: ago(3 * 3600_000) });
+  recordEdit(root, 'them', 'b.txt', { at: soon() });
+  // A crashed session: its claim is newer than the last commit, but nothing has touched its records for 150 minutes.
+  writeJsonAtomic(join(root, '.git', 'ship-faster', 'edits', 'crashed.json'), { sid: 'crashed', updatedAt: ago(150 * 60_000), files: { 'c.txt': { at: soon(), tool: 'Edit' } } });
+
+  const r = changes(root, { config: DEFAULTS, session: 'me', include: ['new.js'] });
+  const byPath = Object.fromEntries(r.dirty.map((d) => [d.path, d]));
+  assert.equal(byPath['old.js'].status, 'D');
+  assert.equal(byPath['old.js'].renamedTo, 'new.js');
+  assert.equal(byPath['new.js'].from, 'old.js');
+  assert.equal(r.ownership.mode, 'shared');
+  assert.deepEqual([...r.ownership.ship].sort(), ['new.js', 'old.js']);
+  assert.deepEqual(r.ownership.leave.map((x) => x.path), ['b.txt']);
+  assert.deepEqual(r.ownership.ask.map((x) => [x.path, x.owner]), [['c.txt', 'earlier']]);
+  assert.deepEqual(r.ownership.others.map((o) => o.sid).sort(), ['crashed', 'them']);
+
+  const unnamed = changes(root, { config: DEFAULTS, session: 'me' });
+  assert.deepEqual(unnamed.ownership.ask.map((x) => x.path).sort(), ['c.txt', 'new.js', 'old.js']);
+});

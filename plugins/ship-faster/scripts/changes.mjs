@@ -27,8 +27,16 @@ export function changes(root, { config, base, session = null, include = [], here
   const baseRef = localBase ? resolvedBase : remoteBase ? `refs/remotes/origin/${resolvedBase}` : null;
   const protectedSet = new Set(config.protectedBranches);
   if (defaultBranch) protectedSet.add(defaultBranch);
-  const found = git.dirtyFiles(root).map((d) => ({ ...d, risky: riskyReason(d.path), large: isLarge(root, d.path) }));
-  const excluded = found.filter((d) => d.risky || d.large).map((d) => d.path);
+  const listed = git.dirtyFiles(root);
+  const seen = new Set(listed.map((d) => d.path));
+  // A staged rename lists only its new path; its old path is a deletion that has to travel with it.
+  for (const d of [...listed]) {
+    if (d.status.startsWith('R') && d.from && !seen.has(d.from)) { listed.push({ path: d.from, status: 'D', renamedTo: d.path }); seen.add(d.from); }
+  }
+  const found = listed.map((d) => ({ ...d, risky: riskyReason(d.path), large: isLarge(root, d.path) }));
+  const skipped = new Set(found.filter((d) => d.risky || d.large).map((d) => d.path));
+  for (const d of found) if (d.renamedTo && skipped.has(d.renamedTo)) skipped.add(d.path);
+  const excluded = found.filter((d) => skipped.has(d.path)).map((d) => d.path);
   const { owner, ...owned } = ownership(root, { sid: session, dirty: found, excluded, includes: include, here });
   const dirty = found.map((d) => ({ ...d, owner: owner[d.path] }));
   const upstreamRef = git.upstream(root);
