@@ -50,7 +50,7 @@ Any page not `fresh`: invoke the `ship-faster:sync-docs` skill with `--scope all
 
 ## 5. Changelog section
 
-Compute the new version: `node "${CLAUDE_PLUGIN_ROOT}/scripts/version.mjs" detect --json` gave `current`; the target is `current` bumped by the argument (patch, minor, major, or the explicit value). Write the section with the Write tool to `<dataDir>/release/section.md` (fallback `.git/RELEASE_SECTION.md`):
+Compute the new version: `node "${CLAUDE_PLUGIN_ROOT}/scripts/version.mjs" detect --json` gave `current`; the target is `current` bumped by the argument (patch, minor, major, or the explicit value). Write the section with the Write tool to `<dataDir>/release/section.md` (when that directory cannot be written, a file under the system temp directory):
 
 ```
 ## [X.Y.Z] - <today yyyy-mm-dd>
@@ -87,7 +87,7 @@ Invoke the `ship-faster:preflight` skill. `Preflight: FAIL`: revert every file f
 
 ## 8. Commit and tag
 
-Stage by name: the version `files`, `<changelog path>`, and every wiki file step 4 changed (`git status --porcelain` lists them). Write the message `release: v<to>` to `<dataDir>/release/commit-msg.txt` and `git commit -F <file>`. Tag:
+Stage by name: the version `files`, `<changelog path>`, and every wiki file step 4 changed (`git status --porcelain` lists them). Write the message `release: v<to>` to `<dataDir>/release/commit-msg.txt` (or a file under the system temp directory) and `git commit -F <file>`; when no file can be written, `git commit -F -` with the message on stdin. Tag:
 
 - Plugin repository and `claude --version` succeeds: `claude plugin tag <plugin directory> -m "<name> %s"` where the plugin directory is the one holding the `plugin.json` from `source.files`.
 - Otherwise: `git tag -a <tag> -m "<tag>"`.

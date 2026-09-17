@@ -56,7 +56,7 @@ If the rule applies when editing particular files (Evidence names them, or the r
 - File exists: append `- <Rule sentence> (<wikiDir>/gotchas.md <id>)`. Add a glob to `paths:` when no existing one matches the evidence file. Keep the file at 25 lines or fewer; when a line would exceed that, split the file by sub-directory into two files with narrower `paths`.
 - File missing: create it from `${CLAUDE_PLUGIN_ROOT}/templates/rules-file.md` with `paths:` set to globs matching the evidence files (for example `["src/api/**"]`), the heading `# <Area> rules`, and this one rule line. Delete the template comment.
 
-A rule with no file scope (a process rule, a habit) gets no rules file; it lives in the page only.
+A rule with no file scope (a process rule, a habit) gets no rules file; it lives in the page only. When writing under `<rulesDir>` is denied (non-interactive runs deny it), print the rule line and the file it belongs in, and continue.
 
 ## 5. Budget
 

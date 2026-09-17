@@ -4,8 +4,8 @@
 
 1. Files to stage: every `dirty` path from the inventory except those in `excluded` (risky or over 5 MB). Print the exclusions with their `risky` reason. A deleted tracked file is staged by name too (`git add -- <path>` stages a deletion).
 2. Stage by name, at most 20 paths per command: `git add -- <path> <path> ...`. Never `-A`, `--all`, `.`, or `:/`.
-3. Message. `commitStyle.kind` `conventional`: `type(scope): subject` — type from feat, fix, chore, docs, test, refactor, perf, build, ci; scope optional; subject imperative, under 72 characters. `plain`: an imperative subject line under 72 characters. Body: one to three lines on why, when the subject cannot carry it. Write the message with the Write tool to `<dataDir>/ship/commit-msg.txt` (create the directory; if `<dataDir>` is unwritable use `.git/SHIP_COMMIT_MSG` inside the repository).
-4. Show `git diff --cached --stat` and the message. Then `git commit -F <message file>`. Never `--no-verify`. A commit hook failure is reported as is; fix what it reports, do not bypass it.
+3. Message. `commitStyle.kind` `conventional`: `type(scope): subject` — type from feat, fix, chore, docs, test, refactor, perf, build, ci; scope optional; subject imperative, under 72 characters. `plain`: an imperative subject line under 72 characters. Body: one to three lines on why, when the subject cannot carry it. Write the message with the Write tool to `<dataDir>/ship/commit-msg.txt` (create the directory; if `<dataDir>` is unwritable use a file under the system temp directory).
+4. Show `git diff --cached --stat` and the message. Then `git commit -F <message file>`; when no file can be written anywhere, `git commit -F -` with the message on stdin. Never `--no-verify`. A commit hook failure is reported as is; fix what it reports, do not bypass it.
 
 ## PR body
 
@@ -17,7 +17,7 @@ Copy `${CLAUDE_PLUGIN_ROOT}/templates/pr-body.md` and fill it:
 - **Plan**: only when a plan exists: the checklist from step 6. Delete the section otherwise.
 - **Risks**: the review's `warn` findings (rule and file), plus every `gotchas*.md` entry whose Evidence path appears in the diff (Grep the page for each changed path); or `none found`.
 
-Write it to `<dataDir>/ship/pr-body.md` (same fallback as the commit message: `.git/SHIP_PR_BODY.md`). Print the body.
+Write it to `<dataDir>/ship/pr-body.md` (same fallback as the commit message: a file under the system temp directory). Print the body.
 
 ## Push and PR
 

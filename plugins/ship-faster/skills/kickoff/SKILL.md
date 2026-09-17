@@ -57,3 +57,7 @@ node "${CLAUDE_PLUGIN_ROOT}/scripts/lint.mjs" --json
 ```
 
 Fix any error in the plan's frontmatter. Report three lines: the plan path, the branch (or "no branch"), and the first touchpoint.
+
+## 5. Show the plan
+
+Print the plan file in full, inside one fenced block, so the user reads it before starting. It is the last thing you print: no summary, note, or offer after it.

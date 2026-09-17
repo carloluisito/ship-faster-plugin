@@ -53,8 +53,10 @@ Record every file the fixes touched (`git status --porcelain` before and after).
 
 ## 5. Record and close
 
+Always, with or without `--fix`, before the report is printed:
+
 ```
 node "${CLAUDE_PLUGIN_ROOT}/scripts/health.mjs" record --findings <n> --json
 ```
 
-End with one line: `Next: /ship-faster:ship` when fixes were applied and passed, otherwise `Next: /ship-faster:health --fix safe` when safe fixes exist, otherwise `Nothing to fix.`
+The SessionStart hook reads what this writes; a run that skips it keeps reminding the user that the audit is overdue. End with one line: `Next: /ship-faster:ship` when fixes were applied and passed, otherwise `Next: /ship-faster:health --fix safe` when safe fixes exist, otherwise `Nothing to fix.`
