@@ -103,14 +103,13 @@ projects/<hash16>/project.json        { root, createdAt }
 projects/<hash16>/sessions/<id>.json  pages touched this session
 projects/<hash16>/wiki-cache.json     page covers and verified commits, keyed by mtime
 projects/<hash16>/preflight/          check logs and last.json, last 10 runs
-projects/<hash16>/review/             diff chunks for the reviewer agent, last 5 runs
 projects/<hash16>/ship/, release/     commit messages, PR bodies, changelog sections
 projects/<hash16>/backup/             copy of CLAUDE.md taken before onboard rewrites it
 projects/<hash16>/health.json         last health run
 cwd-cache/<hash16>.json               working directory → repository root
 ```
 
-Everything here is metadata except `preflight/*.log` (the output of the check commands your repository defines), `review/` (your own diff), and `backup/` (your pre-onboard CLAUDE.md). Nothing leaves your machine. `/plugin uninstall ship-faster` deletes this directory; pass `--keep-data` to keep it.
+Everything here is metadata except `preflight/*.log` (the output of the check commands your repository defines) and `backup/` (your pre-onboard CLAUDE.md). The diff chunks the reviewer agent reads live under `ship-faster/review/` in the system temp directory, last 5 runs per repository. Nothing leaves your machine. `/plugin uninstall ship-faster` deletes this directory; pass `--keep-data` to keep it.
 
 ## Scripts
 

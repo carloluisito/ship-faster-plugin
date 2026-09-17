@@ -1,5 +1,6 @@
 import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+import { basename, join } from 'node:path';
 import { runMain } from './lib/cli.mjs';
 import { loadConfig } from './lib/config.mjs';
 import * as git from './lib/git.mjs';
@@ -59,7 +60,7 @@ export function prepareReview(root, { config, base, maxLines = 4000 } = {}) {
     .filter((p) => !riskyReason(p))
     .filter((p) => { try { const s = lstatSync(join(root, p)); return s.isFile() && s.size <= UNTRACKED_MAX_BYTES; } catch { return false; } });
   const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-  const reviewRoot = join(projectDir(root), 'review');
+  const reviewRoot = join(tmpdir(), 'ship-faster', 'review', basename(projectDir(root)));
   const dir = join(reviewRoot, stamp);
   mkdirSync(dir, { recursive: true });
   const chunks = pack(perFile, maxLines).map((c, i) => {

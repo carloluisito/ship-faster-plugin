@@ -1,7 +1,8 @@
 import { test, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, mkdirSync, readFileSync, readdirSync, symlinkSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+import { basename, join } from 'node:path';
 import { makeRepo, runScript, tmpDir, cleanupAll } from './helpers.mjs';
 import { serializeFrontmatter } from '../scripts/lib/fm.mjs';
 import { DEFAULTS } from '../scripts/lib/config.mjs';
@@ -50,7 +51,7 @@ test('prepare writes chunked diffs, untracked files, and names the rule pages an
   assert.match(readFileSync(r.untracked[0].file, 'utf8'), /fresh = true/);
   assert.deepEqual(r.rulePages.map((p) => [p.rel, p.exists]), [['docs/wiki/conventions.md', true], ['docs/wiki/gotchas.md', true], ['docs/wiki/gotchas-api.md', true], ['docs/wiki/architecture.md', false]]);
   assert.deepEqual(r.recipes.map((p) => p.rel), ['docs/wiki/recipes/add-endpoint.md']);
-  assert.ok(r.dir.startsWith(projectDir(root).replace(/\\/g, '/') + '/review/'), r.dir);
+  assert.ok(r.dir.startsWith(join(tmpdir(), 'ship-faster', 'review', basename(projectDir(root))).replace(/\\/g, '/') + '/'), r.dir);
   const manifest = JSON.parse(readFileSync(join(r.dir, 'manifest.json'), 'utf8'));
   assert.equal(manifest.chunks.length, 1);
   assert.ok(!r.chunks[0].file.includes('\\'));
@@ -82,7 +83,7 @@ test('nothing to review, a bad base, no git, and pruning of old review directori
   assert.equal(prepareReview(tmpDir(), { config: DEFAULTS }).ok, false);
   writeFileSync(join(root, 'a.txt'), 'a2\n');
   for (let i = 0; i < 7; i++) prepareReview(root, { config: DEFAULTS });
-  const dirs = readdirSync(join(projectDir(root), 'review'));
+  const dirs = readdirSync(join(tmpdir(), 'ship-faster', 'review', basename(projectDir(root))));
   assert.ok(dirs.length <= 5, `expected at most 5 review dirs, got ${dirs.length}`);
   const cli = runScript('review', ['prepare', '--root', root, '--json']);
   assert.equal(cli.json.ok, true);

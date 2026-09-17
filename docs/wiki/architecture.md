@@ -26,7 +26,7 @@ Knowledge skills (onboard, sync-docs, lesson):
 
 Shipping skills:
 1. `preflight` runs in a forked `check-runner` agent (`context: fork`): `checks.mjs resolve`, then `checks.mjs run`, which writes one log per check and `preflight/last.json` in the data directory; the caller receives only the report.
-2. `review` runs `review.mjs prepare`, which writes the diff against the merge base in chunks of up to 4000 lines, copies of untracked files, and a manifest under `review/<timestamp>/` in the data directory and names the rule pages and matching recipes; one `rules-reviewer` per chunk reads them from those paths.
+2. `review` runs `review.mjs prepare`, which writes the diff against the merge base in chunks of up to 4000 lines, copies of untracked files, and a manifest under `ship-faster/review/<project hash>/<timestamp>/` in the system temp directory (where a sandboxed subagent can still read them) and names the rule pages and matching recipes; one `rules-reviewer` per chunk reads them from those paths.
 3. `ship` injects `changes.mjs` (branch, base, ahead/behind, uncommitted files with risk flags, commit style), then invokes preflight, `sync-docs --scope diff`, and review as skills, marks the plan `shipped` with `plan.mjs set-status`, commits by name, and pushes and opens the PR only after the user says yes.
 4. `release` uses `version.mjs detect` and `bump`, `changelog.mjs since` and `insert`, `stale.mjs` with `sync-docs --scope all`, and preflight, then commits `release: vX.Y.Z` and tags; publishing waits for a yes.
 5. `health` injects `health.mjs scan`, fans out one `health-auditor` per area, and ends with `health.mjs record`, which writes `health.json`; `kickoff` reads the wiki, writes a plan from `templates/plan.md`, and creates the branch.
