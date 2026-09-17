@@ -145,11 +145,14 @@ node scripts/worktree.mjs      list | add --branch <name> [--from <ref>]: the re
 
 ## Evals
 
-`evals/<skill>/` holds one case per skill: a prompt, a `case.yaml` naming a scaffold script that builds a fixture repository, and graders (deterministic checks plus one rubric a judge model scores). Runs spend real model credit and need a sandbox backend for `Bash`, so they run in CI on Linux (`.github/workflows/evals.yml`, manual and weekly), never as a PR gate:
+`evals/<skill>/` holds one case per skill: a prompt, a `case.yaml` naming a scaffold script that builds a fixture repository, and graders (deterministic checks plus one rubric a judge model scores). Runs spend real model credit and need a sandbox backend for `Bash`, so they never gate a PR. Run them on Linux, from Windows through WSL, or with `.github/workflows/evals.yml` on manual dispatch (it needs an `ANTHROPIC_API_KEY` repository secret):
 
 ```
-claude plugin eval plugins/ship-faster --ablation none --runs 1 --scaffold --allow-tools Bash Write Edit --no-publish --trust-plugin --max-cost-usd 20
+plugins/ship-faster/tests/evals.sh [case ...]
+.\plugins\ship-faster\tests\evals.ps1 [case ...]
 ```
+
+Each case is a name or a glob such as `kickoff*`; several cases run one harness run each, and a pattern that matches no case fails the run. The Windows script installs the WSL prerequisites once with `-Setup`. Both print a per-case table at the end.
 
 ## Development
 

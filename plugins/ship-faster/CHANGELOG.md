@@ -11,6 +11,7 @@ versions follow semver.
 - `tests/evals.sh` and `tests/evals.ps1` run the eval suite with the CI flags, on Linux and from Windows through WSL, and `tests/eval-report.mjs` prints the per-case table.
 
 ### Fixed
+- The eval runners take several cases (`evals.ps1 ship release`), one harness run each, and fail when a pattern matches no case; the harness matches nothing for `{a,b}` or comma lists, which had reported a silent 0/0.
 - `release` publishes through a release pull request whenever the guard protects the default branch (its default), instead of offering a direct push of `main` that the guard refuses; GitHub branch protection is consulted only when `guard.pushProtected` is `allow` or `ask`.
 
 ## [0.1.1] - 2026-09-17
