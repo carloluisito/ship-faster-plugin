@@ -3,7 +3,7 @@ title: Commands
 summary: Verified validation, test, and benchmark commands for the plugin, run from the repository root, with durations.
 read_when: You need to run, test, build, or debug the environment, or preflight needs the check list.
 covers: [.github/workflows/ci.yml, .github/workflows/evals.yml, plugins/ship-faster/tests/run.mjs, plugins/ship-faster/tests/validate.mjs, plugins/ship-faster/tests/bench.mjs, plugins/ship-faster/README.md]
-verified: ddc228c8a5a56b6392321c6bf037c056f17793bb
+verified: a701e622675657389001379b0420c2eba7706328
 updated: 2026-09-17
 checks:
   - name: validate
@@ -40,7 +40,7 @@ No ports, no servers, no watchers.
 ## Everyday
 | Purpose | Command | Duration | Status |
 |---|---|---|---|
-| All tests | `node plugins/ship-faster/tests/run.mjs` | 37.9s | pass (182 tests) |
+| All tests | `node plugins/ship-faster/tests/run.mjs` | 36.1s | pass (184 tests) |
 | One test file | `node --test plugins/ship-faster/tests/glob.test.mjs` | 0.2s | pass |
 | Plugin structure | `node plugins/ship-faster/tests/validate.mjs` | 0.4s | pass |
 | Claude Code plugin validation | `claude plugin validate --strict plugins/ship-faster` | 1.0s | pass |
