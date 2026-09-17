@@ -5,14 +5,6 @@ versions follow semver.
 
 ## [Unreleased]
 
-### Fixed
-- `review` skips untracked entries that are not regular readable files instead of failing on device nodes and symlinks.
-- `kickoff` prints the plan it wrote; `health` records its run before the report; `lesson` prints the rule line when the rules file cannot be written.
-
-### Changed
-- `ship` and `release` keep their commit message and PR body under the system temp directory when the plugin data directory is unwritable, and commit through `git commit -F -` when no file can be written.
-- Eval fixtures ignore the harness's dotfiles and use `node --test tests/*.test.js`; judges read the final answer (release's reads the trace) instead of a file whose name varies.
-
 ## [0.1.0] - 2026-09-17
 
 ### Added
@@ -59,6 +51,12 @@ versions follow semver.
 - Wiki freshness reads the history in one pass only when three or more pages were verified at different commits; at two, the two direct diffs are cheaper.
 - Files changed by a merge commit itself (an "evil merge") now count as changed since a page's verified commit.
 - The one-pass freshness check ignores malformed `verified` values instead of failing for every page.
+- `review` skips untracked entries that are not regular readable files instead of failing on device nodes and symlinks.
+- `kickoff` prints the plan it wrote; `health` records its run before the report; `lesson` prints the rule line when the rules file cannot be written.
 
 ### Changed
 - A wiki page committed together with the covered files it describes stays fresh: only commits that change covered files without touching the page make it stale, and a page with uncommitted edits of its own is not marked dirty by covered working-tree changes. Pages no longer go stale the moment `ship` commits them.
+- `ship` and `release` keep their commit message and PR body under the system temp directory when the plugin data directory is unwritable, and commit through `git commit -F -` when no file can be written.
+- Eval fixtures ignore the harness's dotfiles and use `node --test tests/*.test.js`; judges read the final answer (release's reads the trace) instead of a file whose name varies.
+- `review` keeps its diff chunks under the system temp directory instead of the plugin data directory, where a sandboxed reviewer agent cannot read them.
+- The eval workflow runs on manual dispatch only (a subscription account has no API key for a schedule); the flakier cases run three times, the rest once.
