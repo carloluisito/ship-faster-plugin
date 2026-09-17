@@ -157,7 +157,7 @@ export function markSessionStart(root, sid, { branch = null, cwd = null } = {}) 
   });
 }
 
-export function liveSessions(root, { exceptSid, maxAgeHours = 8 } = {}) {
+export function liveSessions(root, { exceptSid, maxAgeHours = 2 } = {}) {
   const dir = join(projectDir(root), 'sessions');
   const cutoff = Date.now() - maxAgeHours * 3600_000;
   let names = [];

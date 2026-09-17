@@ -23,11 +23,11 @@ async function main() {
   const hasWiki = pages.length > 0 || existsSync(join(root, ...config.wikiDir.split('/'), 'index.md'));
 
   const startup = source === 'startup' || source === 'resume';
-  const inRepo = git.isRepo(root);
+  const inRepo = startup && git.isRepo(root);
   const branch = inRepo ? git.currentBranch(root) : null;
   if (startup && inRepo) {
     const sid = typeof input.session_id === 'string' && input.session_id ? input.session_id : 'default';
-    const others = liveSessions(root, { exceptSid: sid, maxAgeHours: 8 });
+    const others = liveSessions(root, { exceptSid: sid, maxAgeHours: 2 });
     markSessionStart(root, sid, { branch, cwd });
     if (others.length) {
       const newest = others[0];
