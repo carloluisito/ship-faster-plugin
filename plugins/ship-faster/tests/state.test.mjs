@@ -120,3 +120,25 @@ test('loadAllSessions unions every session record of the project', () => {
   assert.equal(all.pages['docs/wiki/c.md'].reported, false);
   assert.deepEqual(s.loadAllSessions(tmpDir('sf-empty-')).pages, {});
 });
+
+test('markSessionStart stamps the record and liveSessions lists other recent sessions only', () => {
+  const root = tmpDir('sf-root-');
+  assert.equal(s.markSessionStart(root, 'one', { branch: 'main', cwd: root }), true);
+  const rec = s.loadSession(root, 'one');
+  assert.equal(rec.branch, 'main');
+  assert.equal(rec.cwd, root);
+  assert.ok(Date.parse(rec.startedAt) > 0);
+  assert.ok(Date.parse(rec.updatedAt) > 0);
+  const old = new Date(Date.now() - 30 * 3600_000).toISOString();
+  s.writeJsonAtomic(s.sessionFile(root, 'stale'), { startedAt: old, updatedAt: old, branch: 'feat/old', pages: {} });
+  s.writeJsonAtomic(s.sessionFile(root, 'two'), { startedAt: new Date().toISOString(), branch: 'feat/two', pages: {} });
+  const live = s.liveSessions(root, { exceptSid: 'one' });
+  assert.deepEqual(live.map((x) => x.sid).sort(), ['two']);
+  assert.equal(live[0].branch, 'feat/two');
+  assert.deepEqual(s.liveSessions(root, { exceptSid: 'two' }).map((x) => x.sid), ['one']);
+  assert.deepEqual(s.liveSessions(root, { exceptSid: 'one', maxAgeHours: 48 }).map((x) => x.sid).sort(), ['stale', 'two']);
+  assert.deepEqual(s.liveSessions(tmpDir('sf-empty-'), { exceptSid: 'x' }), []);
+  s.markSessionStart(root, 'one', { branch: 'feat/renamed', cwd: root });
+  assert.equal(s.loadSession(root, 'one').startedAt, rec.startedAt);
+  assert.equal(s.loadSession(root, 'one').branch, 'feat/renamed');
+});

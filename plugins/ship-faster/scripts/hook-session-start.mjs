@@ -4,7 +4,7 @@ import { readStdinJson } from './lib/cli.mjs';
 import { loadConfig } from './lib/config.mjs';
 import * as git from './lib/git.mjs';
 import { resolveRootCached } from './lib/root.mjs';
-import { projectDir, readJson } from './lib/state.mjs';
+import { liveSessions, markSessionStart, projectDir, readJson } from './lib/state.mjs';
 import { listPages } from './lib/wiki.mjs';
 import { findPlan } from './plan.mjs';
 import { stale } from './stale.mjs';
@@ -22,6 +22,19 @@ async function main() {
   const pages = listPages(root, config);
   const hasWiki = pages.length > 0 || existsSync(join(root, ...config.wikiDir.split('/'), 'index.md'));
 
+  const startup = source === 'startup' || source === 'resume';
+  const inRepo = git.isRepo(root);
+  const branch = inRepo ? git.currentBranch(root) : null;
+  if (startup && inRepo) {
+    const sid = typeof input.session_id === 'string' && input.session_id ? input.session_id : 'default';
+    const others = liveSessions(root, { exceptSid: sid, maxAgeHours: 8 });
+    markSessionStart(root, sid, { branch, cwd });
+    if (others.length) {
+      const newest = others[0];
+      lines.push(`ship-faster: another session started ${ago(newest.at)} ago in this checkout (branch ${newest.branch || 'unknown'}); for parallel work start a second session with claude --worktree.`);
+    }
+  }
+
   if (hasWiki) {
     const s = stale(root, { config });
     const notFresh = s.pages.filter((p) => p.status !== 'fresh').map((p) => p.rel.split('/').pop().replace(/\.md$/, ''));
@@ -30,19 +43,31 @@ async function main() {
     const rulesDir = join(root, ...config.rulesDir.split('/'));
     const rules = existsSync(rulesDir) && statSync(rulesDir).isDirectory() ? readdirSync(rulesDir).filter((n) => n.endsWith('.md')).length : 0;
     if (rules) line += ` Rules: ${config.rulesDir} (${rules} files).`;
-    lines.push(line);
-    if (source === 'startup' || source === 'resume') {
-      const branch = git.currentBranch(root);
+    lines.unshift(line);
+    if (startup) {
       if (branch) {
         const { plan } = findPlan(root, { config, branch });
         if (plan) lines.push(`ship-faster: active plan for branch ${branch}: ${plan.rel}`);
       }
+    }
+  } else if (source === 'startup' && !existsSync(join(root, 'CLAUDE.md')) && inRepo) {
+    const n = git.trackedFiles(root).length;
+    if (n >= 20) lines.push(`ship-faster: no CLAUDE.md or ${config.wikiDir} here (${n} tracked files). /ship-faster:onboard generates them.`);
+  }
+
+  if (startup && inRepo) {
+    const siblings = git.worktrees(root);
+    if (siblings && siblings.length > 1) {
+      const info = git.worktreeInfo(root);
+      const here = info ? info.path.toLowerCase() : '';
+      const others = siblings.filter((w) => w.path.toLowerCase() !== here).map((w) => w.branch || 'detached');
+      const where = info && info.isWorktree ? `worktree of ${info.mainRoot}` : 'main checkout';
+      lines.push(`ship-faster: worktrees: this=${branch || 'detached'} (${where}); others=${others.join(', ')}`);
+    }
+    if (hasWiki) {
       const health = healthLine(root, config);
       if (health) lines.push(health);
     }
-  } else if (source === 'startup' && !existsSync(join(root, 'CLAUDE.md')) && git.isRepo(root)) {
-    const n = git.trackedFiles(root).length;
-    if (n >= 20) lines.push(`ship-faster: no CLAUDE.md or ${config.wikiDir} here (${n} tracked files). /ship-faster:onboard generates them.`);
   }
 
   const text = capOutput(lines, MAX);
@@ -59,6 +84,13 @@ function capOutput(lines, max) {
     text = (sp > 0 ? cut.slice(0, sp) : cut) + '…';
   }
   return text;
+}
+
+function ago(iso) {
+  const minutes = Math.max(1, Math.round((Date.now() - Date.parse(iso)) / 60_000));
+  if (minutes < 60) return `${minutes} min`;
+  const hours = Math.round(minutes / 60);
+  return `${hours} h`;
 }
 
 function healthLine(root, config) {

@@ -4,7 +4,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { makeRepo, runScript, tmpDir, cleanupAll } from './helpers.mjs';
 import { serializeFrontmatter } from '../scripts/lib/fm.mjs';
-import { projectDir, writeJsonAtomic } from '../scripts/lib/state.mjs';
+import { projectDir, readJson, sessionFile, writeJsonAtomic } from '../scripts/lib/state.mjs';
 
 after(cleanupAll);
 beforeEach(() => { process.env.CLAUDE_PLUGIN_DATA = tmpDir('sf-data-'); });
@@ -118,4 +118,34 @@ test('a rules path that is a file does not blank the output', () => {
   writeFileSync(join(root, '.claude', 'rules'), 'not a directory\n');
   const r = hook({ session_id: 's', cwd: root, source: 'startup' }, root);
   assert.match(r.stdout, /^ship-faster: wiki at /);
+});
+
+test('startup names the sibling worktrees from both sides and says nothing about them on compact', () => {
+  const { root, git } = makeRepo({ files: { 'a.txt': 'a\n' } });
+  const wt = join(tmpDir('sf-wt-'), 'feat-a');
+  git(['worktree', 'add', wt, '-b', 'feat/a']);
+  const fromMain = hook({ session_id: 's', cwd: root, source: 'startup' }, root);
+  assert.equal(fromMain.code, 0);
+  assert.match(fromMain.stdout, /^ship-faster: worktrees: this=main \(main checkout\); others=feat\/a$/m);
+  const fromWorktree = hook({ session_id: 's2', cwd: wt, source: 'startup' }, wt);
+  assert.match(fromWorktree.stdout, /^ship-faster: worktrees: this=feat\/a \(worktree of .+\); others=main$/m);
+  assert.equal(hook({ session_id: 's', cwd: root, source: 'compact' }, root).stdout, '');
+});
+
+test('startup warns when another session used this checkout recently, and records its own start', () => {
+  const { root } = makeRepo({ files: { 'a.txt': 'a\n' } });
+  const first = hook({ session_id: 'first', cwd: root, source: 'startup' }, root);
+  assert.equal(first.stdout, '');
+  const rec = readJson(sessionFile(root, 'first'), null);
+  assert.equal(rec.branch, 'main');
+  assert.ok(Date.parse(rec.startedAt) > 0);
+  const second = hook({ session_id: 'second', cwd: root, source: 'startup' }, root);
+  assert.match(second.stdout, /^ship-faster: another session started .+ ago in this checkout \(branch main\); for parallel work start a second session with claude --worktree\.$/m);
+  const resumed = hook({ session_id: 'first', cwd: root, source: 'resume' }, root);
+  assert.match(resumed.stdout, /another session/);
+  const old = new Date(Date.now() - 30 * 3600_000).toISOString();
+  writeJsonAtomic(sessionFile(root, 'second'), { startedAt: old, updatedAt: old, branch: 'main', pages: {} });
+  const later = hook({ session_id: 'third', cwd: root, source: 'startup' }, root);
+  assert.doesNotMatch(later.stdout, /second/);
+  assert.match(later.stdout, /another session/);
 });
