@@ -3,7 +3,7 @@ title: Overview
 summary: ship-faster is a Claude Code plugin that writes a router CLAUDE.md and a verified wiki, keeps them true, and ships changes through repo-aware skills.
 read_when: You are new to the repository or need the domain vocabulary and system boundaries.
 covers: [README.md, plugins/ship-faster/README.md, plugins/ship-faster/.claude-plugin/plugin.json, .claude-plugin/marketplace.json]
-verified: dec01697c96af9f0f0c698c0501b143d7fa60ef4
+verified: c2b59ed7f81346348d2e95b0bb502271a89f0c65
 updated: 2026-09-17
 ---
 # Overview
@@ -29,7 +29,8 @@ Claude Code users install it with `/plugin marketplace add carloluisito/ship-fas
 | footprint | cluster of files that change together in git history | `plugins/ship-faster/scripts/footprints.mjs` |
 | guard | PreToolUse hook that denies risky git commands | `plugins/ship-faster/scripts/hook-ship-guard.mjs` |
 | lesson | gotcha, decision, or convention with symptom, cause, rule, and evidence | `plugins/ship-faster/skills/lesson/SKILL.md` |
-| inventory | branch, base, ahead/behind, uncommitted files with risk flags, and commit style that `ship` and `release` start from | `plugins/ship-faster/scripts/changes.mjs` |
+| inventory | branch, base, ahead/behind, uncommitted files with risk flags and owner, and commit style that `ship` and `release` start from | `plugins/ship-faster/scripts/changes.mjs` |
+| claim | a session's record that it changed a file through Edit, Write, MultiEdit, or NotebookEdit; `ship` uses claims to ship only its own session's files when other sessions share the checkout (`solo` or `shared` mode) | `plugins/ship-faster/scripts/lib/ownership.mjs` |
 | finding | a coded result: `R1..Rn` from review (severity `block`, `warn`, `nit`), `F1..Fn` from health | `plugins/ship-faster/skills/review/SKILL.md`, `plugins/ship-faster/skills/health/SKILL.md` |
 | version source | where a repository's version lives (plugin manifests, package manifests, project files, `version.txt`, or tags) | `plugins/ship-faster/scripts/version.mjs` |
 
@@ -37,6 +38,6 @@ Claude Code users install it with `/plugin marketplace add carloluisito/ship-fas
 - Owns everything under `plugins/ship-faster/`: skills, agents, hooks, scripts, templates, evals, tests.
 - Called by Claude Code, which runs the hooks registered in `plugins/ship-faster/hooks/hooks.json` and loads the skills and agents.
 - Calls the `git` CLI (only through `plugins/ship-faster/scripts/lib/git.mjs`) and the target repository's check commands through a shell (`plugins/ship-faster/scripts/checks.mjs`); skills also run `gh`, `claude plugin tag`, and package-manager report commands.
-- Writes into a target repository: `CLAUDE.md`, `docs/wiki/`, `.claude/rules/`, plans in `docs/plans/`, and on release `CHANGELOG.md` and the version files; skills create branches, commits, and tags.
-- Writes its own state under the plugin data directory (`CLAUDE_PLUGIN_DATA`, else `~/.claude/plugins/data/ship-faster/`) through `plugins/ship-faster/scripts/lib/state.mjs`.
+- Writes into a target repository: `CLAUDE.md`, `docs/wiki/`, `.claude/rules/`, plans in `docs/plans/`, and on release `CHANGELOG.md` and the version files; skills create branches, commits, tags, and sibling worktrees (`<repo>-<branch>`), where `ship` and `kickoff --worktree` also run the repository's install commands.
+- Writes its own state through `plugins/ship-faster/scripts/lib/state.mjs`: under the plugin data directory (`CLAUDE_PLUGIN_DATA`, which scripts outside hooks rebuild as `<config>/plugins/data/ship-faster-<marketplace>/`), and session records and edit claims under the checkout's git directory (`.git/ship-faster/`).
 - Has no npm dependencies. The scripts make no network calls; network use is limited to `git push`, `gh`, and package-manager audit commands that skills run in view of the user, and push, PR, merge, and publish wait for the user's yes.

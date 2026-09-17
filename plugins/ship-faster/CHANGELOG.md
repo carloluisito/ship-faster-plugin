@@ -10,14 +10,13 @@ versions follow semver.
 - New worktrees get their dependencies installed: `checks.mjs setup` runs the `setup` list from `commands.md`, or the install its lockfiles call for, in `ship`'s worktrees and in `kickoff --worktree`. `onboard` writes the `setup` list.
 - `preflight`, `review`, and `sync-docs` take `--root <path>` to work on another checkout.
 - `worktree.mjs carry` and `clear`, and `changes.mjs --session`, `--include`, and `--here` with an owner for every uncommitted file.
-
-### Added
 - `detect.mjs` reports `attended`, from the session flag Claude Code sets, so `ship` and `release` print the push, PR, and release commands instead of asking when nobody can answer (`claude -p`, an eval, a hook-driven run).
 
 ### Fixed
 - Scripts run from skills use the same plugin data directory as the hooks (`<config>/plugins/data/ship-faster-<marketplace>/`) instead of `plugins/data/ship-faster/`, so a recorded health run, preflight logs, and the wiki cache are shared between them.
 
 ### Changed
+- `ship`'s report repeats the PR body in full when no pull request was created, so the text is in the answer and not only in a file.
 - Session records and edit claims live in the checkout's git directory (`.git/ship-faster/`), where skills and sandboxed commands can read what the hooks wrote.
 - Session start's note about another session in the same checkout says that `ship` keeps each session's changes apart.
 

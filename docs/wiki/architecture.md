@@ -3,7 +3,7 @@ title: Architecture
 summary: Skills call deterministic Node scripts and agents; hooks track which wiki pages edits touch and guard risky git commands.
 read_when: You are changing how components interact, adding a component, or need the reason behind a structural decision.
 covers: [plugins/ship-faster/scripts/**, plugins/ship-faster/hooks/hooks.json, plugins/ship-faster/agents/**, plugins/ship-faster/skills/**]
-verified: 0575e1e9c4e639f1b0c4bd7a1cb6e561543e5a61
+verified: c2b59ed7f81346348d2e95b0bb502271a89f0c65
 updated: 2026-09-17
 ---
 # Architecture

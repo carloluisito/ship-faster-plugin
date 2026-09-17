@@ -3,7 +3,7 @@ title: Gotchas
 summary: Hook stdin hangs, Windows renames and 8.3 temp paths, BOM shebangs, long-history staleness, tag pushes, test state leaks, and eval sandbox traps, with evidence.
 read_when: Something behaves in a way the code does not explain, or before touching the areas listed in covers.
 covers: [plugins/ship-faster/scripts/lib/cli.mjs, plugins/ship-faster/scripts/lib/state.mjs, plugins/ship-faster/scripts/lib/root.mjs, plugins/ship-faster/evals/*/scaffold.sh, plugins/ship-faster/evals/*/graders/*.md, plugins/ship-faster/scripts/stale.mjs, plugins/ship-faster/scripts/hook-ship-guard.mjs, plugins/ship-faster/tests/run.mjs, plugins/ship-faster/tests/helpers.mjs]
-verified: 0575e1e9c4e639f1b0c4bd7a1cb6e561543e5a61
+verified: c2b59ed7f81346348d2e95b0bb502271a89f0c65
 updated: 2026-09-17
 ---
 # Gotchas
@@ -12,13 +12,13 @@ updated: 2026-09-17
 Symptom: A hook writes its output, then keeps running until Claude Code kills it at the hook timeout.
 Cause: When the caller never closes the stdin pipe, a `process.stdin` still listening keeps the event loop alive after `readStdinJson` has resolved on its timeout.
 Rule: Read hook input only through `readStdinJson` in `plugins/ship-faster/scripts/lib/cli.mjs`, which pauses, unhooks, and unrefs stdin before resolving.
-Evidence: commit d7108c5, `plugins/ship-faster/scripts/lib/cli.mjs:37`, 2026-09-16.
+Evidence: commit d7108c5, `plugins/ship-faster/scripts/lib/cli.mjs:40`, 2026-09-16.
 
 ### Renaming onto a state file fails on Windows <!-- id: g-20260916-windows-rename -->
 Symptom: `renameSync` of a temp file onto an existing state file throws on Windows.
 Cause: Windows refuses to rename over a file another process has open, and hooks from the same session can hold the same state file.
 Rule: Write state only through `writeJsonAtomic`, which unlinks the target and retries the rename once, and check its boolean result.
-Evidence: commit c280aab, `plugins/ship-faster/scripts/lib/state.mjs:47`, 2026-09-16.
+Evidence: commit c280aab, `plugins/ship-faster/scripts/lib/state.mjs:80`, 2026-09-16.
 
 ### An eval scaffold with a BOM <!-- id: g-20260916-scaffold-bom -->
 Symptom: `plugins/ship-faster/evals/onboard/scaffold.sh` began with a UTF-8 byte order mark before `#!/usr/bin/env bash`.
@@ -42,7 +42,7 @@ Evidence: commit 7eb1c21, `plugins/ship-faster/scripts/hook-ship-guard.mjs:65`, 
 Symptom: A test file run with `node --test` that reaches `lib/state.mjs` without setting `CLAUDE_PLUGIN_DATA` creates `projects/<hash>/` under `~/.claude/plugins/data/ship-faster/`.
 Cause: `dataDir()` falls back to the user's Claude config directory when `CLAUDE_PLUGIN_DATA` is unset, and only `tests/run.mjs` sets it for the whole run.
 Rule: In every test file that reaches `lib/state.mjs`, set `process.env.CLAUDE_PLUGIN_DATA = tmpDir('sf-data-')` in `beforeEach`.
-Evidence: `plugins/ship-faster/scripts/lib/state.mjs:7`, `plugins/ship-faster/tests/run.mjs:14`, 2026-09-16.
+Evidence: `plugins/ship-faster/scripts/lib/state.mjs:17`, `plugins/ship-faster/tests/run.mjs:14`, 2026-09-16.
 
 ### The eval workspace is the sandbox home, full of device-node dotfiles <!-- id: g-20260917-eval-home -->
 Symptom: A release eval stops on a dirty tree, and `git status` in any fixture lists `.bashrc`, `.idea`, `.vscode`, `.eval-artifacts`, and `.claude/...` entries the scaffold never created.

@@ -17,7 +17,7 @@ Copy `${CLAUDE_PLUGIN_ROOT}/templates/pr-body.md` and fill it:
 - **Plan**: only when a plan exists: the checklist from step 6. Delete the section otherwise.
 - **Risks**: the review's `warn` findings (rule and file), plus every `gotchas*.md` entry whose Evidence path appears in the diff (Grep the page for each changed path); or `none found`.
 
-Write it to `<dataDir>/ship/pr-body.md` (same fallback as the commit message: a file under the system temp directory). Print the body.
+Write it to `<dataDir>/ship/pr-body.md` (same fallback as the commit message: a file under the system temp directory). Print the body in full; when no PR is created it is the only copy the user sees, so step 11 repeats it in the final message.
 
 ## Push and PR
 

@@ -3,7 +3,7 @@ title: Change page freshness
 summary: Change how stale.mjs classifies wiki pages, with the git helpers, fixture tests, and the SessionStart budget.
 read_when: You need to change when a wiki page counts as fresh, stale, dirty, unverifiable, or invalid.
 covers: [plugins/ship-faster/scripts/stale.mjs, plugins/ship-faster/scripts/lib/git.mjs, plugins/ship-faster/tests/stale.test.mjs, plugins/ship-faster/tests/git.test.mjs]
-verified: a701e622675657389001379b0420c2eba7706328
+verified: c2b59ed7f81346348d2e95b0bb502271a89f0c65
 updated: 2026-09-17
 ---
 # Change page freshness

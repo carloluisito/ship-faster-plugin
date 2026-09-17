@@ -3,7 +3,7 @@ title: Add a hook
 summary: "A new hook script that reads Claude Code's JSON input, stays silent on error, is registered in hooks.json, and is tested and benchmarked."
 read_when: You need to run plugin code on a Claude Code hook event.
 covers: [plugins/ship-faster/hooks/hooks.json, plugins/ship-faster/scripts/hook-*.mjs, plugins/ship-faster/tests/bench.mjs, plugins/ship-faster/tests/validate.mjs]
-verified: a701e622675657389001379b0420c2eba7706328
+verified: c2b59ed7f81346348d2e95b0bb502271a89f0c65
 updated: 2026-09-17
 ---
 # Add a hook
@@ -26,7 +26,7 @@ updated: 2026-09-17
 | `plugins/ship-faster/README.md` | Hooks table |
 
 ## Test
-Drive the hook as a subprocess with `runScript('hook-<name>', [], { cwd: root, stdin: { session_id, cwd: root, ... }, env: { CLAUDE_PLUGIN_DATA } })`, and assert exit code 0 for garbage input, as `plugins/ship-faster/tests/hook-drift.test.mjs:108` does. Run `node plugins/ship-faster/tests/validate.mjs`, `node plugins/ship-faster/tests/run.mjs`, and `node plugins/ship-faster/tests/bench.mjs`.
+Drive the hook as a subprocess with `runScript('hook-<name>', [], { cwd: root, stdin: { session_id, cwd: root, ... }, env: { CLAUDE_PLUGIN_DATA } })`, and assert exit code 0 for garbage input, as `plugins/ship-faster/tests/hook-drift.test.mjs:128` does. Run `node plugins/ship-faster/tests/validate.mjs`, `node plugins/ship-faster/tests/run.mjs`, and `node plugins/ship-faster/tests/bench.mjs`.
 
 ## Docs
 Add the hook to the Session hooks steps in `docs/wiki/architecture.md` and to the Entry points table in `docs/wiki/layout.md`.
