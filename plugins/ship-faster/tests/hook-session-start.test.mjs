@@ -144,8 +144,8 @@ test('startup warns when another session used this checkout recently, and record
   const resumed = hook({ session_id: 'first', cwd: root, source: 'resume' }, root);
   assert.match(resumed.stdout, /another session/);
   const old = new Date(Date.now() - 30 * 3600_000).toISOString();
-  writeJsonAtomic(sessionFile(root, 'second'), { startedAt: old, updatedAt: old, branch: 'main', pages: {} });
+  writeJsonAtomic(sessionFile(root, 'second'), { startedAt: old, updatedAt: old, branch: 'feat/stale', pages: {} });
   const later = hook({ session_id: 'third', cwd: root, source: 'startup' }, root);
-  assert.doesNotMatch(later.stdout, /second/);
-  assert.match(later.stdout, /another session/);
+  assert.doesNotMatch(later.stdout, /feat\/stale/);
+  assert.match(later.stdout, /another session started .+ ago in this checkout \(branch main\)/);
 });
