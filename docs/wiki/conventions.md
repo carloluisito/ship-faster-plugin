@@ -3,7 +3,7 @@ title: Conventions
 summary: Zero-dependency ESM scripts with a JSON output contract, silent hooks, bounded git calls, and validator-enforced plugin files.
 read_when: You are writing or reviewing code and need the naming, error handling, or style rules this repository actually follows.
 covers: [plugins/ship-faster/scripts/**, plugins/ship-faster/skills/*/SKILL.md, plugins/ship-faster/tests/validate.mjs, .gitattributes]
-verified: 1eeff4846a11978c84a07002ffa3bf99422c4437
+verified: 0575e1e9c4e639f1b0c4bd7a1cb6e561543e5a61
 updated: 2026-09-17
 ---
 # Conventions

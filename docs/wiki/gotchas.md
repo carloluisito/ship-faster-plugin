@@ -2,8 +2,8 @@
 title: Gotchas
 summary: Hook stdin hangs, Windows renames and 8.3 temp paths, BOM shebangs, long-history staleness, tag pushes, test state leaks, and eval sandbox traps, with evidence.
 read_when: Something behaves in a way the code does not explain, or before touching the areas listed in covers.
-covers: [plugins/ship-faster/scripts/lib/cli.mjs, plugins/ship-faster/scripts/lib/state.mjs, plugins/ship-faster/scripts/lib/root.mjs, plugins/ship-faster/evals/*/scaffold.sh, plugins/ship-faster/scripts/stale.mjs, plugins/ship-faster/scripts/hook-ship-guard.mjs, plugins/ship-faster/tests/run.mjs, plugins/ship-faster/tests/helpers.mjs]
-verified: ddc228c8a5a56b6392321c6bf037c056f17793bb
+covers: [plugins/ship-faster/scripts/lib/cli.mjs, plugins/ship-faster/scripts/lib/state.mjs, plugins/ship-faster/scripts/lib/root.mjs, plugins/ship-faster/evals/*/scaffold.sh, plugins/ship-faster/evals/*/graders/*.md, plugins/ship-faster/scripts/stale.mjs, plugins/ship-faster/scripts/hook-ship-guard.mjs, plugins/ship-faster/tests/run.mjs, plugins/ship-faster/tests/helpers.mjs]
+verified: 0575e1e9c4e639f1b0c4bd7a1cb6e561543e5a61
 updated: 2026-09-17
 ---
 # Gotchas
@@ -61,3 +61,9 @@ Symptom: Six tests pass on every developer machine and on the Ubuntu jobs but fa
 Cause: The runner's `TEMP` uses the short (8.3) form of the profile directory, while `git rev-parse --show-toplevel` reports the long form; a fixture path and the repository root then hash to different project directories.
 Rule: Create fixture directories through `tmpDir()` in `plugins/ship-faster/tests/helpers.mjs`, which resolves the real path, and resolve a working directory with `realpathSync.native` before comparing or hashing it, as `plugins/ship-faster/scripts/lib/root.mjs` does.
 Evidence: CI run 35189638968 on 2026-09-17, `plugins/ship-faster/tests/helpers.mjs:13`, `plugins/ship-faster/scripts/lib/root.mjs:7`, 2026-09-17.
+
+### An eval grader's input_match sees the tool input as JSON <!-- id: g-20260917-grader-json-escape -->
+Symptom: The release case's `pages-stamped` grader reported "Bash called 0x (expected 1..∞)" although the kept trace shows the run calling `node "<plugin root>/scripts/page.mjs" verify docs/wiki/commands.md docs/wiki/ops.md --json`.
+Cause: `tool_used` matches `input_match` against the serialized tool input, where every double quote of the command is escaped as a backslash and a quote, so a pattern holding a bare quote (`["']?`) never meets one.
+Rule: Never put a literal quote in an `input_match`: write `\S*` or `[^ ]+` where the command quotes a path, as `git( -C ("[^"]*"|[^ ]+))?` does, and test a new pattern against a kept trace (`-KeepTemp`) before believing a zero-match verdict.
+Evidence: `plugins/ship-faster/evals/release/graders/pages-stamped.md:4`, 2026-09-17.
