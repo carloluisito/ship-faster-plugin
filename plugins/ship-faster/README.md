@@ -37,7 +37,7 @@ One session per worktree, one worktree per ticket. From the main checkout:
 /ship-faster:kickoff <ticket description> --worktree
 ```
 
-writes the plan into a new sibling checkout (`<repo>-<branch>`) on a new branch and prints the command to open a session there. Work and `/ship-faster:ship` in that session; the PR belongs to that branch alone. Session start in either checkout names the other worktrees, and warns when two sessions share one checkout, because one working tree holds one branch. Plans live on their branch (`docs/plans/` in the worktree) until the PR merges. After the merge, ship prints the `git worktree remove` and `git branch -d` commands to run from the main checkout.
+writes the plan into a new sibling checkout (`<repo>-<branch>`) on a new branch and prints the command to open a session there. Work and `/ship-faster:ship` in that session; the PR belongs to that branch alone. Session start in either checkout names the other worktrees, and warns when two sessions share one checkout, because one working tree holds one branch. Plans live on their branch (`docs/plans/` in the worktree) until the PR merges. After the merge, ship prints the `git worktree remove` and `git branch -D` commands to run from the main checkout (a squash merge leaves the branch unmerged in git's eyes, so `-d` would refuse).
 
 ## Agents
 
