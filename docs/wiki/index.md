@@ -10,7 +10,7 @@
 | [Layout](layout.md) | You need to find where something lives or decide where a new file belongs. | The marketplace at the root, the plugin under plugins/ship-faster, and where each new skill, hook, script, or test goes. |
 | [Ops](ops.md) | You are changing CI, preparing a release, or need to know how and where the software runs. | One GitHub Actions workflow gates PRs on tests and Claude Code validation, another runs skill evals on manual dispatch; releases go through the release skill. |
 | [Overview](overview.md) | You are new to the repository or need the domain vocabulary and system boundaries. | ship-faster is a Claude Code plugin that writes a router CLAUDE.md and a verified wiki, keeps them true, and ships changes through repo-aware skills. |
-| [Testing](testing.md) | You are adding or fixing a test, need a fixture or mock, or a test cannot run locally. | node:test suites in plugins/ship-faster/tests with real git fixtures, a structure validator, a hook benchmark, and skill evals run in CI. |
+| [Testing](testing.md) | You are adding or fixing a test, need a fixture or mock, or a test cannot run locally. | node:test suites in plugins/ship-faster/tests with real git fixtures, a structure validator, a hook benchmark, and skill evals run from WSL or on CI dispatch. |
 
 ## Recipes
 

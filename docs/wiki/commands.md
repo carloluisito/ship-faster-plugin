@@ -3,7 +3,7 @@ title: Commands
 summary: Verified validation, test, and benchmark commands for the plugin, run from the repository root, with durations.
 read_when: You need to run, test, build, or debug the environment, or preflight needs the check list.
 covers: [.github/workflows/ci.yml, .github/workflows/evals.yml, plugins/ship-faster/tests/run.mjs, plugins/ship-faster/tests/validate.mjs, plugins/ship-faster/tests/bench.mjs, plugins/ship-faster/README.md]
-verified: a701e622675657389001379b0420c2eba7706328
+verified: 1eeff4846a11978c84a07002ffa3bf99422c4437
 updated: 2026-09-17
 checks:
   - name: validate
@@ -46,7 +46,7 @@ No ports, no servers, no watchers.
 | Claude Code plugin validation | `claude plugin validate --strict plugins/ship-faster` | 1.0s | pass |
 | Claude Code marketplace validation | `claude plugin validate --strict .` | 1.0s | pass |
 | Hook latency benchmark | `node plugins/ship-faster/tests/bench.mjs` | 12.9s | pass |
-| Skill evals (spend model credit) | `.\plugins\ship-faster\tests\evals.ps1 [case]` on Windows (runs `plugins/ship-faster/tests/evals.sh` inside WSL; `-Setup` once); `plugins/ship-faster/tests/evals.sh [case]` on Linux | 20 to 35 min, 5 to 7 USD for every case | 9 of 10 cases verified pass (2026-09-17); `kickoff-worktree`, added on this branch, has not run yet (Task 8 of the worktree-support plan runs it after the merge to main); the same flags run in `.github/workflows/evals.yml` on dispatch |
+| Skill evals (spend model credit) | `.\plugins\ship-faster\tests\evals.ps1 [case ...]` on Windows (runs `plugins/ship-faster/tests/evals.sh` inside WSL; `-Setup` once); `plugins/ship-faster/tests/evals.sh [case ...]` on Linux; a case is a name or a `*` glob, several cases run one harness run each | 20 to 35 min, 5 to 7 USD for every case | all 10 cases pass (2026-09-17; kickoff, kickoff-worktree, ship, health, and release rerun for 0.2.0 at about 6.5 USD); the same flags run in `.github/workflows/evals.yml` on dispatch |
 
 ## Checks
 1. `node plugins/ship-faster/tests/validate.mjs` — manifests, hooks, skills, agents, evals, and templates are well formed, under 1s
