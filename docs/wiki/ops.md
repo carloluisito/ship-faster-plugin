@@ -1,6 +1,6 @@
 ---
 title: Ops
-summary: One GitHub Actions workflow gates PRs on tests and Claude Code validation, another runs skill evals manually and weekly; releases go through the release skill.
+summary: One GitHub Actions workflow gates PRs on tests and Claude Code validation, another runs skill evals on manual dispatch; releases go through the release skill.
 read_when: You are changing CI, preparing a release, or need to know how and where the software runs.
 covers: [.github/workflows/ci.yml, .github/workflows/evals.yml, .claude-plugin/marketplace.json, plugins/ship-faster/.claude-plugin/plugin.json, plugins/ship-faster/CHANGELOG.md]
 verified: a07432d57e5f412d4c900ee2d4e537917c4d70c1
@@ -25,7 +25,7 @@ updated: 2026-09-17
 
 Measured locally: validate 0.4 s, tests 33.4 s, each `claude plugin validate` about 1 s (at 57442cc).
 
-`.github/workflows/evals.yml` runs on `workflow_dispatch` (inputs `runs`, default 1, and `case`, a case-name glob) and weekly on cron `17 6 * * 1`, never on pull requests. One job on ubuntu-latest, Node 22, 180-minute timeout: installs `bubblewrap` and `socat` (the sandbox backend for `Bash`) and `@anthropic-ai/claude-code@2.1.273`, runs `claude plugin validate --strict plugins/ship-faster`, then `claude plugin eval plugins/ship-faster` with `--model claude-sonnet-5 --judge-model claude-haiku-4-5 --threshold 0.8 --max-cost-usd 40`, and uploads `evals-result.json`, `evals-summary.txt`, and `plugins/ship-faster/evals/results/` as an artifact.
+`.github/workflows/evals.yml` runs only on `workflow_dispatch` (inputs `runs`, empty for each case's own setting, and `case`, a case-name glob), never on pull requests or a schedule: it needs an `ANTHROPIC_API_KEY` repository secret, which a subscription account does not have, so evals normally run from WSL (`docs/wiki/testing.md`). One job on ubuntu-latest, Node 22, 180-minute timeout: installs `bubblewrap` and `socat` (the sandbox backend for `Bash`) and `@anthropic-ai/claude-code@2.1.273`, runs `claude plugin validate --strict plugins/ship-faster`, then `claude plugin eval plugins/ship-faster` with `--model claude-sonnet-5 --judge-model claude-haiku-4-5 --threshold 0.8 --max-cost-usd 40`, and uploads `evals-result.json`, `evals-summary.txt`, and `plugins/ship-faster/evals/results/` as an artifact.
 
 ## Deploy
 There is no deploy step. Users add the marketplace with `/plugin marketplace add carloluisito/ship-faster-plugin`, install with `/plugin install ship-faster@ship-faster`, and restart Claude Code so the hooks register.

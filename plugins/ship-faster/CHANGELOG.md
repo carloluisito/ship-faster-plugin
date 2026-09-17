@@ -38,7 +38,7 @@ versions follow semver.
 - `review` skill: findings against the repository's own conventions, gotchas, decisions, and recipes through the `rules-reviewer` agent.
 - Agents `check-runner`, `rules-reviewer`, and `health-auditor`.
 - Scripts `changes.mjs`, `version.mjs`, `changelog.mjs`, `review.mjs`, `health.mjs`; the PR body template.
-- Eval cases for every skill and a manual plus weekly eval workflow.
+- Eval cases for every skill and a manually dispatched eval workflow.
 
 ### Fixed
 - `ship` and `release` can launch the agents they rely on: `Agent` is now in their allowed tools.

@@ -34,7 +34,7 @@ node plugins/ship-faster/tests/run.mjs
 claude plugin validate --strict plugins/ship-faster
 ```
 
-Evals (`claude plugin eval`) run in CI on Linux, manually or weekly, because they spend model credit and need a sandbox backend for Bash.
+Evals (`claude plugin eval`) need Linux, a sandbox backend for Bash, and model credit: run them from WSL (see `docs/wiki/testing.md`) or dispatch `.github/workflows/evals.yml` by hand once the repository has an `ANTHROPIC_API_KEY` secret.
 
 ## License
 

@@ -4,13 +4,11 @@ on:
   workflow_dispatch:
     inputs:
       runs:
-        description: Runs per case (the schedule uses the cases' default of 3)
-        default: "1"
+        description: Runs per case (empty uses each case's own setting, 3 for the flakier cases and 1 otherwise)
+        default: ""
       case:
         description: Case name glob (empty runs every case)
         default: ""
-  schedule:
-    - cron: "17 6 * * 1"
 
 permissions:
   contents: read
@@ -33,10 +31,8 @@ jobs:
         run: |
           set -o pipefail
           extra=""
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            extra="--runs ${{ github.event.inputs.runs }}"
-            if [ -n "${{ github.event.inputs.case }}" ]; then extra="$extra --case ${{ github.event.inputs.case }}"; fi
-          fi
+          if [ -n "${{ github.event.inputs.runs }}" ]; then extra="--runs ${{ github.event.inputs.runs }}"; fi
+          if [ -n "${{ github.event.inputs.case }}" ]; then extra="$extra --case ${{ github.event.inputs.case }}"; fi
           claude plugin eval plugins/ship-faster \
             --trust-plugin --scaffold --ablation none --no-publish \
             --allow-tools Bash Write Edit \

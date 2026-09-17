@@ -1,6 +1,7 @@
 ---
 description: sync-docs re-verifies a stale commands page after the test command changed
 tags: [sync-docs, knowledge]
+runs: 1
 max_turns: 60
 timeout_seconds: 1500
 allowed_tools: [Read, Glob, Grep, Skill, Agent, Bash, Write, Edit]

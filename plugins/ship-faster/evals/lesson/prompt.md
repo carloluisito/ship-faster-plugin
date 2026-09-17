@@ -1,6 +1,7 @@
 ---
 description: lesson records a gotcha with symptom, cause, rule, evidence, and a path-scoped rule
 tags: [lesson, knowledge]
+runs: 1
 max_turns: 40
 timeout_seconds: 900
 allowed_tools: [Read, Glob, Grep, Skill, Bash, Write, Edit]
