@@ -64,4 +64,4 @@ Only with `--merge`, following reference/commit-and-pr.md, section Merge. Ask ag
 
 ## 10. Report
 
-Three lines: the PR URL (or the compare URL and body path when there is no `gh`), the checks status, and what was not done (a step you stopped before, with the command to run).
+Three lines: the PR URL (or the compare URL and body path when there is no `gh`), the checks status, and what was not done (a step you stopped before, with the command to run). When the inventory's `worktree.isWorktree` is true, a fourth line gives the worktree cleanup commands from reference/commit-and-pr.md, section Worktrees; never run them from inside the worktree.

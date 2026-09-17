@@ -22,12 +22,22 @@ Requires `node` (20 or newer) and `git` on your PATH. `gh` is optional: skills t
 | `lesson` | `/ship-faster:lesson [sentence]` | Records a non-obvious cause, decision, or convention as symptom, cause, rule, and evidence, plus one line in `.claude/rules/<area>.md` when the rule has a file scope. Claude may invoke it after fixing a bug whose cause was not visible in the code it edited. |
 | `kickoff` | `/ship-faster:kickoff <feature> [--no-branch\|--worktree]` | Reads the pages and recipe that match the feature, writes a complete plan (goal, scope, ordered touchpoints naming real files, tests, docs impact, risks quoting gotchas, verification) to `docs/plans/`, and creates the branch. Slash-only. `--worktree` creates the branch in a sibling checkout (`<repo>-<branch>`) and writes the plan there, so a second session can take the ticket while this one continues. |
 | `preflight` | `/ship-faster:preflight [--continue]` | Runs the repository's checks (from `commands.md`, else CI, else stack detection) inside the `check-runner` agent and reports the table plus the first failure's tail, log path, and diagnosis. Read-only. Claude may invoke it before claiming a change works. |
-| `ship` | `/ship-faster:ship [branch-or-description] [--merge] [--draft] [--base <branch>] [--no-review]` | Branches off a protected branch, runs preflight, syncs the docs the change touches, reviews against the repository's rules, checks the plan, commits by name, then (after your yes) pushes and opens the PR with a verification table; `--merge` squash-merges after checks pass and a second yes. Slash-only. |
+| `ship` | `/ship-faster:ship [branch-or-description] [--merge] [--draft] [--base <branch>] [--no-review]` | Branches off a protected branch, runs preflight, syncs the docs the change touches, reviews against the repository's rules, checks the plan, commits by name, then (after your yes) pushes and opens the PR with a verification table; `--merge` squash-merges after checks pass and a second yes. In a worktree, the report ends with the commands that remove the worktree and its branch from the main checkout. Slash-only. |
 | `release` | `/ship-faster:release <patch\|minor\|major\|x.y.z> [--file <version file>] [--plugin <name>]` | From a clean default branch: docs checkpoint, Keep a Changelog section from the commits since the last tag, version bump, preflight, `release: vX.Y.Z` commit, tag (`claude plugin tag` in a plugin repository), then (after your yes) push or release PR, and a GitHub release. Slash-only. |
 | `health` | `/ship-faster:health [--fix <codes>\|safe]` | Fans out `health-auditor` agents over dependencies, tests, docs, hygiene, CI, and plans and prints one table of coded findings with effort and fix; `--fix` applies chosen fixes behind preflight and reverts them on failure. Slash-only. |
 | `review` | `/ship-faster:review [--base <branch>]` | Reviews the branch diff against `conventions.md`, `gotchas.md`, architecture decisions, and matching recipes through the `rules-reviewer` agent; findings coded R1..Rn quote the rule they cite. Inside `ship`, a `block` finding stops the commit. Claude may invoke it before a PR. |
 
 Every skill runs the plugin's scripts for the deterministic parts and asks the model only for judgement. Safety rules the skills state: never force push, never push to a protected branch, never `--no-verify`, never `git add -A` (the PreToolUse hook denies pushes to protected branches, `--no-verify`, and an add-all that would stage a risky file), never skip preflight, never merge without `--merge`. Outward-facing steps (push, PR, merge, publish) wait for your explicit yes; in a non-interactive run the skill stops before them and prints the commands.
+
+## Several tickets at once
+
+One session per worktree, one worktree per ticket. From the main checkout:
+
+```
+/ship-faster:kickoff <ticket description> --worktree
+```
+
+writes the plan into a new sibling checkout (`<repo>-<branch>`) on a new branch and prints the command to open a session there. Work and `/ship-faster:ship` in that session; the PR belongs to that branch alone. Session start in either checkout names the other worktrees, and warns when two sessions share one checkout, because one working tree holds one branch. Plans live on their branch (`docs/plans/` in the worktree) until the PR merges. After the merge, ship prints the `git worktree remove` and `git branch -d` commands to run from the main checkout.
 
 ## Agents
 
