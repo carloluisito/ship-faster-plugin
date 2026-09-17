@@ -3,7 +3,7 @@ title: Conventions
 summary: Zero-dependency ESM scripts with a JSON output contract, silent hooks, bounded git calls, and validator-enforced plugin files.
 read_when: You are writing or reviewing code and need the naming, error handling, or style rules this repository actually follows.
 covers: [plugins/ship-faster/scripts/**, plugins/ship-faster/skills/*/SKILL.md, plugins/ship-faster/tests/validate.mjs, .gitattributes]
-verified: 88e2c3df70c093ad3df2044b14370835dc34cf89
+verified: ddc228c8a5a56b6392321c6bf037c056f17793bb
 updated: 2026-09-17
 ---
 # Conventions
@@ -17,7 +17,7 @@ updated: 2026-09-17
 - Take a script's subcommand as the first positional argument and answer an unknown one with `{ ok: false, error: 'unknown command …' }`. Example: `plugins/ship-faster/scripts/health.mjs:116`
 - Classify risky paths only with `riskyReason` and `isLarge` from `lib/risky.mjs`, which the guard, `changes.mjs`, and `review.mjs` share. Example: `plugins/ship-faster/scripts/lib/risky.mjs:14`
 - In a hook, read input with `readStdinJson`, end with `main().catch(() => {}).finally(() => { process.exitCode = 0; })`, and print nothing when there is nothing to say. Example: `plugins/ship-faster/scripts/hook-drift-marker.mjs:39`
-- Run git only through `git()` in `lib/git.mjs`, which sets a timeout, `GIT_TERMINAL_PROMPT=0`, and `GIT_OPTIONAL_LOCKS=0`. Example: `plugins/ship-faster/scripts/lib/git.mjs:4`
+- Run git only through `git()` in `lib/git.mjs`, which sets a timeout, `GIT_TERMINAL_PROMPT=0`, and `GIT_OPTIONAL_LOCKS=0`. Example: `plugins/ship-faster/scripts/lib/git.mjs:5`
 - Write JSON state with `writeJsonAtomic` (temp file, then rename). Example: `plugins/ship-faster/scripts/lib/state.mjs:36`
 - Normalize paths to `/` separators with `normalizePath` before matching or storing them. Example: `plugins/ship-faster/scripts/lib/glob.mjs:3`
 - Freeze default objects. Example: `plugins/ship-faster/scripts/lib/config.mjs:4`
@@ -29,7 +29,7 @@ updated: 2026-09-17
 ## Avoid
 - Comments that restate code — the plan allows only one-line comments on non-obvious constraints (`docs/superpowers/plans/2026-09-16-foundation.md:24`). Instead: comment the why, as in `plugins/ship-faster/scripts/lib/cli.mjs:35`.
 - Unbounded work in hooks — hook timeouts are 5 to 10 seconds and `plugins/ship-faster/tests/bench.mjs` budgets 100 to 1500 ms. Instead: pass `timeoutMs`, cache per working directory (`resolveRootCached`), and batch git reads.
-- `ask` as a guard default — its behaviour under bypass-permissions mode is undocumented (`plugins/ship-faster/README.md:95`). Instead: default to `deny`.
+- `ask` as a guard default — its behaviour under bypass-permissions mode is undocumented (`plugins/ship-faster/README.md:105`). Instead: default to `deny`.
 - CRLF line endings — `.gitattributes` sets `eol=lf`. Instead: keep LF.
 
 ## Style

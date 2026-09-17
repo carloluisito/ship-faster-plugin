@@ -6,6 +6,8 @@ versions follow semver.
 ## [Unreleased]
 
 ### Added
+- `kickoff --worktree` creates a sibling worktree on the new branch and writes the plan there, so one session per ticket can run in parallel; `ship` prints the worktree cleanup commands after the merge; session start names the other worktrees and warns when two sessions share one checkout.
+- `scripts/worktree.mjs` (`list`, `add`) and the `worktree` field of the branch inventory.
 - `tests/evals.sh` and `tests/evals.ps1` run the eval suite with the CI flags, on Linux and from Windows through WSL, and `tests/eval-report.mjs` prints the per-case table.
 
 ## [0.1.1] - 2026-09-17

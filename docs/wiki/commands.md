@@ -3,7 +3,7 @@ title: Commands
 summary: Verified validation, test, and benchmark commands for the plugin, run from the repository root, with durations.
 read_when: You need to run, test, build, or debug the environment, or preflight needs the check list.
 covers: [.github/workflows/ci.yml, .github/workflows/evals.yml, plugins/ship-faster/tests/run.mjs, plugins/ship-faster/tests/validate.mjs, plugins/ship-faster/tests/bench.mjs, plugins/ship-faster/README.md]
-verified: adeca3dfc89dea0358d116f816e219f25698e3a4
+verified: ddc228c8a5a56b6392321c6bf037c056f17793bb
 updated: 2026-09-17
 checks:
   - name: validate
@@ -40,17 +40,17 @@ No ports, no servers, no watchers.
 ## Everyday
 | Purpose | Command | Duration | Status |
 |---|---|---|---|
-| All tests | `node plugins/ship-faster/tests/run.mjs` | 32.0s | pass (171 tests) |
+| All tests | `node plugins/ship-faster/tests/run.mjs` | 37.9s | pass (182 tests) |
 | One test file | `node --test plugins/ship-faster/tests/glob.test.mjs` | 0.2s | pass |
 | Plugin structure | `node plugins/ship-faster/tests/validate.mjs` | 0.4s | pass |
 | Claude Code plugin validation | `claude plugin validate --strict plugins/ship-faster` | 1.0s | pass |
 | Claude Code marketplace validation | `claude plugin validate --strict .` | 1.0s | pass |
-| Hook latency benchmark | `node plugins/ship-faster/tests/bench.mjs` | 12.8s | pass |
-| Skill evals (spend model credit) | `.\plugins\ship-faster\tests\evals.ps1 [case]` on Windows (runs `plugins/ship-faster/tests/evals.sh` inside WSL; `-Setup` once); `plugins/ship-faster/tests/evals.sh [case]` on Linux | 20 to 35 min, 5 to 7 USD for every case | all 9 cases pass (2026-09-17); the same flags run in `.github/workflows/evals.yml` on dispatch |
+| Hook latency benchmark | `node plugins/ship-faster/tests/bench.mjs` | 12.9s | pass |
+| Skill evals (spend model credit) | `.\plugins\ship-faster\tests\evals.ps1 [case]` on Windows (runs `plugins/ship-faster/tests/evals.sh` inside WSL; `-Setup` once); `plugins/ship-faster/tests/evals.sh [case]` on Linux | 20 to 35 min, 5 to 7 USD for every case | 9 of 10 cases verified pass (2026-09-17); `kickoff-worktree`, added on this branch, has not run yet (Task 8 of the worktree-support plan runs it after the merge to main); the same flags run in `.github/workflows/evals.yml` on dispatch |
 
 ## Checks
 1. `node plugins/ship-faster/tests/validate.mjs` — manifests, hooks, skills, agents, evals, and templates are well formed, under 1s
-2. `node plugins/ship-faster/tests/run.mjs` — every `*.test.mjs` passes under `node --test`, about 33s
+2. `node plugins/ship-faster/tests/run.mjs` — every `*.test.mjs` passes under `node --test`, about 38s
 3. `claude plugin validate --strict plugins/ship-faster` — Claude Code accepts the plugin, about 1s
 4. `claude plugin validate --strict .` — Claude Code accepts the marketplace, about 1s
 5. `node plugins/ship-faster/scripts/lint.mjs` — this repository's own wiki, CLAUDE.md, and rules pass lint, under 1s

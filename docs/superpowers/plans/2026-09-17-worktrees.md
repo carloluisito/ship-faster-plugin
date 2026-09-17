@@ -656,7 +656,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
 
 **Interfaces:**
 - Consumes: `node "${CLAUDE_PLUGIN_ROOT}/scripts/worktree.mjs" add --branch <name> --from <default> --json` → `{ ok, path, branch, open }` (Task 2); `lint.mjs --root <path>`.
-- Produces: the `--worktree` flag; the report line `Worktree: <path> (open it with: cd "<path>" && claude)`.
+- Produces: the `--worktree` flag; the report line `Worktree: <path> (open it with: cd "<path>" then claude)`; `open` is a list of two commands.
 
 - [ ] **Step 1: Edit the skill frontmatter and preamble**
 
@@ -737,7 +737,7 @@ with `--root <path>` appended in the worktree case. Fix any error in the plan's 
 
 ## 5. Report
 
-Three lines: the plan path, the branch (or "no branch"), and the first touchpoint. With `--worktree`, a fourth line: `Worktree: <path> (open it with: <open>)`.
+Three lines: the plan path, the branch (or "no branch"), and the first touchpoint. With `--worktree`, a fourth line: `Worktree: <path> (open it with: <first open command> then <second open command>)`, the two entries of `open` printed one after the other so that every shell accepts them.
 
 ## 6. Show the plan
 
@@ -811,7 +811,7 @@ type: llm
 weight: 3
 ---
 The final answer reports a plan path, a branch, a worktree, and then prints the plan. PASS when all of the following hold:
-- The worktree line names a directory whose name ends with the branch name with slashes turned into hyphens (for example a path ending in `-feat-delete-users-endpoint`), and gives a command to open a session there (`cd "<path>" && claude`).
+- The worktree line names a directory whose name ends with the branch name with slashes turned into hyphens (for example a path ending in `-feat-delete-users-endpoint`), and gives the commands to open a session there (a `cd "<path>"` followed by `claude`).
 - The plan path is inside that worktree directory, under docs/plans/.
 - The printed plan has the sections Goal, Scope, Touchpoints, Tests to add, Docs impact, Risks, and Verification, and its Touchpoints name src/lib/db.js, src/routes/users.js, and tests/users.test.js.
 - The Risks section mentions the gotcha g-20260101-route-order or its rule about adding routes above the final 404.
@@ -951,7 +951,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
 `docs/wiki/architecture.md`:
 - In the Components table, CLI scripts cell: replace `changes, version, changelog, review, health;` with `changes, version, changelog, review, health, worktree;`.
 - In the Shipping skills list, replace item 5's kickoff clause `` `kickoff` reads the wiki, writes a plan from `templates/plan.md`, and creates the branch. `` with `` `kickoff` reads the wiki, writes a plan from `templates/plan.md`, and creates the branch, or with `--worktree` a sibling checkout through `worktree.mjs add` and writes the plan there. ``
-- In Session hooks item 1, after `or an onboard suggestion.` append: ` It records the session's start in its session record, warns when another session used this checkout in the last 8 hours (`liveSessions` in `lib/state.mjs`), and names the other worktrees (`worktrees` in `lib/git.mjs`).`
+- In Session hooks item 1, after `or an onboard suggestion.` append: ` It records the session's start in its session record, warns when another session used this checkout in the last two hours (`liveSessions` in `lib/state.mjs`; the prompt-report hook refreshes a session's record every thirty minutes), and names the other worktrees (`worktrees` in `lib/git.mjs`).`
 
 `docs/wiki/testing.md`, Eval cases paragraph: append the sentence `A skill may have more than one case (`evals/kickoff-worktree/` covers `kickoff --worktree`); the validator only requires that every skill has at least the case named after it.`
 
