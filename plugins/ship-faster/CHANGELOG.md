@@ -5,6 +5,9 @@ versions follow semver.
 
 ## [Unreleased]
 
+### Fixed
+- Root resolution and test fixtures resolve real paths first, so a working directory given in Windows 8.3 short form (GitHub's Windows runners do this for `TEMP`) hashes to the same project directory as the repository root git reports.
+
 ## [0.1.0] - 2026-09-17
 
 ### Added
