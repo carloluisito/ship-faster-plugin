@@ -132,11 +132,13 @@ test('markSessionStart stamps the record and liveSessions lists other recent ses
   const old = new Date(Date.now() - 30 * 3600_000).toISOString();
   s.writeJsonAtomic(s.sessionFile(root, 'stale'), { startedAt: old, updatedAt: old, branch: 'feat/old', pages: {} });
   s.writeJsonAtomic(s.sessionFile(root, 'two'), { startedAt: new Date().toISOString(), branch: 'feat/two', pages: {} });
+  const threeHours = new Date(Date.now() - 3 * 3600_000).toISOString();
+  s.writeJsonAtomic(s.sessionFile(root, 'idle'), { startedAt: threeHours, updatedAt: threeHours, branch: 'feat/idle', pages: {} });
   const live = s.liveSessions(root, { exceptSid: 'one' });
   assert.deepEqual(live.map((x) => x.sid).sort(), ['two']);
   assert.equal(live[0].branch, 'feat/two');
   assert.deepEqual(s.liveSessions(root, { exceptSid: 'two' }).map((x) => x.sid), ['one']);
-  assert.deepEqual(s.liveSessions(root, { exceptSid: 'one', maxAgeHours: 48 }).map((x) => x.sid).sort(), ['stale', 'two']);
+  assert.deepEqual(s.liveSessions(root, { exceptSid: 'one', maxAgeHours: 48 }).map((x) => x.sid).sort(), ['idle', 'stale', 'two']);
   assert.deepEqual(s.liveSessions(tmpDir('sf-empty-'), { exceptSid: 'x' }), []);
   s.markSessionStart(root, 'one', { branch: 'feat/renamed', cwd: root });
   assert.equal(s.loadSession(root, 'one').startedAt, rec.startedAt);

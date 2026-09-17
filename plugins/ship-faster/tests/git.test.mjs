@@ -1,6 +1,7 @@
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { realpathSync, writeFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
 import { join } from 'node:path';
 import { makeRepo, tmpDir, cleanupAll } from './helpers.mjs';
 import * as g from '../scripts/lib/git.mjs';
@@ -226,4 +227,19 @@ test('worktrees lists every checkout and worktreeInfo tells a worktree from the 
   assert.equal(norm(inner.path), norm(wt));
   assert.equal(worktrees(tmpDir('sf-nogit-')), null);
   assert.equal(worktreeInfo(tmpDir('sf-nogit-')), null);
+});
+
+test('worktreeInfo reports the checkout itself as mainRoot when the git dir lives elsewhere', () => {
+  const home = tmpDir('sf-sep-');
+  const repo = join(home, 'repo');
+  const gitDir = join(home, 'gitdir');
+  const run = (args, cwd) => spawnSync('git', args, { cwd, encoding: 'utf8' });
+  assert.equal(run(['init', '-q', '-b', 'main', `--separate-git-dir=${gitDir}`, repo], home).status, 0);
+  run(['config', 'user.email', 't@example.com'], repo);
+  run(['config', 'user.name', 'T'], repo);
+  run(['commit', '-q', '--allow-empty', '-m', 'init'], repo);
+  const norm = (p) => realpathSync.native(p).replace(/\\/g, '/').toLowerCase();
+  const info = worktreeInfo(repo);
+  assert.equal(info.isWorktree, false);
+  assert.equal(norm(info.mainRoot), norm(repo));
 });

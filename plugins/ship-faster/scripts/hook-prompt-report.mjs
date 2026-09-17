@@ -27,7 +27,7 @@ async function main() {
   const sid = input.session_id || 'default';
   const record = loadSession(root, sid);
   const stampedAt = Date.parse(record.updatedAt || '') || 0;
-  if (Date.now() - stampedAt > HEARTBEAT_MS) updateSession(root, sid, (session) => { session.updatedAt = new Date().toISOString(); });
+  if (record.startedAt && Date.now() - stampedAt > HEARTBEAT_MS) updateSession(root, sid, (session) => { session.updatedAt = new Date().toISOString(); });
   const known = record.pages || {};
   if (!Object.keys(known).some((rel) => !known[rel].reported)) return;
   let pending = [];

@@ -237,7 +237,7 @@ export function worktreeInfo(cwd) {
   if (!gitDir || !common) return null;
   return {
     isWorktree: normalizePath(gitDir) !== normalizePath(common),
-    mainRoot: normalizePath(dirname(common)),
+    mainRoot: normalizePath(gitDir) === normalizePath(common) ? path : normalizePath(dirname(common)),
     path,
   };
 }

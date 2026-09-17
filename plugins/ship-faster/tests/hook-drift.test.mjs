@@ -93,6 +93,12 @@ test('prompt-report refreshes a session record older than thirty minutes and lea
   assert.equal(statSync(file).mtimeMs, before);
 });
 
+test('prompt-report never creates a session record on its own', () => {
+  const root = repo();
+  assert.equal(report(root).stdout, '');
+  assert.equal(existsSync(sessionFile(root, 'sid1')), false);
+});
+
 test('resolveRootCached trusts a cached root for a day outside a repository', () => {
   const dir = tmpDir();
   const first = resolveRootCached(dir);
