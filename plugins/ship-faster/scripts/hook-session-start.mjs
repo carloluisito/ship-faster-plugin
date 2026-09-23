@@ -1,5 +1,6 @@
 import { existsSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
+import { refreshWorkflowFile } from './claude-md.mjs';
 import { readStdinJson } from './lib/cli.mjs';
 import { loadConfig } from './lib/config.mjs';
 import * as git from './lib/git.mjs';
@@ -43,6 +44,8 @@ async function main() {
     const rulesDir = join(root, ...config.rulesDir.split('/'));
     const rules = existsSync(rulesDir) && statSync(rulesDir).isDirectory() ? readdirSync(rulesDir).filter((n) => n.endsWith('.md')).length : 0;
     if (rules) line += ` Rules: ${config.rulesDir} (${rules} files).`;
+    const workflow = workflowStatus(root, config);
+    if (workflow === 'missing' || workflow === 'outdated') line += ` CLAUDE.md's Workflow section is ${workflow === 'missing' ? 'missing' : 'out of date'} → /ship-faster:sync-docs.`;
     lines.unshift(line);
     if (startup) {
       if (branch) {
@@ -84,6 +87,10 @@ function capOutput(lines, max) {
     text = (sp > 0 ? cut.slice(0, sp) : cut) + '…';
   }
   return text;
+}
+
+function workflowStatus(root, config) {
+  try { return refreshWorkflowFile(root, { config, dryRun: true }).status; } catch { return null; }
 }
 
 function ago(iso) {

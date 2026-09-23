@@ -1,3 +1,5 @@
+import { existsSync, readFileSync } from 'node:fs';
+import { isAbsolute, join, resolve } from 'node:path';
 import { readStdinJson } from './lib/cli.mjs';
 import { loadConfig } from './lib/config.mjs';
 import * as gitLib from './lib/git.mjs';
@@ -5,6 +7,8 @@ import { normalizePath } from './lib/glob.mjs';
 import { isLarge, riskyReason } from './lib/risky.mjs';
 import { resolveRootCached } from './lib/root.mjs';
 import { splitSegments, tokenize } from './lib/shell.mjs';
+
+export const PR_MARKER = '<!-- opened-by: ship-faster -->';
 
 const OVERRIDE = (rule) => ` Override: guard.${rule} in .claude/ship-faster.json.`;
 const WRAPPERS = new Set(['sudo', 'time', 'nice', 'env', 'command', 'exec', 'nohup', 'stdbuf']);
@@ -17,7 +21,12 @@ const defaultGitApi = {
   dirtyFiles: (root) => gitLib.dirtyFiles(root, { timeoutMs: 2000 }),
 };
 
-function gitInvocation(tokens) {
+const defaultFileApi = {
+  hasWiki: (root, config) => existsSync(join(root, ...config.wikiDir.split('/'), 'index.md')),
+  read: (file) => { try { return readFileSync(file, 'utf8'); } catch { return null; } },
+};
+
+function commandStart(tokens) {
   let i = 0;
   while (i < tokens.length) {
     if (/^[A-Za-z_][A-Za-z0-9_]*=/.test(tokens[i])) { i++; continue; }
@@ -33,6 +42,11 @@ function gitInvocation(tokens) {
     }
     break;
   }
+  return i;
+}
+
+function gitInvocation(tokens) {
+  let i = commandStart(tokens);
   if (tokens[i] !== 'git') return null;
   i++;
   while (i < tokens.length && tokens[i].startsWith('-')) {
@@ -112,32 +126,68 @@ function checkAdd(args, ctx) {
   return { rule: 'addAll', reason: `ship-faster guard: "git add ${flag}" would stage risky paths (${list}). Stage files by name.${OVERRIDE('addAll')}` };
 }
 
+function prCreateArgs(tokens) {
+  const i = commandStart(tokens);
+  return tokens[i] === 'gh' && tokens[i + 1] === 'pr' && (tokens[i + 2] === 'create' || tokens[i + 2] === 'new') ? tokens.slice(i + 3) : null;
+}
+
+function optionValue(args, long, short) {
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === long || args[i] === short) return args[i + 1] ?? '';
+    if (args[i].startsWith(`${long}=`)) return args[i].slice(long.length + 1);
+  }
+  return null;
+}
+
+function localPath(file, cwd) {
+  const msys = process.platform === 'win32' && /^\/([a-zA-Z])(\/.*)?$/.exec(file);
+  if (msys) return `${msys[1]}:${msys[2] || '/'}`;
+  return isAbsolute(file) ? file : resolve(cwd, file);
+}
+
+// ship and release put PR_MARKER in the bodies they write, so a PR without it was opened some other way.
+function checkPrCreate(args, ctx) {
+  if (ctx.config.guard.prOutsideShip === 'allow' || !ctx.fileApi.hasWiki(ctx.root, ctx.config)) return null;
+  const body = optionValue(args, '--body', '-b');
+  if (body && body.includes(PR_MARKER)) return null;
+  const bodyFile = optionValue(args, '--body-file', '-F');
+  if (bodyFile && bodyFile !== '-') {
+    const text = ctx.fileApi.read(localPath(bodyFile, ctx.cwd));
+    if (text && text.includes(PR_MARKER)) return null;
+  }
+  return { rule: 'prOutsideShip', reason: `ship-faster guard: this PR is being opened without /ship-faster:ship, so preflight, the docs sync, and the rules review have not run for it. Once it is open, run ship-faster:preflight, ship-faster:sync-docs --scope diff, and ship-faster:review on the branch and push what they fix; next time suggest /ship-faster:ship to the user.${OVERRIDE('prOutsideShip')}` };
+}
+
 const EVAL_SUBCOMMANDS = new Set(['push', 'add', 'commit', 'merge']);
 
 export function needsEvaluation(command) {
   for (const segment of splitSegments(command)) {
-    const inv = gitInvocation(tokenize(segment));
-    if (inv && EVAL_SUBCOMMANDS.has(inv.sub)) return true;
+    const tokens = tokenize(segment);
+    const inv = gitInvocation(tokens);
+    if ((inv && EVAL_SUBCOMMANDS.has(inv.sub)) || prCreateArgs(tokens)) return true;
   }
   return false;
 }
 
-export function evaluate(command, { root, config, gitApi = defaultGitApi }) {
-  const ctx = { root, config, gitApi };
+export function evaluate(command, { root, cwd = root, config, gitApi = defaultGitApi, fileApi = defaultFileApi }) {
+  const ctx = { root, cwd, config, gitApi, fileApi };
   let best = { decision: null, reason: null, rule: null };
-  const rank = { deny: 2, ask: 1 };
+  const rank = { deny: 3, ask: 2, warn: 1 };
   for (const segment of splitSegments(command)) {
-    const inv = gitInvocation(tokenize(segment));
-    if (!inv) continue;
+    const tokens = tokenize(segment);
+    const prArgs = prCreateArgs(tokens);
+    const inv = prArgs ? null : gitInvocation(tokens);
+    if (!inv && !prArgs) continue;
     let finding = null;
-    if (inv.sub === 'push') finding = checkPush(inv.args, ctx);
+    if (prArgs) finding = checkPrCreate(prArgs, ctx);
+    else if (inv.sub === 'push') finding = checkPush(inv.args, ctx);
     else if (inv.sub === 'commit' && inv.args.some((a) => a === '--no-verify' || a === '-n' || shortHas(a, 'n'))) finding = { rule: 'noVerify' };
     else if (inv.sub === 'merge' && inv.args.includes('--no-verify')) finding = { rule: 'noVerify' };
     else if (inv.sub === 'add') finding = checkAdd(inv.args, ctx);
     if (!finding) continue;
     if (finding.rule === 'noVerify' && !finding.reason) finding.reason = `ship-faster guard: --no-verify skips the repository's hooks and is blocked. Fix what the hook reports instead.${OVERRIDE('noVerify')}`;
     const level = config.guard[finding.rule];
-    if (level !== 'deny' && level !== 'ask') continue;
+    if (!(level in rank)) continue;
     if ((rank[level] || 0) > (rank[best.decision] || 0)) best = { decision: level, reason: finding.reason, rule: finding.rule };
   }
   return best;
@@ -151,9 +201,12 @@ async function main() {
   const cwd = typeof input.cwd === 'string' ? input.cwd : process.cwd();
   const root = resolveRootCached(cwd);
   const { config } = loadConfig(root);
-  const result = evaluate(command, { root, config });
+  const result = evaluate(command, { root, cwd, config });
   if (!result.decision) return;
-  process.stdout.write(JSON.stringify({ hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: result.decision, permissionDecisionReason: result.reason } }) + '\n');
+  const output = result.decision === 'warn'
+    ? { hookEventName: 'PreToolUse', additionalContext: result.reason }
+    : { hookEventName: 'PreToolUse', permissionDecision: result.decision, permissionDecisionReason: result.reason };
+  process.stdout.write(JSON.stringify({ hookSpecificOutput: output }) + '\n');
 }
 
 if (process.argv[1] && normalizePath(process.argv[1]).endsWith('/scripts/hook-ship-guard.mjs')) {

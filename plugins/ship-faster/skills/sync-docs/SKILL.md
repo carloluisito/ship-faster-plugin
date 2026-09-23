@@ -20,6 +20,14 @@ With `--root <path>` (a worktree `ship` created), work on that checkout instead 
 
 ## 1. Classify pages
 
+First bring CLAUDE.md's Workflow section up to date, whatever the scope:
+
+```
+node "${CLAUDE_PLUGIN_ROOT}/scripts/claude-md.mjs" workflow --json
+```
+
+It rewrites that section of the managed block when it differs from the plugin's (`status` `missing` or `outdated`, `written: true`) and leaves the rest of the file alone. Keep its summary line for the report.
+
 Scope defaults to `all`.
 
 | Scope | Run | Act on |
@@ -66,4 +74,4 @@ node "${CLAUDE_PLUGIN_ROOT}/scripts/lint.mjs" --json
 
 ## 6. Report
 
-One table: page, status before, action (`confirmed`, `updated`, `created`, `frontmatter repaired`, or `left stale: <reason>`), then one line naming uncovered files you left alone. Never call a page true unless you read the changed files behind it.
+One table: page, status before, action (`confirmed`, `updated`, `created`, `frontmatter repaired`, or `left stale: <reason>`), then one line naming uncovered files you left alone, and the workflow summary line from step 1 when it wrote CLAUDE.md. Never call a page true unless you read the changed files behind it.

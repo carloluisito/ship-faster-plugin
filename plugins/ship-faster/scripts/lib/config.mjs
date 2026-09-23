@@ -7,7 +7,7 @@ export const DEFAULTS = Object.freeze({
   rulesDir: '.claude/rules',
   defaultBranch: 'auto',
   protectedBranches: Object.freeze(['main', 'master']),
-  guard: Object.freeze({ forcePush: 'deny', pushProtected: 'deny', noVerify: 'deny', addAll: 'deny' }),
+  guard: Object.freeze({ forcePush: 'deny', pushProtected: 'deny', noVerify: 'deny', addAll: 'deny', prOutsideShip: 'warn' }),
   healthCadenceDays: 14,
   pageMaxLines: 200,
   claudeMdMaxLines: 150,
@@ -17,7 +17,7 @@ export const DEFAULTS = Object.freeze({
 
 const DIR_KEYS = ['wikiDir', 'plansDir', 'rulesDir'];
 const INT_KEYS = ['healthCadenceDays', 'pageMaxLines', 'claudeMdMaxLines', 'rulesFileMaxLines', 'checkTimeoutSeconds'];
-const GUARD_VALUES = new Set(['deny', 'ask', 'allow']);
+const GUARD_VALUES = new Set(['deny', 'ask', 'warn', 'allow']);
 
 export function loadConfig(root) {
   const file = join(root, '.claude', 'ship-faster.json');
@@ -54,7 +54,7 @@ export function loadConfig(root) {
       for (const [k, v] of Object.entries(raw.guard)) {
         if (!(k in DEFAULTS.guard)) { errors.push(`guard.${k} is not a known rule`); continue; }
         if (GUARD_VALUES.has(v)) config.guard[k] = v;
-        else errors.push(`guard.${k} must be deny, ask, or allow, got ${JSON.stringify(v)}`);
+        else errors.push(`guard.${k} must be deny, ask, warn, or allow, got ${JSON.stringify(v)}`);
       }
     } else errors.push('guard must be an object');
   }

@@ -9,7 +9,7 @@
 
 ## PR body
 
-Copy `${CLAUDE_PLUGIN_ROOT}/templates/pr-body.md` and fill it:
+Copy `${CLAUDE_PLUGIN_ROOT}/templates/pr-body.md` and fill it. Keep its first line, `<!-- opened-by: ship-faster -->`: the ship-guard hook tells Claude that a PR opened without it skipped this workflow.
 
 - **What**, **Why**: from the diff and the subjects, in terms of behaviour.
 - **How verified**: the table from the `Result file` the preflight report names (`<dataDir>/preflight/last.json` for this checkout; Read it): one row per check with `status` and `durationMs` in seconds, one decimal. When the file is missing, one row `preflight | not recorded | -` and say why.
