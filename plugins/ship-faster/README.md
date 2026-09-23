@@ -153,7 +153,7 @@ node scripts/worktree.mjs      list | add --branch <name> [--from <ref>] | carry
 
 ## Evals
 
-`evals/<case>/` holds at least one case per skill (`ship` and `kickoff` have a second): a prompt, a `case.yaml` naming a scaffold script that builds a fixture repository, and graders (deterministic checks plus one rubric a judge model scores). Runs spend real model credit and need a sandbox backend for `Bash`, so they never gate a PR. Run them on Linux, from Windows through WSL, or with `.github/workflows/evals.yml` on manual dispatch (it needs an `ANTHROPIC_API_KEY` repository secret):
+`evals/<case>/` holds at least one case per skill (`ship` and `kickoff` have a second), plus `routing`, which installs same-purpose skills next to the plugin and checks that Claude still picks ship-faster's: a prompt, a `case.yaml` naming a scaffold script that builds a fixture repository, and graders (deterministic checks, and in most cases a rubric a judge model scores). Runs spend real model credit and need a sandbox backend for `Bash`, so they never gate a PR. Run them on Linux, from Windows through WSL, or with `.github/workflows/evals.yml` on manual dispatch (it needs an `ANTHROPIC_API_KEY` repository secret):
 
 ```
 plugins/ship-faster/tests/evals.sh [case ...]

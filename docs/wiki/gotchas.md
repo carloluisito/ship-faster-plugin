@@ -2,9 +2,9 @@
 title: Gotchas
 summary: Hook stdin hangs, Windows renames and 8.3 temp paths, BOM shebangs, long-history staleness, tag pushes, test state leaks, and eval sandbox traps, with evidence.
 read_when: Something behaves in a way the code does not explain, or before touching the areas listed in covers.
-covers: [plugins/ship-faster/scripts/lib/cli.mjs, plugins/ship-faster/scripts/lib/state.mjs, plugins/ship-faster/scripts/lib/root.mjs, plugins/ship-faster/evals/*/scaffold.sh, plugins/ship-faster/evals/*/graders/*.md, plugins/ship-faster/scripts/stale.mjs, plugins/ship-faster/scripts/hook-ship-guard.mjs, plugins/ship-faster/tests/run.mjs, plugins/ship-faster/tests/helpers.mjs]
-verified: bceb66230bd36e48f6b127d21837329c9dbf76d4
-updated: 2026-09-17
+covers: [plugins/ship-faster/tests/validate.mjs, plugins/ship-faster/scripts/lib/cli.mjs, plugins/ship-faster/scripts/lib/state.mjs, plugins/ship-faster/scripts/lib/root.mjs, plugins/ship-faster/evals/*/scaffold.sh, plugins/ship-faster/evals/*/graders/*.md, plugins/ship-faster/scripts/stale.mjs, plugins/ship-faster/scripts/hook-ship-guard.mjs, plugins/ship-faster/tests/run.mjs, plugins/ship-faster/tests/helpers.mjs]
+verified: 3131ff9134d61d1b6530d981ee587959fedcd813
+updated: 2026-09-23
 ---
 # Gotchas
 
@@ -36,7 +36,7 @@ Evidence: `plugins/ship-faster/scripts/stale.mjs:10`, `plugins/ship-faster/scrip
 Symptom: The guard allowed `git push origin main --tags`.
 Cause: Any `--tags` was treated as a tag-only push, but a refspec given alongside `--tags` pushes that branch as well.
 Rule: Exempt a `--tags` push from the protected-branch check only when it names no refspec, and keep the `--tags` cases in `plugins/ship-faster/tests/hook-ship-guard.test.mjs`.
-Evidence: commit 7eb1c21, `plugins/ship-faster/scripts/hook-ship-guard.mjs:65`, 2026-09-16.
+Evidence: commit 7eb1c21, `plugins/ship-faster/scripts/hook-ship-guard.mjs:79`, 2026-09-16.
 
 ### A test run alone writes to the real plugin data directory <!-- id: g-20260916-plugin-data -->
 Symptom: A test file run with `node --test` that reaches `lib/state.mjs` without setting `CLAUDE_PLUGIN_DATA` creates `projects/<hash>/` under `~/.claude/plugins/data/ship-faster/`.
@@ -79,3 +79,9 @@ Symptom: `worktree.test.mjs` passed on Windows locally and failed only on `windo
 Cause: the fixture committed with `GIT_CONFIG_NOSYSTEM=1` while `git worktree add` (through `lib/git.mjs`) read the system config, where those runners set `core.autocrlf=true`; locally the same setting also sits in the global config, which the flag leaves alone, so the two halves agreed.
 Rule: In a test that commits into a checkout the plugin's own git calls created, use the same configuration they do: pass `GIT_TERMINAL_PROMPT=0` only, never `GIT_CONFIG_NOSYSTEM`.
 Evidence: `plugins/ship-faster/tests/worktree.test.mjs:16`, CI run 35259384942, 2026-09-17.
+
+### A `ship-faster:<word>` string in skill text must name a skill or agent <!-- id: g-20260924-plugin-prefix-marker -->
+Symptom: `node plugins/ship-faster/tests/validate.mjs` failed with `skills/ship/reference/commit-and-pr.md: ship-faster:pr names no agent or skill` after the PR marker `<!-- ship-faster:pr -->` was added to a reference file.
+Cause: the validator reads every bare `ship-faster:<name>` in skills and their reference files as an agent or skill reference unless another colon follows it; `ship-faster:managed:start` passes only because of that second colon.
+Rule: Write markers and other strings in skill text that are not references without the `ship-faster:<name>` form, as the PR marker `<!-- opened-by: ship-faster -->` does.
+Evidence: `plugins/ship-faster/tests/validate.mjs:93`, `plugins/ship-faster/scripts/hook-ship-guard.mjs:11`, 2026-09-24.

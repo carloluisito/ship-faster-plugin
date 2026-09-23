@@ -2,9 +2,9 @@
 title: Overview
 summary: ship-faster is a Claude Code plugin that writes a router CLAUDE.md and a verified wiki, keeps them true, and ships changes through repo-aware skills.
 read_when: You are new to the repository or need the domain vocabulary and system boundaries.
-covers: [README.md, plugins/ship-faster/README.md, plugins/ship-faster/.claude-plugin/plugin.json, .claude-plugin/marketplace.json]
-verified: bd45cc0ae75fe1e58274b8f9f2bfa6f9fcc317a0
-updated: 2026-09-17
+covers: [README.md, plugins/ship-faster/README.md, plugins/ship-faster/.claude-plugin/plugin.json, .claude-plugin/marketplace.json, plugins/ship-faster/templates/claude-md.md]
+verified: 3131ff9134d61d1b6530d981ee587959fedcd813
+updated: 2026-09-23
 ---
 # Overview
 
@@ -24,10 +24,11 @@ Claude Code users install it with `/plugin marketplace add carloluisito/ship-fas
 | verified | commit sha a page was last checked at, or `unverified` | `plugins/ship-faster/scripts/page.mjs` |
 | fresh, stale, dirty, unverifiable, invalid | page freshness statuses | `plugins/ship-faster/scripts/stale.mjs` |
 | managed block | the part of CLAUDE.md between the ship-faster markers that regeneration replaces | `plugins/ship-faster/scripts/claude-md.mjs` |
+| Workflow section | the last section of the managed block: which ship-faster skill owns each step, preferred over same-purpose skills from elsewhere | `plugins/ship-faster/templates/claude-md.md` |
 | check | a command preflight runs, listed under `checks` in `commands.md` or taken from CI | `plugins/ship-faster/scripts/checks.mjs` |
 | plan | branch-scoped file under `docs/plans/` written by `kickoff`, with status `active`, `shipped`, or `abandoned` | `plugins/ship-faster/scripts/plan.mjs` |
 | footprint | cluster of files that change together in git history | `plugins/ship-faster/scripts/footprints.mjs` |
-| guard | PreToolUse hook that denies risky git commands | `plugins/ship-faster/scripts/hook-ship-guard.mjs` |
+| guard | PreToolUse hook that denies risky git commands and tells Claude when a PR is opened without `ship` | `plugins/ship-faster/scripts/hook-ship-guard.mjs` |
 | lesson | gotcha, decision, or convention with symptom, cause, rule, and evidence | `plugins/ship-faster/skills/lesson/SKILL.md` |
 | inventory | branch, base, ahead/behind, uncommitted files with risk flags and owner, and commit style that `ship` and `release` start from | `plugins/ship-faster/scripts/changes.mjs` |
 | claim | a session's record that it changed a file through Edit, Write, MultiEdit, or NotebookEdit; `ship` uses claims to ship only its own session's files when other sessions share the checkout (`solo` or `shared` mode) | `plugins/ship-faster/scripts/lib/ownership.mjs` |
