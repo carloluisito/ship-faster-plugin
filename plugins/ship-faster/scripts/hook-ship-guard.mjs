@@ -21,10 +21,10 @@ const defaultGitApi = {
   dirtyFiles: (root) => gitLib.dirtyFiles(root, { timeoutMs: 2000 }),
 };
 
-const defaultFileApi = {
+const defaultFileApi = Object.freeze({
   hasWiki: (root, config) => existsSync(join(root, ...config.wikiDir.split('/'), 'index.md')),
   read: (file) => { try { return readFileSync(file, 'utf8'); } catch { return null; } },
-};
+});
 
 function commandStart(tokens) {
   let i = 0;

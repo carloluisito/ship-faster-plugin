@@ -1,11 +1,14 @@
-import { test } from 'node:test';
+import { test, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { PLUGIN_ROOT } from './helpers.mjs';
+import { PLUGIN_ROOT, cleanupAll, tmpDir } from './helpers.mjs';
 import { parseFrontmatter } from '../scripts/lib/fm.mjs';
 import { REQUIRED_FIELDS } from '../scripts/lib/wiki.mjs';
 import { END, START, workflowSection } from '../scripts/claude-md.mjs';
+
+after(cleanupAll);
+beforeEach(() => { process.env.CLAUDE_PLUGIN_DATA = tmpDir('sf-data-'); });
 
 const T = join(PLUGIN_ROOT, 'templates');
 const read = (rel) => readFileSync(join(T, rel), 'utf8');

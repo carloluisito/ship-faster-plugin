@@ -32,6 +32,15 @@ test('merges valid overrides, including a partial guard', () => {
   assert.equal(config.pageMaxLines, 200);
 });
 
+test('prOutsideShip defaults to warn, and warn is accepted for every guard rule', () => {
+  assert.equal(DEFAULTS.guard.prOutsideShip, 'warn');
+  const { config, errors } = loadConfig(withConfig(JSON.stringify({ guard: { prOutsideShip: 'deny', pushProtected: 'warn' } })));
+  assert.deepEqual(errors, []);
+  assert.equal(config.guard.prOutsideShip, 'deny');
+  assert.equal(config.guard.pushProtected, 'warn');
+  assert.match(loadConfig(withConfig(JSON.stringify({ guard: { prOutsideShip: 'note' } }))).errors[0], /must be deny, ask, warn, or allow/);
+});
+
 test('reports invalid values and keeps defaults for them', () => {
   const root = withConfig(JSON.stringify({ guard: { noVerify: 'maybe' }, pageMaxLines: -5, wikiDir: '../x', protectedBranches: 'main' }));
   const { config, errors } = loadConfig(root);
