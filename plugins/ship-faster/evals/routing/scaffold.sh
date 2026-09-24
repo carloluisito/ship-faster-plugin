@@ -124,7 +124,7 @@ In this repository the ship-faster skills below own these steps. Use them instea
 | cut a release | `/ship-faster:release` |
 | audit maintenance | `/ship-faster:health` |
 
-Only the user can start a `/ship-faster:` command: suggest it instead of doing that step another way.
+Only the user can start a `/ship-faster:` command. When they ask for one of those steps, answer with the command for them to run (for a PR: "run `/ship-faster:ship`"; it also copes with a missing remote or `gh`) instead of pushing, running `gh pr create`, or using another skill for it, unless they tell you to do it directly.
 Pages under `docs/wiki/` carry `covers` globs and a `verified` commit; sync-docs re-verifies the ones whose covered files changed.
 <!-- ship-faster:managed:end -->
 

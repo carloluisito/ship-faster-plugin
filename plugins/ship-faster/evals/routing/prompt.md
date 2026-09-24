@@ -1,5 +1,5 @@
 ---
-description: with same-purpose preflight, code-review, and verification skills installed next to the plugin, an onboarded repository's Workflow section routes checks to ship-faster:preflight and the review to ship-faster:review
+description: with same-purpose preflight, code-review, and verification skills installed next to the plugin, the skill descriptions alone route checks to ship-faster:preflight and the review to ship-faster:review (the harness does not load the fixture's CLAUDE.md)
 tags: [routing, shipping]
 runs: 3
 max_turns: 60

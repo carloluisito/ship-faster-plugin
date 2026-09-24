@@ -2,9 +2,9 @@
 title: Gotchas
 summary: Hook stdin hangs, Windows renames and 8.3 temp paths, BOM shebangs, long-history staleness, tag pushes, test state leaks, and eval sandbox traps, with evidence.
 read_when: Something behaves in a way the code does not explain, or before touching the areas listed in covers.
-covers: [plugins/ship-faster/tests/validate.mjs, plugins/ship-faster/scripts/lib/cli.mjs, plugins/ship-faster/scripts/lib/state.mjs, plugins/ship-faster/scripts/lib/root.mjs, plugins/ship-faster/evals/*/scaffold.sh, plugins/ship-faster/evals/*/graders/*.md, plugins/ship-faster/scripts/stale.mjs, plugins/ship-faster/scripts/hook-ship-guard.mjs, plugins/ship-faster/tests/run.mjs, plugins/ship-faster/tests/helpers.mjs]
-verified: 607fa5cbb1e1036f982decf34cab105446830786
-updated: 2026-09-23
+covers: [plugins/ship-faster/tests/validate.mjs, plugins/ship-faster/evals/routing/prompt.md, plugins/ship-faster/scripts/lib/cli.mjs, plugins/ship-faster/scripts/lib/state.mjs, plugins/ship-faster/scripts/lib/root.mjs, plugins/ship-faster/evals/*/scaffold.sh, plugins/ship-faster/evals/*/graders/*.md, plugins/ship-faster/scripts/stale.mjs, plugins/ship-faster/scripts/hook-ship-guard.mjs, plugins/ship-faster/tests/run.mjs, plugins/ship-faster/tests/helpers.mjs]
+verified: d609931ded8c1c1ed25573d400c742e69ec709ed
+updated: 2026-09-24
 ---
 # Gotchas
 
@@ -85,3 +85,9 @@ Symptom: `node plugins/ship-faster/tests/validate.mjs` failed with `skills/ship/
 Cause: the validator reads every bare `ship-faster:<name>` in skills and their reference files as an agent or skill reference unless another colon follows it; `ship-faster:managed:start` passes only because of that second colon.
 Rule: Write markers and other strings in skill text that are not references without the `ship-faster:<name>` form, as the PR marker `<!-- opened-by: ship-faster -->` does.
 Evidence: `plugins/ship-faster/tests/validate.mjs:93`, `plugins/ship-faster/scripts/hook-ship-guard.mjs:11`, 2026-09-24.
+
+### An eval case never sees the fixture's CLAUDE.md <!-- id: g-20260924-eval-no-claude-md -->
+Symptom: A case whose fixture CLAUDE.md held the Workflow section scored the same as one without it, and a control case asking for a magic word stated in the fixture's CLAUDE.md failed whether the file sat at `./CLAUDE.md` or `./.claude/CLAUDE.md`.
+Cause: `claude plugin eval` runs the model without loading CLAUDE.md from the workspace, which is also the sandbox home; skills under `.claude/skills/` do load there.
+Rule: Test behaviour that CLAUDE.md drives, such as the Workflow section's routing, with local `claude -p` runs in a fixture directory, and keep eval cases to what skills, hooks, and the prompt decide.
+Evidence: `plugins/ship-faster/evals/routing/prompt.md:2`, 2026-09-24.

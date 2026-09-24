@@ -3,8 +3,8 @@ title: Architecture
 summary: Skills call deterministic Node scripts and agents; hooks track which wiki pages edits touch and guard risky git commands.
 read_when: You are changing how components interact, adding a component, or need the reason behind a structural decision.
 covers: [plugins/ship-faster/scripts/**, plugins/ship-faster/hooks/hooks.json, plugins/ship-faster/agents/**, plugins/ship-faster/skills/**, plugins/ship-faster/templates/claude-md.md, plugins/ship-faster/templates/pr-body.md]
-verified: 607fa5cbb1e1036f982decf34cab105446830786
-updated: 2026-09-23
+verified: d609931ded8c1c1ed25573d400c742e69ec709ed
+updated: 2026-09-24
 ---
 # Architecture
 
@@ -62,9 +62,9 @@ Evidence: `plugins/ship-faster/README.md:107`, `plugins/ship-faster/scripts/lib/
 
 ### Route to the plugin's skills from CLAUDE.md <!-- id: d-20260924-workflow-routing -->
 Decision: The managed block ends with a Workflow section that maps each step to its ship-faster skill and tells Claude to prefer those over other installed skills with the same purpose; `claude-md.mjs workflow` keeps it identical to the template, and the guard notes PRs opened without ship's marker.
-Why: Users install other plugins with overlapping skills (a preflight, verification, code-review, or branch-finishing skill), so skill descriptions alone compete; CLAUDE.md instructions take precedence over skills; and onboard, kickoff, ship, release, and health are slash-only, so Claude can only suggest them.
+Why: Users install other plugins with overlapping skills (a preflight, verification, code-review, or branch-finishing skill). For the skills Claude may invoke, the descriptions already win against such decoys; onboard, kickoff, ship, release, and health are slash-only, so without an instruction Claude reaches for a same-purpose skill it can invoke. In local `claude -p` runs with the installed plugins, "open a PR" got "run `/ship-faster:ship`" in 3 of 3 runs with the section and a decoy branch-finishing skill in 3 of 3 without it.
 Alternatives: Making ship model-invocable, rejected because it pushes and opens PRs; denying `gh pr create` outside ship, rejected because a hand-made PR is legitimate.
-Evidence: `plugins/ship-faster/templates/claude-md.md:36`, `plugins/ship-faster/scripts/hook-ship-guard.mjs:148`, `plugins/ship-faster/evals/routing/prompt.md:2`, 2026-09-24.
+Evidence: `plugins/ship-faster/templates/claude-md.md:36`, `plugins/ship-faster/scripts/hook-ship-guard.mjs:148`, `plugins/ship-faster/evals/routing/prompt.md:2`, `docs/wiki/gotchas.md` g-20260924-eval-no-claude-md, 2026-09-24.
 
 ### A page committed with its change stays fresh <!-- id: d-20260916-alongside -->
 Decision: Commits that touch the page itself are excluded when computing what changed since `verified`.
