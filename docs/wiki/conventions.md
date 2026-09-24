@@ -3,8 +3,8 @@ title: Conventions
 summary: Zero-dependency ESM scripts with a JSON output contract, silent hooks, bounded git calls, and validator-enforced plugin files.
 read_when: You are writing or reviewing code and need the naming, error handling, or style rules this repository actually follows.
 covers: [plugins/ship-faster/scripts/**, plugins/ship-faster/skills/*/SKILL.md, plugins/ship-faster/tests/validate.mjs, .gitattributes]
-verified: 607fa5cbb1e1036f982decf34cab105446830786
-updated: 2026-09-23
+verified: d8a378230d683ecc251a6a7e68bb27da4c3f49fd
+updated: 2026-09-24
 ---
 # Conventions
 
@@ -22,7 +22,7 @@ updated: 2026-09-23
 - Normalize paths to `/` separators with `normalizePath` before matching or storing them. Example: `plugins/ship-faster/scripts/lib/glob.mjs:3`
 - Freeze default objects. Example: `plugins/ship-faster/scripts/lib/config.mjs:4`
 - End every skill preprocessing command line (an exclamation mark followed by a backtick command) with `|| true`. Example: `plugins/ship-faster/skills/lesson/SKILL.md:13`
-- In a skill, ask for the user's explicit yes before an outward-facing step (push, PR, merge, publish), and when the facts say `attended: false` stop before it and print the commands instead of asking. Example: `plugins/ship-faster/skills/ship/SKILL.md:23`
+- In a skill, ask for the user's explicit yes before an outward-facing step (push, PR, merge, publish), unless the slash-only command the user started is that step (`ship` pushes and opens the PR without asking), and when the facts say `attended: false` stop before it and print the commands instead of asking. Example: `plugins/ship-faster/skills/ship/SKILL.md:23`
 - Launch a skill's parallel agents all in one message. Example: `plugins/ship-faster/skills/review/SKILL.md:23`
 - Let a skill that can act on another checkout take `--root <path>` and pass it on to every script, skill, and `git -C` call. Example: `plugins/ship-faster/skills/sync-docs/SKILL.md:19`
 - Use conventional commit subjects (`feat:`, `fix:`, `perf:`, `test:`, `chore:`, `docs:`) and stage files by name. Example: `docs/superpowers/plans/2026-09-16-foundation.md:25`

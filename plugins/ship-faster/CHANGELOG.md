@@ -11,6 +11,9 @@ versions follow semver.
 - The ship guard has a `prOutsideShip` rule and a `warn` level: in a repository with a wiki, `gh pr create` without the `<!-- opened-by: ship-faster -->` line in its body still runs, and Claude is told to run preflight, sync-docs, and review on the branch. `ship` and `release` write that line.
 - A `routing` eval case installs same-purpose `preflight`, `requesting-code-review`, and `verification-before-completion` skills next to the plugin and passes only when Claude picks `ship-faster:preflight` and `ship-faster:review`.
 
+### Changed
+- `ship` pushes and opens the PR without asking first: starting `/ship-faster:ship` is the yes. Merge still asks, and an unattended run still prints the commands instead.
+
 ## [0.3.0] - 2026-09-18
 
 ### Added

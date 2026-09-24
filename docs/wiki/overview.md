@@ -3,7 +3,7 @@ title: Overview
 summary: ship-faster is a Claude Code plugin that writes a router CLAUDE.md and a verified wiki, keeps them true, and ships changes through repo-aware skills.
 read_when: You are new to the repository or need the domain vocabulary and system boundaries.
 covers: [README.md, plugins/ship-faster/README.md, plugins/ship-faster/.claude-plugin/plugin.json, .claude-plugin/marketplace.json, plugins/ship-faster/templates/claude-md.md]
-verified: d609931ded8c1c1ed25573d400c742e69ec709ed
+verified: d8a378230d683ecc251a6a7e68bb27da4c3f49fd
 updated: 2026-09-24
 ---
 # Overview
@@ -41,4 +41,4 @@ Claude Code users install it with `/plugin marketplace add carloluisito/ship-fas
 - Calls the `git` CLI (only through `plugins/ship-faster/scripts/lib/git.mjs`) and the target repository's check commands through a shell (`plugins/ship-faster/scripts/checks.mjs`); skills also run `gh`, `claude plugin tag`, and package-manager report commands.
 - Writes into a target repository: `CLAUDE.md`, `docs/wiki/`, `.claude/rules/`, plans in `docs/plans/`, and on release `CHANGELOG.md` and the version files; skills create branches, commits, tags, and sibling worktrees (`<repo>-<branch>`), where `ship` and `kickoff --worktree` also run the repository's install commands.
 - Writes its own state through `plugins/ship-faster/scripts/lib/state.mjs`: under the plugin data directory (`CLAUDE_PLUGIN_DATA`, which scripts outside hooks rebuild as `<config>/plugins/data/ship-faster-<marketplace>/`), and session records and edit claims under the checkout's git directory (`.git/ship-faster/`).
-- Has no npm dependencies. The scripts make no network calls; network use is limited to `git push`, `gh`, and package-manager audit commands that skills run in view of the user, and push, PR, merge, and publish wait for the user's yes.
+- Has no npm dependencies. The scripts make no network calls; network use is limited to `git push`, `gh`, and package-manager audit commands that skills run in view of the user, merge and publish wait for the user's yes, and `/ship-faster:ship` pushes and opens the PR because the user started it.
