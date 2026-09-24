@@ -22,12 +22,12 @@ Write it to `<dataDir>/ship/pr-body.md` (same fallback as the commit message: a 
 ## Push and PR
 
 1. No remote (`remote` null in the inventory): print `git remote add origin <url>` and the push command, and stop.
-2. Ask the user: "Push <branch> to origin and open the PR against <base>?" On yes:
+2. With `attended: false` in the facts print the exact commands below in the final message instead of running them, and stop.
+3. Otherwise, without asking (starting `/ship-faster:ship` was the yes):
    - `git push -u origin <branch>` in `<root>` (never `--force`).
    - `gh --version` fails: print the compare URL `<remote url without .git>/compare/<base>...<branch>?expand=1` and the body path, and stop.
    - `gh pr view <branch> --json number,url,state` reports an open PR: push happened already; post the verification table as a comment: write the table to `<dataDir>/ship/pr-comment.md` and run `gh pr comment <number> --body-file <that file>`. Report the URL and stop.
    - Otherwise `gh pr create --base <base> --head <branch> --title "<commit subject>" --body-file <body path>`, plus `--draft` when the arguments contain it. Report the URL it prints.
-3. With `attended: false` in the facts print the exact commands above in the final message instead of asking, and stop.
 
 ## Merge
 

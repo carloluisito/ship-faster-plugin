@@ -3,7 +3,7 @@ title: Architecture
 summary: Skills call deterministic Node scripts and agents; hooks track which wiki pages edits touch and guard risky git commands.
 read_when: You are changing how components interact, adding a component, or need the reason behind a structural decision.
 covers: [plugins/ship-faster/scripts/**, plugins/ship-faster/hooks/hooks.json, plugins/ship-faster/agents/**, plugins/ship-faster/skills/**, plugins/ship-faster/templates/claude-md.md, plugins/ship-faster/templates/pr-body.md]
-verified: d609931ded8c1c1ed25573d400c742e69ec709ed
+verified: d8a378230d683ecc251a6a7e68bb27da4c3f49fd
 updated: 2026-09-24
 ---
 # Architecture
@@ -27,7 +27,7 @@ Knowledge skills (onboard, sync-docs, lesson):
 Shipping skills:
 1. `preflight` runs in a forked `check-runner` agent (`context: fork`): `checks.mjs resolve`, then `checks.mjs run`, which writes one log per check and `preflight/last.json` in the data directory; the caller receives only the report.
 2. `review` runs `review.mjs prepare`, which writes the diff against the merge base in chunks of up to 4000 lines, copies of untracked files, and a manifest under `ship-faster/review/<project hash>/<timestamp>/` in the system temp directory (where a sandboxed subagent can still read them) and names the rule pages and matching recipes; one `rules-reviewer` per chunk reads them from those paths.
-3. `ship` injects `changes.mjs --session <session id>` (branch, base, ahead/behind, uncommitted files with risk flags and owner, commit style, and `ownership` from `lib/ownership.mjs`). In `solo` mode it branches in place; in `shared` mode (another open session has current claims here, or another session record was active in the last two hours) it creates a worktree with `worktree.mjs add --from HEAD`, installs dependencies with `checks.mjs setup`, and copies this session's files in with `worktree.mjs carry`. It then invokes preflight, `sync-docs --scope diff`, and review as skills (with `--root <worktree>` in shared mode), marks the plan `shipped` with `plan.mjs set-status`, commits by name, runs `worktree.mjs clear` in shared mode to take the shipped changes out of the shared checkout, and pushes and opens the PR only after the user says yes.
+3. `ship` injects `changes.mjs --session <session id>` (branch, base, ahead/behind, uncommitted files with risk flags and owner, commit style, and `ownership` from `lib/ownership.mjs`). In `solo` mode it branches in place; in `shared` mode (another open session has current claims here, or another session record was active in the last two hours) it creates a worktree with `worktree.mjs add --from HEAD`, installs dependencies with `checks.mjs setup`, and copies this session's files in with `worktree.mjs carry`. It then invokes preflight, `sync-docs --scope diff`, and review as skills (with `--root <worktree>` in shared mode), marks the plan `shipped` with `plan.mjs set-status`, commits by name, runs `worktree.mjs clear` in shared mode to take the shipped changes out of the shared checkout, and pushes and opens the PR without asking, because starting `/ship-faster:ship` is the yes; in an unattended run it prints those commands instead.
 4. `release` uses `version.mjs detect` and `bump`, `changelog.mjs since` and `insert`, `stale.mjs` with `sync-docs --scope all`, then `stale.mjs` again and `page.mjs verify` on the pages dirty only from the version files and the changelog, and preflight; it commits `release: vX.Y.Z` together with those pages, so they stay fresh, and tags; publishing waits for a yes.
 5. `health` injects `health.mjs scan`, fans out one `health-auditor` per area, and ends with `health.mjs record`, which writes `health.json`; `kickoff` reads the wiki, writes a plan from `templates/plan.md`, and creates the branch, or with `--worktree` a sibling checkout through `worktree.mjs add`, installs its dependencies with `checks.mjs setup`, and writes the plan there.
 
@@ -95,3 +95,9 @@ Decision: The edit hook claims each file a session changes; when other sessions 
 Why: `kickoff` is optional, so several sessions often share one folder; staging every uncommitted file mixed tickets in one PR, and `git switch -c` moved the other sessions onto the wrong branch.
 Alternatives: Warning only (0.2.0), which left the mixed PR in place; committing in the shared checkout with only this session's files staged, rejected because preflight would test the other sessions' uncommitted work; hunk-level ownership from recorded edits, rejected because Bash-made changes cannot be attributed.
 Evidence: `plugins/ship-faster/scripts/lib/ownership.mjs:22`, `plugins/ship-faster/scripts/worktree.mjs:88`, 2026-09-18.
+
+### Starting ship is the yes to push and open the PR <!-- id: d-20260924-ship-no-push-ask -->
+Decision: `ship` pushes and runs `gh pr create` without asking; merge still asks, and an unattended run prints the commands.
+Why: `ship` sets `disable-model-invocation`, so only the user starts it, and pushing and opening the PR is what they asked for. The second question stalled every run after preflight, docs, and review had passed. A merge into the base is harder to undo than an open PR.
+Alternatives: Asking before the push, the behaviour through 0.3.0.
+Evidence: `plugins/ship-faster/skills/ship/SKILL.md:4`, `plugins/ship-faster/skills/ship/reference/commit-and-pr.md:26`, 2026-09-24.

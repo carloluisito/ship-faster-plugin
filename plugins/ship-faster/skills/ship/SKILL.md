@@ -20,7 +20,7 @@ Arguments: $ARGUMENTS
 
 Session: ${CLAUDE_SESSION_ID}
 
-Rules that hold throughout: never force push, never push to a protected branch, never `--no-verify`, never `git add -A` or `git add .` (the ship-guard hook denies pushes to protected branches, `--no-verify`, and an add-all that would stage a risky file), never skip preflight, never merge without `--merge`. Push, PR creation, and merge are outward-facing: each needs the user's explicit yes first. `attended: false` in the facts means nobody can answer (`claude -p`, an eval, a hook-driven run): then never ask, stop before that step, and print the exact commands instead, in your final message.
+Rules that hold throughout: never force push, never push to a protected branch, never `--no-verify`, never `git add -A` or `git add .` (the ship-guard hook denies pushes to protected branches, `--no-verify`, and an add-all that would stage a risky file), never skip preflight, never merge without `--merge`. Only the user can start this command, so starting it is their yes to push and open the PR: do not ask again before those steps. Merge is harder to undo and still needs its own yes. `attended: false` in the facts means nobody can answer (`claude -p`, an eval, a hook-driven run): then never ask, stop before the push, and print the exact commands instead, in your final message.
 
 `<dataDir>` = `dataDir` from the facts; `<wikiDir>` = `config.wikiDir`; `<session>` = the session id above. `<root>` is the checkout being shipped: this one, the worktree step 3 creates, or the `--root` argument. Whenever `<root>` is not this checkout, every plugin script gets `--root <root>`, every git command runs as `git -C <root>`, every skill you invoke gets `--root <root>` in its arguments, and files are read and edited under `<root>`. Read `${CLAUDE_SKILL_DIR}/reference/shared-checkout.md` before step 3 when `ownership.mode` is `shared` or `--root` is given, and `${CLAUDE_SKILL_DIR}/reference/commit-and-pr.md` before step 8.
 
@@ -78,7 +78,7 @@ Follow reference/commit-and-pr.md, section Commit. With nothing uncommitted in `
 
 ## 9. Push and PR
 
-Follow reference/commit-and-pr.md, section PR body, then section Push and PR. Ask before pushing.
+Follow reference/commit-and-pr.md, section PR body, then section Push and PR.
 
 ## 10. Merge (opt-in)
 
