@@ -5,6 +5,12 @@ versions follow semver.
 
 ## [Unreleased]
 
+### Added
+- The generated CLAUDE.md ends its managed block with a Workflow section: a table mapping each step to its ship-faster skill, and an instruction to prefer those over other installed skills with the same purpose (another preflight, verification, code-review, planning, or branch-finishing skill) and to suggest the slash-only commands instead of doing their step another way. It replaces the Keeping docs true section.
+- `claude-md.mjs workflow` rewrites that section from the template. `onboard` runs it after the splice, `sync-docs` runs it first on every call so repositories onboarded earlier pick it up, and the session-start line says when the section is missing or out of date.
+- The ship guard has a `prOutsideShip` rule and a `warn` level: in a repository with a wiki, `gh pr create` without the `<!-- opened-by: ship-faster -->` line in its body still runs, and Claude is told to run preflight, sync-docs, and review on the branch. `ship` and `release` write that line.
+- A `routing` eval case installs same-purpose `preflight`, `requesting-code-review`, and `verification-before-completion` skills next to the plugin and passes only when Claude picks `ship-faster:preflight` and `ship-faster:review`.
+
 ## [0.3.0] - 2026-09-18
 
 ### Added

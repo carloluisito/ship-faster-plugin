@@ -1,11 +1,14 @@
-import { test } from 'node:test';
+import { test, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { PLUGIN_ROOT } from './helpers.mjs';
+import { PLUGIN_ROOT, cleanupAll, tmpDir } from './helpers.mjs';
 import { parseFrontmatter } from '../scripts/lib/fm.mjs';
 import { REQUIRED_FIELDS } from '../scripts/lib/wiki.mjs';
-import { END, START } from '../scripts/claude-md.mjs';
+import { END, START, workflowSection } from '../scripts/claude-md.mjs';
+
+after(cleanupAll);
+beforeEach(() => { process.env.CLAUDE_PLUGIN_DATA = tmpDir('sf-data-'); });
 
 const T = join(PLUGIN_ROOT, 'templates');
 const read = (rel) => readFileSync(join(T, rel), 'utf8');
@@ -54,7 +57,7 @@ test('the CLAUDE.md template has the managed markers, the six managed sections, 
   const text = read('claude-md.md');
   assert.ok(text.includes(START) && text.includes(END));
   const inside = text.slice(text.indexOf(START), text.indexOf(END));
-  assert.deepEqual(h2s(inside).map((h) => h.replace(/\s*\(.*\)$/, '')), ['What this is', 'Stack', 'Layout', 'Commands', 'Read next', 'Keeping docs true']);
+  assert.deepEqual(h2s(inside).map((h) => h.replace(/\s*\(.*\)$/, '')), ['What this is', 'Stack', 'Layout', 'Commands', 'Read next', 'Workflow']);
   assert.ok(h2s(text.slice(text.indexOf(END))).includes('Rules'));
   assert.ok(countLines(inside) <= 60, 'managed skeleton must leave room under the 90-line cap');
   assert.ok(!text.includes('@docs/') && !/^@/m.test(text), 'CLAUDE.md never imports wiki pages');
@@ -78,4 +81,9 @@ test('plan, rules, package CLAUDE.md, and gotcha entry templates have the right 
 test('the PR body template carries the six sections in order', () => {
   assert.deepEqual(h2s(read('pr-body.md')), ['What', 'Why', 'How verified', 'Docs', 'Plan', 'Risks']);
   assert.match(read('pr-body.md'), /\| Check \| Status \| Duration \|/);
+});
+
+test('the routing eval fixture carries the Workflow section exactly as the template renders it', () => {
+  const scaffold = readFileSync(join(PLUGIN_ROOT, 'evals', 'routing', 'scaffold.sh'), 'utf8');
+  assert.ok(scaffold.includes(`\n${workflowSection('docs/wiki')}\n${END}\n`), 'evals/routing/scaffold.sh: its CLAUDE.md must hold the Workflow section of templates/claude-md.md with docs/wiki filled in');
 });

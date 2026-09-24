@@ -1,6 +1,7 @@
 import { copyFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import { randomBytes } from 'node:crypto';
+import { fileURLToPath } from 'node:url';
 import { runMain } from './lib/cli.mjs';
 import { loadConfig } from './lib/config.mjs';
 import { normalizePath } from './lib/glob.mjs';
@@ -11,7 +12,12 @@ export const START = '<!-- ship-faster:managed:start -->';
 export const END = '<!-- ship-faster:managed:end -->';
 export const MANAGED_MAX = 90;
 
+const TEMPLATE = fileURLToPath(new URL('../templates/claude-md.md', import.meta.url));
+const WORKFLOW = '## Workflow';
+const LEGACY_WORKFLOW = '## Keeping docs true';
+
 const lf = (text) => String(text).replace(/\r\n/g, '\n');
+const usesCrlf = (text) => /\r\n/.test(text) && (text.match(/\r\n/g) || []).length >= (text.match(/(?<!\r)\n/g) || []).length;
 
 function countLines(text) {
   const t = lf(text);
@@ -86,7 +92,7 @@ export function spliceFile(root, block, { config, projectName, force = false, dr
   config = config || loadConfig(root).config;
   const file = join(root, 'CLAUDE.md');
   const existing = existsSync(file) ? readFileSync(file, 'utf8') : null;
-  const crlf = existing !== null && /\r\n/.test(existing) && (existing.match(/\r\n/g) || []).length >= (existing.match(/(?<!\r)\n/g) || []).length;
+  const crlf = existing !== null && usesCrlf(existing);
   const name = projectName || (existing !== null && sections(existing).title) || basename(normalizePath(root).replace(/\/+$/, '')) || 'Project';
   const r = splice(existing, block, { projectName: name });
   if (r.error) return { ok: false, error: r.error, path: 'CLAUDE.md', created: false, replaced: false, written: false, warnings: [] };
@@ -98,6 +104,76 @@ export function spliceFile(root, block, { config, projectName, force = false, dr
   if (!dryRun) writeFileSync(file, crlf ? r.content.replace(/\n/g, '\r\n') : r.content);
   const verb = dryRun ? 'would write' : 'wrote';
   return { ok: true, ...base, written: !dryRun, content: dryRun ? (crlf ? r.content.replace(/\n/g, '\r\n') : r.content) : undefined, summary: [`${verb} CLAUDE.md: ${r.lines} lines, managed block ${r.managedLines} lines${r.replaced ? ' (replaced)' : existing === null ? ' (created)' : ' (inserted)'}`, ...warnings] };
+}
+
+function managedSpan(lines) {
+  const starts = lines.flatMap((l, i) => (l.trim() === START ? [i] : []));
+  const ends = lines.flatMap((l, i) => (l.trim() === END ? [i] : []));
+  if (starts.length !== 1 || ends.length !== 1 || ends[0] < starts[0]) return null;
+  return { start: starts[0], end: ends[0] };
+}
+
+function sectionSpan(lines, managed, heading) {
+  const start = lines.findIndex((l, i) => i > managed.start && i < managed.end && l.trim() === heading);
+  if (start === -1) return null;
+  let end = start + 1;
+  while (end < managed.end && !/^## /.test(lines[end])) end++;
+  while (end > start + 1 && lines[end - 1].trim() === '') end--;
+  return { start, end };
+}
+
+export function workflowSection(wikiDir, template = readFileSync(TEMPLATE, 'utf8')) {
+  const lines = lf(template).split('\n');
+  const managed = managedSpan(lines);
+  const span = managed && sectionSpan(lines, managed, WORKFLOW);
+  if (!span) throw new Error('templates/claude-md.md has no Workflow section inside its managed block');
+  return lines.slice(span.start, span.end).join('\n').replaceAll('{{wiki_dir}}', wikiDir);
+}
+
+// The Workflow section is plugin-owned text, so it is refreshed verbatim; "Keeping docs true" is the section it replaced.
+export function refreshWorkflow(text, section) {
+  const lines = lf(text).split('\n');
+  const managed = managedSpan(lines);
+  if (!managed) return { status: 'unmanaged', changed: false, content: lf(text) };
+  const current = sectionSpan(lines, managed, WORKFLOW);
+  const legacy = sectionSpan(lines, managed, LEGACY_WORKFLOW);
+  const want = section.split('\n');
+  if (current && !legacy && lines.slice(current.start, current.end).join('\n') === section) return { status: 'current', changed: false, content: lf(text) };
+  const status = current ? 'outdated' : 'missing';
+  const spans = [current, legacy].filter(Boolean).sort((a, b) => b.start - a.start);
+  if (!spans.length) {
+    const gap = managed.end - 1 > managed.start && lines[managed.end - 1].trim() !== '';
+    lines.splice(managed.end, 0, ...(gap ? ['', ...want] : want));
+  } else {
+    const first = spans[spans.length - 1];
+    for (const span of spans) {
+      if (span === first) { lines.splice(span.start, span.end - span.start, ...want); continue; }
+      const from = lines[span.start - 1].trim() === '' ? span.start - 1 : span.start;
+      lines.splice(from, span.end - from);
+    }
+  }
+  return { status, changed: true, content: lines.join('\n') };
+}
+
+export function refreshWorkflowFile(root, { config, dryRun = false } = {}) {
+  config = config || loadConfig(root).config;
+  const file = join(root, 'CLAUDE.md');
+  if (!existsSync(file)) return { ok: true, status: 'no-claude-md', written: false, warnings: [], summary: ['no CLAUDE.md'] };
+  const existing = readFileSync(file, 'utf8');
+  const r = refreshWorkflow(existing, workflowSection(config.wikiDir));
+  if (!r.changed) {
+    const note = r.status === 'current' ? 'CLAUDE.md Workflow section is current' : 'CLAUDE.md has no single managed block; Workflow section left alone';
+    return { ok: true, status: r.status, written: false, warnings: [], summary: [note] };
+  }
+  const s = sections(r.content);
+  const lines = s.lines;
+  const managedLines = s.managed ? s.managed.end - s.managed.start - 1 : 0;
+  const warnings = [];
+  if (managedLines > MANAGED_MAX) warnings.push(`managed block is ${managedLines} lines, limit ${MANAGED_MAX}`);
+  if (lines > config.claudeMdMaxLines) warnings.push(`CLAUDE.md is ${lines} lines, limit ${config.claudeMdMaxLines}`);
+  if (!dryRun) writeFileSync(file, usesCrlf(existing) ? r.content.replace(/\n/g, '\r\n') : r.content);
+  const verb = dryRun ? 'would write' : 'wrote';
+  return { ok: true, status: r.status, written: !dryRun, lines, managedLines, warnings, summary: [`${verb} the Workflow section of CLAUDE.md (${r.status})`, ...warnings] };
 }
 
 export function backupClaudeMd(root) {
@@ -127,6 +203,7 @@ if (process.argv[1] && normalizePath(process.argv[1]).endsWith('/scripts/claude-
       return spliceFile(root, readFileSync(flags.block, 'utf8'), { config, projectName: typeof flags.name === 'string' ? flags.name : undefined, force: Boolean(flags.force), dryRun: Boolean(flags['dry-run']) });
     }
     if (cmd === 'backup') return backupClaudeMd(root);
-    return { ok: false, error: `unknown command ${cmd}; use sections, splice, or backup` };
+    if (cmd === 'workflow') return refreshWorkflowFile(root, { config, dryRun: Boolean(flags['dry-run']) });
+    return { ok: false, error: `unknown command ${cmd}; use sections, splice, workflow, or backup` };
   });
 }

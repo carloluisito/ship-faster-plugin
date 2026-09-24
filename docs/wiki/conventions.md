@@ -3,8 +3,8 @@ title: Conventions
 summary: Zero-dependency ESM scripts with a JSON output contract, silent hooks, bounded git calls, and validator-enforced plugin files.
 read_when: You are writing or reviewing code and need the naming, error handling, or style rules this repository actually follows.
 covers: [plugins/ship-faster/scripts/**, plugins/ship-faster/skills/*/SKILL.md, plugins/ship-faster/tests/validate.mjs, .gitattributes]
-verified: c2b59ed7f81346348d2e95b0bb502271a89f0c65
-updated: 2026-09-17
+verified: 607fa5cbb1e1036f982decf34cab105446830786
+updated: 2026-09-23
 ---
 # Conventions
 
@@ -30,7 +30,7 @@ updated: 2026-09-17
 ## Avoid
 - Comments that restate code — the plan allows only one-line comments on non-obvious constraints (`docs/superpowers/plans/2026-09-16-foundation.md:24`). Instead: comment the why, as in `plugins/ship-faster/scripts/lib/cli.mjs:38`.
 - Unbounded work in hooks — hook timeouts are 5 to 10 seconds and `plugins/ship-faster/tests/bench.mjs` budgets 100 to 1500 ms. Instead: pass `timeoutMs`, cache per working directory (`resolveRootCached`), and batch git reads.
-- `ask` as a guard default — its behaviour under bypass-permissions mode is undocumented (`plugins/ship-faster/README.md:107`). Instead: default to `deny`.
+- `ask` as a guard default — it prompts even in bypass-permissions mode and changes nothing in the other modes (`plugins/ship-faster/README.md:107`). Instead: default to `deny`, or to `warn` when the command is legitimate and Claude only needs to be told something.
 - CRLF line endings — `.gitattributes` sets `eol=lf`. Instead: keep LF.
 
 ## Style

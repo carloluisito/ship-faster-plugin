@@ -33,9 +33,22 @@
 
 `{{wiki_dir}}/index.md` lists every page.
 
-## Keeping docs true
-Pages under `{{wiki_dir}}/` carry `covers` globs and a `verified` commit; `/ship-faster:sync-docs` refreshes stale pages and `/ship-faster:ship` runs it before every PR.
-Record non-obvious causes with `/ship-faster:lesson` right after learning them.
+## Workflow
+In this repository the ship-faster skills below own these steps. Use them instead of any other installed skill or command for the same step (another preflight, verification, code-review, planning, or branch-finishing skill) unless the user names that other one.
+
+| Step | Use |
+|---|---|
+| check that a change works, before saying it does or committing | `ship-faster:preflight` |
+| review the branch against this repository's rules | `ship-faster:review` |
+| update docs after changing behaviour a page describes | `ship-faster:sync-docs` |
+| record a cause the code does not show, right after learning it | `ship-faster:lesson` |
+| plan a feature | `/ship-faster:kickoff` |
+| push and open a PR (runs preflight, sync-docs, and review first) | `/ship-faster:ship` |
+| cut a release | `/ship-faster:release` |
+| audit maintenance | `/ship-faster:health` |
+
+Only the user can start a `/ship-faster:` command. When they ask for one of those steps, answer with the command for them to run (for a PR: "run `/ship-faster:ship`"; it also copes with a missing remote or `gh`) instead of pushing, running `gh pr create`, or using another skill for it, unless they tell you to do it directly.
+Pages under `{{wiki_dir}}/` carry `covers` globs and a `verified` commit; sync-docs re-verifies the ones whose covered files changed.
 <!-- ship-faster:managed:end -->
 
 ## Rules

@@ -1,10 +1,10 @@
 import { test, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { makeRepo, runScript, tmpDir, cleanupAll } from './helpers.mjs';
 import { DEFAULTS } from '../scripts/lib/config.mjs';
-import { evaluate, needsEvaluation } from '../scripts/hook-ship-guard.mjs';
+import { PR_MARKER, evaluate, needsEvaluation } from '../scripts/hook-ship-guard.mjs';
 
 after(cleanupAll);
 beforeEach(() => { process.env.CLAUDE_PLUGIN_DATA = tmpDir('sf-data-'); });
@@ -115,7 +115,7 @@ test('env and sudo -g are detected regardless of prefix order', () => {
   assert.equal(ev('echo git push origin main').decision, null);
 });
 
-test('needsEvaluation is true only for push, add, commit, or merge invocations', () => {
+test('needsEvaluation is true only for push, add, commit, or merge invocations and gh pr create', () => {
   assert.equal(needsEvaluation('git status'), false);
   assert.equal(needsEvaluation('git log --oneline'), false);
   assert.equal(needsEvaluation('npm test'), false);
@@ -126,6 +126,9 @@ test('needsEvaluation is true only for push, add, commit, or merge invocations',
   assert.equal(needsEvaluation('git merge --no-verify x'), true);
   assert.equal(needsEvaluation('time git push origin main'), true);
   assert.equal(needsEvaluation('echo "$(git push origin main)"'), true);
+  assert.equal(needsEvaluation('gh pr create --fill'), true);
+  assert.equal(needsEvaluation('gh pr new'), true);
+  assert.equal(needsEvaluation('gh pr view 3'), false);
 });
 
 test('hook process: real repo, json output shape, silence for other tools and bad input', () => {
@@ -145,4 +148,45 @@ test('hook process: real repo, json output shape, silence for other tools and ba
   mkdirSync(join(root, '.claude'), { recursive: true });
   writeFileSync(join(root, '.claude', 'ship-faster.json'), JSON.stringify({ guard: { pushProtected: 'allow' } }));
   assert.equal(run({ session_id: 's', cwd: root, tool_name: 'Bash', tool_input: { command: 'git push origin main' } }).stdout, '');
+});
+
+test('gh pr create without the ship marker gets a warn note in an onboarded repository', () => {
+  const files = (over = {}) => ({ hasWiki: () => true, read: () => null, ...over });
+  const pr = (cmd, fileOver, config = DEFAULTS) => evaluate(cmd, { root: '/r', cwd: '/r/sub', config, gitApi: fakeGit(), fileApi: files(fileOver) });
+  const level = (value) => ({ ...DEFAULTS, guard: { ...DEFAULTS.guard, prOutsideShip: value } });
+  assert.equal(pr('gh pr create --fill').decision, 'warn');
+  assert.equal(pr('gh pr create --fill').rule, 'prOutsideShip');
+  assert.match(pr('gh pr create --fill').reason, /^ship-faster guard: this PR is being opened without \/ship-faster:ship\b.*Override: guard\.prOutsideShip/);
+  assert.equal(pr('gh pr new -t x -b y').decision, 'warn');
+  assert.equal(pr('GH_DEBUG=1 gh pr create --fill').decision, 'warn');
+  assert.equal(pr('gh pr create --fill', { hasWiki: () => false }).decision, null);
+  assert.equal(pr(`gh pr create -t x --body "${PR_MARKER}\n## What"`).decision, null);
+  assert.equal(pr(`gh pr create -t x --body="${PR_MARKER}"`).decision, null);
+  let asked = null;
+  const read = (file) => { asked = file; return `${PR_MARKER}\n## What\n`; };
+  assert.equal(pr('gh pr create --body-file body.md', { read }).decision, null);
+  assert.equal(asked, resolve('/r/sub', 'body.md'));
+  pr('gh pr create -F /c/tmp/body.md', { read });
+  assert.equal(asked, process.platform === 'win32' ? 'c:/tmp/body.md' : '/c/tmp/body.md');
+  assert.equal(pr('gh pr create -F /abs/body.md', { read: () => '## What\n' }).decision, 'warn');
+  assert.equal(pr('gh pr create -F -', { read: () => { throw new Error('stdin is never read'); } }).decision, 'warn');
+  assert.equal(pr('gh pr view 3').decision, null);
+  assert.equal(pr('echo gh pr create').decision, null);
+  assert.equal(pr('gh pr create --fill', {}, level('allow')).decision, null);
+  assert.equal(pr('gh pr create --fill', {}, level('deny')).decision, 'deny');
+  assert.equal(pr('gh pr create --fill && git push origin main').decision, 'deny');
+  const warnPush = { ...DEFAULTS, guard: { ...DEFAULTS.guard, pushProtected: 'warn' } };
+  assert.equal(ev('git push origin main', {}, warnPush).decision, 'warn');
+});
+
+test('hook process: a warn prints additionalContext without a permission decision', () => {
+  const { root } = makeRepo({ files: { 'docs/wiki/index.md': '# i\n' } });
+  const run = (command) => runScript('hook-ship-guard', [], { cwd: root, stdin: { session_id: 's', cwd: root, tool_name: 'Bash', tool_input: { command } }, env: { CLAUDE_PLUGIN_DATA: process.env.CLAUDE_PLUGIN_DATA } });
+  const note = run('gh pr create --fill');
+  assert.equal(note.code, 0);
+  assert.equal(note.json.hookSpecificOutput.hookEventName, 'PreToolUse');
+  assert.match(note.json.hookSpecificOutput.additionalContext, /\/ship-faster:ship/);
+  assert.ok(!('permissionDecision' in note.json.hookSpecificOutput));
+  writeFileSync(join(root, 'body.md'), `${PR_MARKER}\n## What\n`);
+  assert.equal(run('gh pr create --body-file body.md').stdout, '');
 });

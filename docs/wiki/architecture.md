@@ -2,9 +2,9 @@
 title: Architecture
 summary: Skills call deterministic Node scripts and agents; hooks track which wiki pages edits touch and guard risky git commands.
 read_when: You are changing how components interact, adding a component, or need the reason behind a structural decision.
-covers: [plugins/ship-faster/scripts/**, plugins/ship-faster/hooks/hooks.json, plugins/ship-faster/agents/**, plugins/ship-faster/skills/**]
-verified: c2b59ed7f81346348d2e95b0bb502271a89f0c65
-updated: 2026-09-17
+covers: [plugins/ship-faster/scripts/**, plugins/ship-faster/hooks/hooks.json, plugins/ship-faster/agents/**, plugins/ship-faster/skills/**, plugins/ship-faster/templates/claude-md.md, plugins/ship-faster/templates/pr-body.md]
+verified: d609931ded8c1c1ed25573d400c742e69ec709ed
+updated: 2026-09-24
 ---
 # Architecture
 
@@ -20,9 +20,9 @@ updated: 2026-09-17
 
 ## Data flow
 Knowledge skills (onboard, sync-docs, lesson):
-1. A preprocessing line in `SKILL.md` runs `scripts/detect.mjs --json` and injects the result as "Repository facts"; its `attended` field tells the skill whether anyone can answer a question, so outward-facing steps print their commands instead of asking in an unattended run.
+1. A preprocessing line in `SKILL.md` runs `scripts/detect.mjs --json` (`--brief --json` in sync-docs and lesson) and injects the result as "Repository facts"; its `attended` field tells the skill whether anyone can answer a question, so outward-facing steps print their commands instead of asking in an unattended run.
 2. The skill calls scripts for facts and bookkeeping (`footprints.mjs`, `checks.mjs`, `stale.mjs`) and agents for analysis and claim verification.
-3. `page.mjs verify` stamps `verified` (HEAD) and `updated`; `index.mjs` regenerates `docs/wiki/index.md`; `claude-md.mjs splice` replaces the managed block; `lint.mjs` checks budgets, links, covers, and secrets.
+3. `page.mjs verify` stamps `verified` (HEAD) and `updated`; `index.mjs` regenerates `docs/wiki/index.md`; `claude-md.mjs splice` replaces the managed block and `claude-md.mjs workflow` rewrites its Workflow section from `templates/claude-md.md` (onboard after the splice, sync-docs first on every call); `lint.mjs` checks budgets, links, covers, and secrets.
 
 Shipping skills:
 1. `preflight` runs in a forked `check-runner` agent (`context: fork`): `checks.mjs resolve`, then `checks.mjs run`, which writes one log per check and `preflight/last.json` in the data directory; the caller receives only the report.
@@ -32,17 +32,17 @@ Shipping skills:
 5. `health` injects `health.mjs scan`, fans out one `health-auditor` per area, and ends with `health.mjs record`, which writes `health.json`; `kickoff` reads the wiki, writes a plan from `templates/plan.md`, and creates the branch, or with `--worktree` a sibling checkout through `worktree.mjs add`, installs its dependencies with `checks.mjs setup`, and writes the plan there.
 
 Session hooks:
-1. SessionStart: `hook-session-start.mjs` calls `stale()` and `findPlan()` and prints at most 600 characters: wiki location, pages not fresh, active plan, overdue health audit, or an onboard suggestion. It records the session's start in its session record, warns when another session used this checkout in the last two hours (`liveSessions` in `lib/state.mjs`; the prompt-report hook refreshes a session's record every thirty minutes), and names the other worktrees (`worktrees` in `lib/git.mjs`).
+1. SessionStart: `hook-session-start.mjs` calls `stale()` and `findPlan()` and prints at most 600 characters: wiki location, pages not fresh, a Workflow section in CLAUDE.md that is missing or out of date (a dry run of `refreshWorkflowFile` from `claude-md.mjs`), active plan, overdue health audit, or an onboard suggestion. It records the session's start in its session record, warns when another session used this checkout in the last two hours (`liveSessions` in `lib/state.mjs`; the prompt-report hook refreshes a session's record every thirty minutes), and names the other worktrees (`worktrees` in `lib/git.mjs`).
 2. PostToolUse on an edit: `hook-drift-marker.mjs` resolves the root with `resolveRootCached`, records the file as claimed by this session in `.git/ship-faster/edits/<session>.json` (`recordEdit`), matches the file against page covers from `wiki-cache.json` (`loadWikiCache`), and records the pages in the session record (`updateSession`).
 3. UserPromptSubmit: `hook-prompt-report.mjs` prints the recorded pages not yet reported and marks them reported.
-4. PreToolUse on Bash: `hook-ship-guard.mjs` splits the command into segments (`lib/shell.mjs`), finds git invocations past env assignments and wrappers, checks `push` (force, protected branch, `--no-verify`), `commit` and `merge` (`--no-verify`), and `add` (risky paths from `lib/risky.mjs`), and prints a `permissionDecision`.
+4. PreToolUse on Bash: `hook-ship-guard.mjs` splits the command into segments (`lib/shell.mjs`), finds git invocations past env assignments and wrappers, checks `push` (force, protected branch, `--no-verify`), `commit` and `merge` (`--no-verify`), and `add` (risky paths from `lib/risky.mjs`), and prints a `permissionDecision`. In a repository with a wiki it also finds `gh pr create` (or `gh pr new`) whose `--body` or `--body-file` lacks `PR_MARKER`, the first line `ship` and `release` write into PR bodies, and at the default `warn` level prints `additionalContext` telling Claude to run preflight, sync-docs, and review on the branch; the command still runs.
 5. SessionEnd: `hook-session-end.mjs` deletes the session record, which marks the session as ended for `ownership`, keeps its claims, and prunes session records and claim files older than 7 days.
 
 Freshness (`stale.mjs`), per page: missing fields or empty covers is `invalid`; no git or an unknown `verified` commit is `unverifiable`; a covered file changed by a commit after `verified` that did not also touch the page is `stale`; a covered file changed in the working tree or the session is `dirty`, unless the page itself has uncommitted edits; otherwise `fresh`.
 
 ## Boundaries
 - Scripts and hooks import from `scripts/lib/`; `lib/` modules import only each other and Node built-ins.
-- Every CLI script, and `hook-ship-guard.mjs`, runs its CLI only when `process.argv[1]` ends with its own path, so it can be imported (`hook-session-start.mjs` imports `stale.mjs` and `plan.mjs`; `health.mjs` imports `lint.mjs`, `plan.mjs`, and `stale.mjs`; `checks.mjs` imports `detect.mjs`; `lint.mjs` imports `index.mjs`). The other four hooks call `main()` on load and are never imported.
+- Every CLI script, and `hook-ship-guard.mjs`, runs its CLI only when `process.argv[1]` ends with its own path, so it can be imported (`hook-session-start.mjs` imports `stale.mjs`, `plan.mjs`, and `claude-md.mjs`; `health.mjs` imports `lint.mjs`, `plan.mjs`, and `stale.mjs`; `checks.mjs` imports `detect.mjs`; `lint.mjs` imports `index.mjs`). The other four hooks call `main()` on load and are never imported.
 - Every git process is spawned by `git()` in `lib/git.mjs`, with `-c core.quotepath=false` and a timeout (2000 ms by default).
 - Plugin state goes under the data directory from `dataDir()` in `lib/state.mjs`, which rebuilds the `CLAUDE_PLUGIN_DATA` path hooks receive so scripts run from skills use the same one; session records and edit claims go under the checkout's git directory from `checkoutDir()`, which sandboxed commands can also read. Scripts write into the target repository only the generated files, a changelog file (`changelog.mjs insert`, `CHANGELOG.md` by default or a `--file` path), version files (`version.mjs bump`), and the files `worktree.mjs carry` copies into a worktree and `worktree.mjs clear` restores in the checkout; `checks.mjs setup` runs the repository's install commands in a worktree.
 - `repo-analyst`, `doc-verifier`, and `rules-reviewer` cannot write files or run commands; `check-runner` and `health-auditor` run commands but never edit files.
@@ -55,10 +55,16 @@ Alternatives: Not recorded.
 Evidence: `docs/superpowers/specs/2026-09-16-ship-faster-plugin-design.md:24`, 2026-09-16.
 
 ### Guard defaults are deny, never ask <!-- id: d-20260916-guard-deny -->
-Decision: Every guard rule defaults to `deny`; `ask` is allowed only as an explicit override.
-Why: A hook `deny` is documented to hold under bypass-permissions mode; `ask` there is not documented.
+Decision: Every rule for a risky git command defaults to `deny`, and `prOutsideShip` to `warn`; `ask` is allowed only as an explicit override.
+Why: A hook `deny` holds under bypass-permissions mode. `ask` prompts even there and changes nothing in the other modes, which prompt anyway. Opening a PR by hand is legitimate, so that rule only informs Claude.
 Alternatives: `ask` defaults, rejected for the reason above.
-Evidence: `plugins/ship-faster/README.md:107`, `plugins/ship-faster/scripts/lib/config.mjs:10`, 2026-09-16.
+Evidence: `plugins/ship-faster/README.md:107`, `plugins/ship-faster/scripts/lib/config.mjs:10`, 2026-09-24.
+
+### Route to the plugin's skills from CLAUDE.md <!-- id: d-20260924-workflow-routing -->
+Decision: The managed block ends with a Workflow section that maps each step to its ship-faster skill and tells Claude to prefer those over other installed skills with the same purpose; `claude-md.mjs workflow` keeps it identical to the template, and the guard notes PRs opened without ship's marker.
+Why: Users install other plugins with overlapping skills (a preflight, verification, code-review, or branch-finishing skill). For the skills Claude may invoke, the descriptions already win against such decoys; onboard, kickoff, ship, release, and health are slash-only, so without an instruction Claude reaches for a same-purpose skill it can invoke. In local `claude -p` runs with the installed plugins, "open a PR" got "run `/ship-faster:ship`" in 3 of 3 runs with the section and a decoy branch-finishing skill in 3 of 3 without it.
+Alternatives: Making ship model-invocable, rejected because it pushes and opens PRs; denying `gh pr create` outside ship, rejected because a hand-made PR is legitimate.
+Evidence: `plugins/ship-faster/templates/claude-md.md:36`, `plugins/ship-faster/scripts/hook-ship-guard.mjs:148`, `plugins/ship-faster/evals/routing/prompt.md:2`, `docs/wiki/gotchas.md` g-20260924-eval-no-claude-md, 2026-09-24.
 
 ### A page committed with its change stays fresh <!-- id: d-20260916-alongside -->
 Decision: Commits that touch the page itself are excluded when computing what changed since `verified`.

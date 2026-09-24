@@ -28,7 +28,7 @@ The release commit cannot land directly. Ask: "Open a release PR for <tag>?" Say
 1. `git switch -c release/<version>` (the release commit moves with you).
 2. `git branch -f <default> origin/<default>` (the default branch goes back to the remote).
 3. `git push -u origin release/<version>`.
-4. Write the PR body (`## Release <tag>` plus the changelog section) to `<dataDir>/release/pr-body.md` (or a file under the system temp directory); `gh pr create --base <default> --head release/<version> --title "release: v<version>" --body-file <that file>`.
+4. Write the PR body (the line `<!-- opened-by: ship-faster -->`, then `## Release <tag>` and the changelog section) to `<dataDir>/release/pr-body.md` (or a file under the system temp directory); `gh pr create --base <default> --head release/<version> --title "release: v<version>" --body-file <that file>`.
 5. `gh pr checks <number> --watch --fail-fast`; a failure stops here.
 6. Ask again, then `gh pr merge <number> --squash --delete-branch`.
 7. `git switch <default>`, `git pull --ff-only`.

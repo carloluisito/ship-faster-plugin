@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { makeRepo, runScript, tmpDir, cleanupAll } from './helpers.mjs';
 import { DEFAULTS } from '../scripts/lib/config.mjs';
 import { backupDir } from '../scripts/lib/state.mjs';
-import { END, START, backupClaudeMd, sections, splice, spliceFile } from '../scripts/claude-md.mjs';
+import { END, START, backupClaudeMd, refreshWorkflow, refreshWorkflowFile, sections, splice, spliceFile, workflowSection } from '../scripts/claude-md.mjs';
 
 after(cleanupAll);
 beforeEach(() => { process.env.CLAUDE_PLUGIN_DATA = tmpDir('sf-data-'); });
@@ -151,4 +151,66 @@ test('spliceFile keeps CRLF line endings and hand-written text byte for byte', (
   assert.ok(!/(?<!\r)\n/.test(out), 'every newline is CRLF');
   assert.ok(out.endsWith(rules), out);
   assert.ok(out.includes('New.\r\n'));
+});
+
+test('workflowSection renders the template section with the wiki directory and nothing left to fill', () => {
+  const s = workflowSection('wiki');
+  assert.match(s, /^## Workflow\n/);
+  for (const skill of ['`ship-faster:preflight`', '`ship-faster:review`', '`ship-faster:sync-docs`', '`ship-faster:lesson`', '`/ship-faster:kickoff`', '`/ship-faster:ship`', '`/ship-faster:release`', '`/ship-faster:health`']) assert.ok(s.includes(skill), skill);
+  assert.ok(s.includes('Pages under `wiki/`'));
+  assert.ok(!s.includes('{{') && !s.includes(END) && !/\n$/.test(s));
+});
+
+test('refreshWorkflow replaces Keeping docs true, rewrites an old Workflow, inserts a missing one, and is idempotent', () => {
+  const section = '## Workflow\nnew text';
+  const block = (body) => `# A\n\n${START}\n## Read next\nx\n${body}${END}\n\n## Rules\n- r\n## Workflow\nhand-written, outside the block\n`;
+  const want = block(`\n${section}\n`);
+
+  const legacy = refreshWorkflow(block('\n## Keeping docs true\nold 1\nold 2\n'), section);
+  assert.equal(legacy.status, 'missing');
+  assert.equal(legacy.content, want);
+  assert.deepEqual(refreshWorkflow(want, section), { status: 'current', changed: false, content: want });
+
+  const old = refreshWorkflow(block('\n## Workflow\nold text\nmore\n'), section);
+  assert.equal(old.status, 'outdated');
+  assert.equal(old.content, want);
+
+  const both = refreshWorkflow(block('\n## Workflow\nold\n\n## Keeping docs true\nlegacy\n'), section);
+  assert.equal(both.status, 'outdated');
+  assert.equal(both.content, want);
+
+  assert.equal(refreshWorkflow(block(''), section).content, want);
+  assert.equal(refreshWorkflow(block('\n'), section).content, want);
+
+  const middle = refreshWorkflow(block('\n## Workflow\nold\n\n## Extra\nkeep\n'), section);
+  assert.equal(middle.content, block(`\n${section}\n\n## Extra\nkeep\n`));
+
+  const crlf = refreshWorkflow(want.replace(/\n/g, '\r\n'), section);
+  assert.equal(crlf.status, 'current');
+  assert.equal(refreshWorkflow('# A\n## Workflow\nx\n', section).status, 'unmanaged');
+  assert.equal(refreshWorkflow(`${START}\n${START}\n${END}\n`, section).status, 'unmanaged');
+});
+
+test('refreshWorkflowFile writes the template section, keeps CRLF, warns over budget, and the CLI dry-runs', () => {
+  const { root } = makeRepo({ files: { 'a.txt': '' } });
+  const file = join(root, 'CLAUDE.md');
+  assert.equal(refreshWorkflowFile(root, { config: DEFAULTS }).status, 'no-claude-md');
+  const before = `# Acme\r\n\r\n${START}\r\n## Read next\r\nx\r\n\r\n## Keeping docs true\r\nold\r\n${END}\r\n\r\n## Rules\r\n- keep me.\r\n`;
+  writeFileSync(file, before);
+  const dry = runScript('claude-md', ['workflow', '--dry-run', '--json'], { cwd: root, env: { CLAUDE_PLUGIN_DATA: process.env.CLAUDE_PLUGIN_DATA } });
+  assert.equal(dry.json.status, 'missing');
+  assert.equal(dry.json.written, false);
+  assert.equal(readFileSync(file, 'utf8'), before);
+  const r = refreshWorkflowFile(root, { config: DEFAULTS });
+  assert.equal(r.written, true);
+  const out = readFileSync(file, 'utf8');
+  assert.ok(!/(?<!\r)\n/.test(out), 'every newline is CRLF');
+  assert.ok(out.includes(workflowSection('docs/wiki').replace(/\n/g, '\r\n')));
+  assert.ok(out.endsWith('## Rules\r\n- keep me.\r\n') && !out.includes('Keeping docs true'));
+  assert.equal(refreshWorkflowFile(root, { config: DEFAULTS }).status, 'current');
+  const filler = Array.from({ length: 90 }, (_, i) => `line ${i}`).join('\n');
+  writeFileSync(file, `# A\n\n${START}\n${filler}\n${END}\n`);
+  const big = refreshWorkflowFile(root, { config: DEFAULTS });
+  assert.equal(big.written, true);
+  assert.match(big.warnings.join('; '), /managed block is \d+ lines, limit 90/);
 });

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { makeRepo, runScript, tmpDir, cleanupAll } from './helpers.mjs';
+import { END, START, workflowSection } from '../scripts/claude-md.mjs';
 import { serializeFrontmatter } from '../scripts/lib/fm.mjs';
 import { projectDir, readJson, sessionFile, writeJsonAtomic } from '../scripts/lib/state.mjs';
 
@@ -118,6 +119,24 @@ test('a rules path that is a file does not blank the output', () => {
   writeFileSync(join(root, '.claude', 'rules'), 'not a directory\n');
   const r = hook({ session_id: 's', cwd: root, source: 'startup' }, root);
   assert.match(r.stdout, /^ship-faster: wiki at /);
+});
+
+test('the wiki line names a missing or outdated Workflow section in CLAUDE.md and is quiet once it is current', () => {
+  const { root } = bigRepo();
+  const w = join(root, 'docs', 'wiki');
+  mkdirSync(w, { recursive: true });
+  writeFileSync(join(w, 'index.md'), '# i\n');
+  const claude = join(root, 'CLAUDE.md');
+  const managed = (body) => `# x\n\n${START}\n## Read next\nx\n\n${body}\n${END}\n\n## Rules\n`;
+  const line = () => hook({ session_id: 's', cwd: root, source: 'compact' }, root).stdout;
+  writeFileSync(claude, managed('## Keeping docs true\nold'));
+  assert.match(line(), /All pages fresh\. CLAUDE\.md's Workflow section is missing → \/ship-faster:sync-docs\.$/m);
+  writeFileSync(claude, managed('## Workflow\nold'));
+  assert.match(line(), /CLAUDE\.md's Workflow section is out of date → \/ship-faster:sync-docs\./);
+  writeFileSync(claude, managed(workflowSection('docs/wiki')));
+  assert.ok(!line().includes('Workflow'), line());
+  writeFileSync(claude, '# x\nno markers\n');
+  assert.ok(!line().includes('Workflow'), line());
 });
 
 test('startup names the sibling worktrees from both sides and says nothing about them on compact', () => {

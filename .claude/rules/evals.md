@@ -6,3 +6,4 @@ paths: ["plugins/ship-faster/evals/**"]
 - Give every skill an eval case with `prompt.md` and at least one `graders/*.md`; the validator fails without them. (docs/wiki/recipes/add-a-skill.md)
 - Never run `claude plugin eval` as a PR gate; it spends real model credit. (docs/wiki/testing.md)
 - Write an `input_match` around JSON escaping: `\S*` or `[^ ]+` where the command quotes a path, never a literal quote. (docs/wiki/gotchas.md g-20260917-grader-json-escape)
+- Test what CLAUDE.md drives with local `claude -p` runs, not an eval case; the harness never loads the fixture's CLAUDE.md. (docs/wiki/gotchas.md g-20260924-eval-no-claude-md)

@@ -55,7 +55,7 @@ Agents never write into the repository. `check-runner` writes only check logs un
 
 ## What gets generated in your repository
 
-- `CLAUDE.md`: under 150 lines, a managed block of at most 90 lines between `<!-- ship-faster:managed:start -->` and `<!-- ship-faster:managed:end -->`, and a hand-written `## Rules` section regeneration never touches.
+- `CLAUDE.md`: under 150 lines, a managed block of at most 90 lines between `<!-- ship-faster:managed:start -->` and `<!-- ship-faster:managed:end -->`, and a hand-written `## Rules` section regeneration never touches. The managed block ends with a Workflow section that maps each step (checks, review, docs, lessons, plans, PRs, releases, audits) to its ship-faster skill and tells Claude to prefer those over other installed skills with the same purpose. `sync-docs` rewrites that section from the template whenever the plugin changes it, and the session-start line says when it is missing or out of date.
 - `docs/wiki/`: `index.md` (generated), `overview.md`, `architecture.md`, `layout.md`, `commands.md` (with the `checks` list preflight runs and the `setup` list new worktrees install with), `conventions.md`, `testing.md`, `gotchas.md`, `dependencies.md`, `ops.md`, `recipes/<task>.md`, and `packages/<name>.md` in monorepos. Each page is under 200 lines and carries `title`, `summary`, `read_when`, `covers`, `verified`, and `updated`.
 - `.claude/rules/<area>.md`: at most 25 lines each, with a `paths:` list so Claude Code loads them only when a matching file is read.
 - `docs/plans/<date>-<slug>.md`: written by `kickoff`, marked `shipped` by `ship`, flagged by `health` when the branch is gone.
@@ -66,8 +66,8 @@ A page is stale when a covered file changed in a commit that did not also touch 
 
 | Event | Script | What it does | Cost |
 |---|---|---|---|
-| SessionStart | `hook-session-start.mjs` | Prints where the wiki is, how many pages are stale, the active plan for the branch, the other worktrees, a note when another session used this checkout in the last two hours, and whether the health audit is overdue. Suggests `/ship-faster:onboard` in a repo with 20+ files and no CLAUDE.md. | one `git log` per distinct verified commit, or one pass over the history from three; under 1.5 s on 30 pages |
-| PreToolUse (Bash) | `hook-ship-guard.mjs` | Denies force pushes and direct pushes to protected branches, `--no-verify` on commit, merge, and push, and `git add -A` when it would stage secrets, dependency directories, build output, log files, or files over 5 MB. | no git call unless the command contains a `git push`, `git add`, `git commit`, or `git merge`; the repository root is cached for a day |
+| SessionStart | `hook-session-start.mjs` | Prints where the wiki is, how many pages are stale, the active plan for the branch, the other worktrees, a note when another session used this checkout in the last two hours, whether CLAUDE.md's Workflow section is missing or out of date, and whether the health audit is overdue. Suggests `/ship-faster:onboard` in a repo with 20+ files and no CLAUDE.md. | one `git log` per distinct verified commit, or one pass over the history from three; under 1.5 s on 30 pages |
+| PreToolUse (Bash) | `hook-ship-guard.mjs` | Denies force pushes and direct pushes to protected branches, `--no-verify` on commit, merge, and push, and `git add -A` when it would stage secrets, dependency directories, build output, log files, or files over 5 MB. In a repository with a wiki, lets `gh pr create` run but tells Claude when the PR body lacks the `<!-- opened-by: ship-faster -->` line that `ship` and `release` write, so it runs preflight, sync-docs, and review on the branch afterwards. | no git call unless the command contains a `git push`, `git add`, `git commit`, or `git merge`; `gh pr create` reads only its body file; the repository root is cached for a day |
 | PostToolUse (Edit, Write, MultiEdit, NotebookEdit) | `hook-drift-marker.mjs` | Records that this session changed the file (so `ship` can tell sessions apart) and which wiki pages cover it. Prints nothing. | no git call after the first per working directory |
 | UserPromptSubmit | `hook-prompt-report.mjs` | Once per page per session, tells Claude which pages the session's edits touched and are not yet re-verified. | one small file read |
 | SessionEnd | `hook-session-end.mjs` | Deletes the session record, keeps its record of edited files, and prunes both kinds older than 7 days. | one directory prune |
@@ -95,7 +95,7 @@ Optional `.claude/ship-faster.json` in the repository. Every key is optional:
   "rulesDir": ".claude/rules",
   "defaultBranch": "auto",
   "protectedBranches": ["main", "master"],
-  "guard": { "forcePush": "deny", "pushProtected": "deny", "noVerify": "deny", "addAll": "deny" },
+  "guard": { "forcePush": "deny", "pushProtected": "deny", "noVerify": "deny", "addAll": "deny", "prOutsideShip": "warn" },
   "healthCadenceDays": 14,
   "pageMaxLines": 200,
   "claudeMdMaxLines": 150,
@@ -104,7 +104,7 @@ Optional `.claude/ship-faster.json` in the repository. Every key is optional:
 }
 ```
 
-Guard values are `deny`, `ask`, or `allow`. Defaults never use `ask`: a hook `deny` is documented to hold under bypass-permissions mode, while `ask` there is not documented.
+Guard values are `deny`, `ask`, `warn`, or `allow`. `warn` lets the command run and adds the reason to Claude's context. Defaults never use `ask`: it prompts even in bypass-permissions mode (Claude Code 2.1.196 and later) and changes nothing in the other modes, which prompt anyway.
 
 ## What is stored, and where
 
@@ -142,7 +142,7 @@ node scripts/lint.mjs          budgets, links, covers, checks and setup shape, s
 node scripts/checks.mjs        resolve | run the repository's checks | setup: install dependencies (commands.md setup list, else lockfiles)
 node scripts/plan.mjs          find --branch | stale | set-status
 node scripts/page.mjs          verify <page>... | touch <page>...: stamp verified (HEAD) and updated (today)
-node scripts/claude-md.mjs     sections | splice --block <file> | backup: read, regenerate, and back up CLAUDE.md's managed block
+node scripts/claude-md.mjs     sections | splice --block <file> | workflow [--dry-run] | backup: read, regenerate, refresh the Workflow section of, and back up CLAUDE.md's managed block
 node scripts/changes.mjs       branch, base, ahead/behind, uncommitted files with risk flags and owner, commit style (ship's inventory; --session <id> [--include <globs>] [--here] decides what ships)
 node scripts/version.mjs       detect | bump <patch|minor|major|x.y.z>: version source (manifests, plugin.json + marketplace, or tags) and bump
 node scripts/changelog.mjs     since [--tag <tag>] | insert --section <file>: commits since the last tag grouped Added / Fixed / Changed
@@ -153,7 +153,7 @@ node scripts/worktree.mjs      list | add --branch <name> [--from <ref>] | carry
 
 ## Evals
 
-`evals/<case>/` holds at least one case per skill (`ship` and `kickoff` have a second): a prompt, a `case.yaml` naming a scaffold script that builds a fixture repository, and graders (deterministic checks plus one rubric a judge model scores). Runs spend real model credit and need a sandbox backend for `Bash`, so they never gate a PR. Run them on Linux, from Windows through WSL, or with `.github/workflows/evals.yml` on manual dispatch (it needs an `ANTHROPIC_API_KEY` repository secret):
+`evals/<case>/` holds at least one case per skill (`ship` and `kickoff` have a second), plus `routing`, which installs same-purpose skills next to the plugin and checks that Claude still picks ship-faster's: a prompt, a `case.yaml` naming a scaffold script that builds a fixture repository, and graders (deterministic checks, and in most cases a rubric a judge model scores). Runs spend real model credit and need a sandbox backend for `Bash`, so they never gate a PR. Run them on Linux, from Windows through WSL, or with `.github/workflows/evals.yml` on manual dispatch (it needs an `ANTHROPIC_API_KEY` repository secret):
 
 ```
 plugins/ship-faster/tests/evals.sh [case ...]

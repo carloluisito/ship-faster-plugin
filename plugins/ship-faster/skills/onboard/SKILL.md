@@ -100,7 +100,13 @@ Build the managed block from `${CLAUDE_PLUGIN_ROOT}/templates/claude-md.md`: the
 node "${CLAUDE_PLUGIN_ROOT}/scripts/claude-md.mjs" splice --block <that file> --name "<project name>" --dry-run --json
 ```
 
-If a CLAUDE.md existed, show the old and the new file as a diff in your response. Then run the same command without `--dry-run`. Afterwards, with an existing file: remove the sections classified `commands`, `depth`, or `stale` in step 2 and keep the `rule` sections under `## Rules` verbatim. With a new file: put the rules found in an old `## Rules` section, plus at most five rules drawn from `gotchas.md`, under `## Rules` as imperative sentences.
+If a CLAUDE.md existed, show the old and the new file as a diff in your response. Then run the same command without `--dry-run`, followed by
+
+```
+node "${CLAUDE_PLUGIN_ROOT}/scripts/claude-md.mjs" workflow --json
+```
+
+which makes the Workflow section match the template word for word. Afterwards, with an existing file: remove the sections classified `commands`, `depth`, or `stale` in step 2 and keep the `rule` sections under `## Rules` verbatim. With a new file: put the rules found in an old `## Rules` section, plus at most five rules drawn from `gotchas.md`, under `## Rules` as imperative sentences.
 
 Monorepos: write the per-package CLAUDE.md files now.
 
