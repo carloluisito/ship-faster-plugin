@@ -1,6 +1,6 @@
-# Shipping from a shared checkout
+# Shipping from a checkout other sessions may use
 
-Other sessions have uncommitted work in this checkout, or may start editing again at any moment. Nothing below switches this checkout's branch, commits in it, or touches a path outside `<files>`.
+Other sessions may have uncommitted work in this checkout, or start in it at any moment. Nothing below switches this checkout's branch, commits in it, or touches a path outside `<files>`.
 
 ## Create
 

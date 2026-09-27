@@ -51,5 +51,5 @@ Failure: <check> exit <code>             (only on FAIL)
 <last 20 lines of the tail in a fenced block>
 Log: <path or "not written">
 Diagnosis: <the five sentences>
-Result file: <resultFile path>
+Result file: <resultFile path, or lastJson when resultFile is null>
 ```

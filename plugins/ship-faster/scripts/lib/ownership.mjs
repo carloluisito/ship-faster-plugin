@@ -66,11 +66,16 @@ export function ownership(root, { sid, dirty = [], excluded = [], includes = [],
     .filter((o) => o.files.length > 0 || recent(o))
     .sort((a, b) => Date.parse(b.lastActive || 0) - Date.parse(a.lastActive || 0));
 
+  const changedAny = session !== null && paths.some((p) => owner[p] === 'mine' || owner[p] === 'both');
   let mode = 'shared';
   let reason = `${others.length} other session${others.length === 1 ? '' : 's'} use${others.length === 1 ? 's' : ''} this checkout`;
+  // A session that changed files must not sweep up leftovers it never touched; one that changed none ships them.
+  let shipAll = true;
   if (!session) { mode = 'solo'; reason = 'no session id, so every uncommitted file counts'; }
-  else if (!others.length) { mode = 'solo'; reason = 'no other session uses this checkout'; }
   else if (here) { mode = 'solo'; reason = '--here: every uncommitted file ships from this checkout'; }
+  else if (!others.length && !changedAny) { mode = 'solo'; reason = 'no other session uses this checkout, and this session changed none of these files'; }
+  else if (!others.length) { mode = 'solo'; reason = 'no other session uses this checkout'; shipAll = false; }
+  else shipAll = false;
 
   const patterns = splitIncludes(includes);
   const includedSet = new Set(patterns.length ? paths.filter((p) => anyMatch(patterns, p)) : []);
@@ -81,7 +86,6 @@ export function ownership(root, { sid, dirty = [], excluded = [], includes = [],
   const skip = new Set(excluded);
   const eligible = paths.filter((p) => !skip.has(p));
   const sessionsOf = (p) => [...new Set([...claimants.get(p), ...(renamedTo.has(p) ? claimants.get(renamedTo.get(p)) : [])])].filter((s) => s !== session);
-  const solo = mode === 'solo';
 
   return {
     session,
@@ -91,8 +95,8 @@ export function ownership(root, { sid, dirty = [], excluded = [], includes = [],
     others: others.map((o) => ({ ...o, files: o.files.slice(0, 20) })),
     owner,
     included,
-    ship: solo ? eligible : eligible.filter((p) => owner[p] === 'mine' || includedSet.has(p)),
-    ask: solo ? [] : eligible.filter((p) => !includedSet.has(p) && ASK.has(owner[p])).map((p) => ({ path: p, owner: owner[p], sessions: sessionsOf(p) })),
-    leave: solo ? [] : eligible.filter((p) => !includedSet.has(p) && owner[p] === 'theirs').map((p) => ({ path: p, sessions: sessionsOf(p) })),
+    ship: shipAll ? eligible : eligible.filter((p) => owner[p] === 'mine' || includedSet.has(p)),
+    ask: shipAll ? [] : eligible.filter((p) => !includedSet.has(p) && ASK.has(owner[p])).map((p) => ({ path: p, owner: owner[p], sessions: sessionsOf(p) })),
+    leave: shipAll ? [] : eligible.filter((p) => !includedSet.has(p) && owner[p] === 'theirs').map((p) => ({ path: p, sessions: sessionsOf(p) })),
   };
 }

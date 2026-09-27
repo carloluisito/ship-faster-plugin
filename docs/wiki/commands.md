@@ -3,7 +3,7 @@ title: Commands
 summary: Verified validation, test, and benchmark commands for the plugin, run from the repository root, with durations.
 read_when: You need to run, test, build, or debug the environment, or preflight needs the check list.
 covers: [.github/workflows/ci.yml, .github/workflows/evals.yml, plugins/ship-faster/tests/run.mjs, plugins/ship-faster/tests/validate.mjs, plugins/ship-faster/tests/bench.mjs, plugins/ship-faster/README.md]
-verified: fc39b166b1f6d9198b4258b168d47d394228af64
+verified: d425bb9fc51f23cfdb3e4acd126f36dc2f0813af
 updated: 2026-09-27
 checks:
   - name: validate

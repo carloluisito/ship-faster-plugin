@@ -41,7 +41,7 @@ Only when the arguments contain `--merge`:
 
 ## Worktrees
 
-`<root>` is a worktree when the inventory says `worktree.isWorktree` (then `<mainRoot>` = `worktree.mainRoot` and `<path>` = `worktree.path`) or when step 3 created it in shared mode (then `<mainRoot>` = this checkout and `<path>` = `<root>`). Print these commands for the user to run from the main checkout once the PR needs no more work (after the merge with `--merge`); do not run them, because a worktree cannot remove itself while a session sits in it, and another session may still use the main checkout:
+`<root>` is a worktree when the inventory says `worktree.isWorktree` (then `<mainRoot>` = `worktree.mainRoot` and `<path>` = `worktree.path`) or when step 3 created it (then `<mainRoot>` = this checkout and `<path>` = `<root>`). Print these commands for the user to run from the main checkout once the PR needs no more work (after the merge with `--merge`); do not run them, because a worktree cannot remove itself while a session sits in it, and another session may still use the main checkout:
 
 ```
 git -C "<mainRoot>" pull --ff-only

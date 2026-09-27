@@ -1,6 +1,6 @@
 ---
 name: ship
-description: Turn this session's work into a pull request. When other sessions share the checkout, take only this session's changes and build the commit in a worktree of its own; run preflight, sync the docs the change touches, review against the repository's rules, check the plan, commit by name, then push and open the PR with a verification table in the body; squash-merge only with --merge.
+description: Turn this session's work into a pull request. Build the commit in a worktree of its own whenever a new branch is needed, so the checkout never switches branch, and when other sessions share the checkout take only this session's changes; run preflight, sync the docs the change touches, review against the repository's rules, check the plan, commit by name, then push and open the PR with a verification table in the body; squash-merge only with --merge.
 disable-model-invocation: true
 argument-hint: "[branch-or-description] [--include <paths>] [--here] [--root <worktree>] [--merge] [--draft] [--base <branch>] [--no-review]"
 allowed-tools: Read, Glob, Grep, Write, Edit, Skill, Agent, Bash(node *), Bash(git *), Bash(gh *)
@@ -22,7 +22,7 @@ Session: ${CLAUDE_SESSION_ID}
 
 Rules that hold throughout: never force push, never push to a protected branch, never `--no-verify`, never `git add -A` or `git add .` (the ship-guard hook denies pushes to protected branches, `--no-verify`, and an add-all that would stage a risky file), never skip preflight, never merge without `--merge`. Only the user can start this command, so starting it is their yes to push and open the PR: do not ask again before those steps. Merge is harder to undo and still needs its own yes. `attended: false` in the facts means nobody can answer (`claude -p`, an eval, a hook-driven run): then never ask, stop before the push, and print the exact commands instead, in your final message.
 
-`<dataDir>` = `dataDir` from the facts; `<wikiDir>` = `config.wikiDir`; `<session>` = the session id above. `<root>` is the checkout being shipped: this one, the worktree step 3 creates, or the `--root` argument. Whenever `<root>` is not this checkout, every plugin script gets `--root <root>`, every git command runs as `git -C <root>`, every skill you invoke gets `--root <root>` in its arguments, and files are read and edited under `<root>`. Read `${CLAUDE_SKILL_DIR}/reference/shared-checkout.md` before step 3 when `ownership.mode` is `shared` or `--root` is given, and `${CLAUDE_SKILL_DIR}/reference/commit-and-pr.md` before step 8.
+`<dataDir>` = `dataDir` from the facts; `<wikiDir>` = `config.wikiDir`; `<session>` = the session id above. `<root>` is the checkout being shipped: this one, the worktree step 3 creates, or the `--root` argument. Whenever `<root>` is not this checkout, every plugin script gets `--root <root>`, every git command runs as `git -C <root>`, every skill you invoke gets `--root <root>` in its arguments, and files are read and edited under `<root>`. Read `${CLAUDE_SKILL_DIR}/reference/shared-checkout.md` before step 3 unless the arguments contain `--here`, and `${CLAUDE_SKILL_DIR}/reference/commit-and-pr.md` before step 8.
 
 ## 1. Inventory
 
@@ -32,16 +32,16 @@ From the inventory JSON: `ok: false` (not a git repository) or `detached: true`:
 node "${CLAUDE_PLUGIN_ROOT}/scripts/changes.mjs" --session "${CLAUDE_SESSION_ID}" --json
 ```
 
-appending `--base <branch>`, `--include <paths>`, `--here`, and `--root <path>` as given. `hasWork: false`: print "nothing to ship: no uncommitted changes and no commits ahead of <base>" and stop. Base is the `--base` argument, else `base` from the inventory.
+appending `--base <branch>`, `--include <paths>`, `--here`, and `--root <path>` as given. When the arguments describe work that is not in the working tree yet (a feature or a fix asked for in words, not a branch name), do that work first, then run the inventory command again with the same flags and use its output from here on: the inventory above predates your edits, so it cannot tell your files from anything else left uncommitted. `hasWork: false`: print "nothing to ship: no uncommitted changes and no commits ahead of <base>" and stop. Base is the `--base` argument, else `base` from the inventory.
 
 ## 2. Whose changes
 
 `ownership.mode` decides what ships; `ownership.reason` says why.
 
-- `solo`: every path in `ownership.ship` (all uncommitted files except `excluded`). With `ownership.forced` (`--here` while other sessions use the checkout), say that their files ship too. `ownership.session` null means the session id was unavailable: say so.
+- `solo`: every path in `ownership.ship`. When this session changed none of the uncommitted files (they were edited by hand), that is all of them except `excluded`. When it changed some, it is those plus the `--include` matches, and `ownership.ask` lists the rest (`earlier` or `unclaimed`); handle it as in shared mode below. With `ownership.forced` (`--here` while other sessions use the checkout), say that their files ship too. `ownership.session` null means the session id was unavailable: say so.
 - `shared`: other sessions use this checkout (`ownership.others`: branch, last activity, files they changed). `ownership.ship` holds this session's files plus the `--include` matches.
   - `ownership.leave` (changed only by other open sessions) stays out. Name each file with its session's branch.
-  - `ownership.ask` lists files whose owner is `both` (this session and another open one changed it), `earlier` (only a session that ended, or has been idle for two hours, changed it), or `unclaimed` (no session's edits explain it, such as the output of a Bash command). Ask the user once, listing each file with its owner, which to add; a `both` file can be added whole or with only this session's hunks. With `attended: false` add none and list them.
+  - `ownership.ask` lists files whose owner is `both` (this session and another open one changed it), `earlier` (only a session that ended, or has been idle for two hours, changed it), or `unclaimed` (no session's edits explain it, such as the output of a Bash command). An `unclaimed` file you changed yourself in this session through Bash is yours: add it without asking, because the edit hook records only Edit and Write. Ask the user once about the rest, listing each file with its owner, which to add; a `both` file can be added whole or with only this session's hunks. With `attended: false` add none and list them.
   - Nothing to ship after that: print "nothing of this session's to ship", the files other sessions own, and the two ways to take them anyway (`--include <paths>`, `--here`), then stop. Commits ahead of the base do not count in shared mode, because the checkout's branch is not this session's to push.
 
 The files that ship are `<files>` from here on.
@@ -49,8 +49,11 @@ The files that ship are `<files>` from here on.
 ## 3. Branch or worktree
 
 - `--root <path>`: `<root>` = that path, a worktree an earlier `ship` created; its branch is the PR's branch, so stay on it. `onProtected: true` there: stop with "--root must point at a checkout on a feature branch".
-- `solo`: `<root>` = this checkout. `onProtected: true` (you are on the default branch or a protected branch): derive a branch name. From the argument when it looks like `type/slug`; from a description argument by slugifying it; otherwise from `<files>` and `subjects`. Prefix `feat/`, `fix/`, `chore/`, `refactor/`, `docs/`, or `test/` by the change's nature, then 2 to 5 lowercase words joined by hyphens. Print it, then `git switch -c <name>`; uncommitted changes travel along. On a feature branch: stay.
-- `shared`: derive the name the same way, then follow reference/shared-checkout.md, sections Create, Setup, and Carry. This checkout keeps its branch and every file you did not carry; `<root>` = the new worktree.
+Branch name, when one is needed: from the argument when it looks like `type/slug`; from a description argument by slugifying it; otherwise from `<files>` and `subjects`. Prefix `feat/`, `fix/`, `chore/`, `refactor/`, `docs/`, or `test/` by the change's nature, then 2 to 5 lowercase words joined by hyphens. Print it.
+
+- `solo` on a feature branch (`onProtected: false`): `<root>` = this checkout; stay on its branch.
+- `--here` on a protected branch: `<root>` = this checkout; `git switch -c <name>`, and uncommitted changes travel along.
+- Otherwise (`shared`, or `solo` on the default or a protected branch): follow reference/shared-checkout.md, sections Create, Setup, and Carry. This checkout keeps its branch and every file you did not carry; `<root>` = the new worktree. Never `git switch` this checkout: another session may start in it, or already be in it, while you ship, and would find itself on your branch.
 
 ## 4. Preflight
 
@@ -74,7 +77,7 @@ When `plan` is not null: read the plan file. Build the checklist: one `- [x]` pe
 
 ## 8. Commit
 
-Follow reference/commit-and-pr.md, section Commit. With nothing uncommitted in `<root>` (only commits ahead), skip to step 9. In shared mode, follow reference/shared-checkout.md, section Clear, right after the commit.
+Follow reference/commit-and-pr.md, section Commit. With nothing uncommitted in `<root>` (only commits ahead), skip to step 9. When step 3 created a worktree, follow reference/shared-checkout.md, section Clear, right after the commit.
 
 ## 9. Push and PR
 
@@ -86,4 +89,4 @@ Only with `--merge`, following reference/commit-and-pr.md, section Merge. Ask ag
 
 ## 11. Report
 
-Three lines: the PR URL (or the compare URL and body path when there is no `gh`), the checks status, and what was not done (a step you stopped before, with the command to run). When no PR was created, the report also carries the PR body of step 9 in full, inside one fenced block, so the user can paste it. In shared mode add two lines: the files left for other sessions (or `none`), and `Worktree: <root> — fix review feedback there, then run /ship-faster:ship --root <root>`. When `<root>` is a worktree (the inventory's `worktree.isWorktree`, or shared mode): after a merge in step 10, the cleanup commands from reference/commit-and-pr.md, section Worktrees; otherwise `Worktree stays until the PR merges; then run the cleanup from the main checkout.` Never run those commands from inside the worktree.
+Three lines: the PR URL (or the compare URL and body path when there is no `gh`), the checks status, and what was not done (a step you stopped before, with the command to run). When no PR was created, the report also carries the PR body of step 9 in full, inside one fenced block, so the user can paste it. When step 3 created a worktree add `Worktree: <root> — fix review feedback there, then run /ship-faster:ship --root <root>`, and in shared mode also the files left for other sessions (or `none`). When `<root>` is a worktree (the inventory's `worktree.isWorktree`, or step 3 created one): after a merge in step 10, the cleanup commands from reference/commit-and-pr.md, section Worktrees; otherwise `Worktree stays until the PR merges; then run the cleanup from the main checkout.` Never run those commands from inside the worktree.

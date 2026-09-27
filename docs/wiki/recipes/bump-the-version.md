@@ -3,7 +3,7 @@ title: Bump the version
 summary: Cut a new plugin version with the release skill, or by hand in both manifests and the changelog so validation passes.
 read_when: You need to cut a new plugin version.
 covers: [plugins/ship-faster/.claude-plugin/plugin.json, .claude-plugin/marketplace.json, plugins/ship-faster/CHANGELOG.md, plugins/ship-faster/README.md, plugins/ship-faster/scripts/version.mjs, plugins/ship-faster/scripts/changelog.mjs, plugins/ship-faster/skills/release/**]
-verified: fc39b166b1f6d9198b4258b168d47d394228af64
+verified: d425bb9fc51f23cfdb3e4acd126f36dc2f0813af
 updated: 2026-09-27
 ---
 # Bump the version

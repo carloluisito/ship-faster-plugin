@@ -165,7 +165,7 @@ function sharedRepo() {
   return { root, git };
 }
 
-test('ownership is solo without a session id or without another session, and ships every uncommitted file as before', () => {
+test('ownership is solo without a session id or without another session, and ships every uncommitted file when this session changed none', () => {
   const { root } = sharedRepo();
   openSession(root, 'them');
   recordEdit(root, 'them', 'b.txt', { at: soon() });
@@ -175,16 +175,41 @@ test('ownership is solo without a session id or without another session, and shi
   assert.match(anonymous.ownership.reason, /no session id/);
   assert.deepEqual(anonymous.ownership.ship, ['a.txt', 'b.txt', 'c.txt', 'd.txt', 'e.txt']);
 
-  const { root: alone } = sharedRepo();
-  openSession(alone, 'me');
-  recordEdit(alone, 'me', 'a.txt', { at: soon() });
-  const solo = changes(alone, { config: DEFAULTS, session: 'me' });
+  const { root: untouched } = sharedRepo();
+  openSession(untouched, 'me');
+  const byHand = changes(untouched, { config: DEFAULTS, session: 'me' });
+  assert.equal(byHand.ownership.mode, 'solo');
+  assert.match(byHand.ownership.reason, /changed none/);
+  assert.deepEqual(byHand.ownership.ship, ['a.txt', 'b.txt', 'c.txt', 'd.txt', 'e.txt']);
+  assert.deepEqual([byHand.ownership.ask, byHand.ownership.leave], [[], []]);
+});
+
+test('alone in the checkout, a session that changed files ships those and asks about the ones no open session explains', () => {
+  const { root } = sharedRepo();
+  openSession(root, 'me');
+  recordEdit(root, 'me', 'a.txt', { at: soon() });
+  recordEdit(root, 'ended', 'd.txt', { at: soon() });
+  const solo = changes(root, { config: DEFAULTS, session: 'me' });
   assert.equal(solo.ownership.mode, 'solo');
   assert.deepEqual(solo.ownership.others, []);
-  assert.deepEqual(solo.ownership.ship, ['a.txt', 'b.txt', 'c.txt', 'd.txt', 'e.txt']);
-  assert.deepEqual([solo.ownership.ask, solo.ownership.leave], [[], []]);
   assert.equal(solo.dirty.find((d) => d.path === 'a.txt').owner, 'mine');
-  assert.equal(solo.dirty.find((d) => d.path === 'b.txt').owner, 'unclaimed');
+  assert.deepEqual(solo.ownership.ship, ['a.txt']);
+  assert.deepEqual(solo.ownership.ask, [
+    { path: 'b.txt', owner: 'unclaimed', sessions: [] },
+    { path: 'c.txt', owner: 'unclaimed', sessions: [] },
+    { path: 'd.txt', owner: 'earlier', sessions: ['ended'] },
+    { path: 'e.txt', owner: 'unclaimed', sessions: [] },
+  ]);
+  assert.deepEqual(solo.ownership.leave, []);
+  assert.match(solo.summary.join('\n'), /ownership: solo \(no other session uses this checkout\): ship 1, ask 4/);
+
+  const included = changes(root, { config: DEFAULTS, session: 'me', include: ['b.txt'] });
+  assert.deepEqual(included.ownership.ship, ['a.txt', 'b.txt']);
+  assert.deepEqual(included.ownership.ask.map((x) => x.path), ['c.txt', 'd.txt', 'e.txt']);
+
+  const here = changes(root, { config: DEFAULTS, session: 'me', here: true });
+  assert.deepEqual(here.ownership.ship, ['a.txt', 'b.txt', 'c.txt', 'd.txt', 'e.txt']);
+  assert.deepEqual(here.ownership.ask, []);
 });
 
 test('shared ownership splits files into mine, both, theirs, earlier, and unclaimed, and ships only mine plus includes', () => {

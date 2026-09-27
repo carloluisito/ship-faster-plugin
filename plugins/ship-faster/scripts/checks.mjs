@@ -226,7 +226,7 @@ export function runChecks(root, { config, checks, continueOnFail = false } = {})
     resultFile: normalizePath(join(dir, `${at}-result.json`)),
     summary,
   };
-  writeJsonAtomic(join(dir, `${at}-result.json`), result);
+  if (!writeJsonAtomic(join(dir, `${at}-result.json`), result)) result.resultFile = null;
   writeJsonAtomic(join(dir, 'last.json'), result);
   try { prune(dir); } catch {}
   return result;
