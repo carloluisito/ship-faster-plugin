@@ -113,8 +113,9 @@ Under the plugin data directory Claude Code provides, `<config>/plugins/data/shi
 ```
 projects/<hash16>/project.json        { root, createdAt }
 projects/<hash16>/wiki-cache.json     page covers and verified commits, keyed by mtime
-projects/<hash16>/preflight/          check logs and last.json, last 10 runs
-projects/<hash16>/ship/, release/     commit messages, PR bodies, changelog sections
+projects/<hash16>/preflight/          check logs and a result file per run, last 10 runs, plus last.json
+projects/<hash16>/ship/<session>/     this session's commit message, PR body and PR comment
+projects/<hash16>/release/            release commit message, PR body, changelog section
 projects/<hash16>/backup/             copy of CLAUDE.md taken before onboard rewrites it
 projects/<hash16>/health.json         last health run
 cwd-cache/<hash16>.json               working directory → repository root

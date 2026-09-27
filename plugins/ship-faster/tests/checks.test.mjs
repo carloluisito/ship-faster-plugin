@@ -72,6 +72,18 @@ test('run stops at the first failure, records tails and logs, writes last.json',
   assert.deepEqual(all.checks.map((c) => c.status), ['pass', 'fail', 'pass']);
 });
 
+test('each run keeps its own result file, so a later run in the same checkout cannot replace it', () => {
+  const { root } = makeRepo({ files: { 'a.txt': '' } });
+  const first = runChecks(root, { config: DEFAULTS, checks: [{ name: 'bad', run: 'node -e "process.exit(1)"', timeout: 30, source: 'test' }] });
+  const second = runChecks(root, { config: DEFAULTS, checks: [{ name: 'ok', run: 'node -e 0', timeout: 30, source: 'test' }] });
+  assert.notEqual(first.resultFile, second.resultFile);
+  const kept = JSON.parse(readFileSync(first.resultFile, 'utf8'));
+  assert.equal(kept.passed, false);
+  assert.equal(kept.resultFile, first.resultFile);
+  assert.deepEqual(kept.checks.map((c) => c.name), ['bad']);
+  assert.equal(JSON.parse(readFileSync(join(preflightDir(root), 'last.json'), 'utf8')).passed, true);
+});
+
 test('timeouts are reported and old logs are pruned to ten runs', () => {
   const { root } = makeRepo({ files: { 'a.txt': '' } });
   const slow = [{ name: 'slow', run: 'node -e "setTimeout(function(){}, 5000)"', timeout: 1, source: 'test' }];
@@ -82,6 +94,8 @@ test('timeouts are reported and old logs are pruned to ten runs', () => {
   for (let i = 0; i < 12; i++) runChecks(root, { config: DEFAULTS, checks: fast });
   const stamps = new Set(readdirSync(preflightDir(root)).filter((n) => n.endsWith('.log')).map((n) => n.slice(0, 24)));
   assert.ok(stamps.size <= 10, `expected at most 10 runs of logs, got ${stamps.size}`);
+  const results = readdirSync(preflightDir(root)).filter((n) => n.endsWith('-result.json'));
+  assert.ok(results.length <= 10, `expected at most 10 result files, got ${results.length}`);
 });
 
 test('cli resolve and run', () => {

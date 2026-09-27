@@ -110,7 +110,7 @@ function tailOf(text, lines = 60, max = 4096) {
 }
 
 function prune(dir, keep = 10) {
-  const logs = readdirSync(dir).filter((n) => n.endsWith('.log'));
+  const logs = readdirSync(dir).filter((n) => n.endsWith('.log') || n.endsWith('-result.json'));
   const stamps = [...new Set(logs.map((n) => n.slice(0, 24)))].sort();
   for (const s of stamps.slice(0, Math.max(0, stamps.length - keep))) {
     for (const n of logs) if (n.startsWith(s)) rmSync(join(dir, n), { force: true });
@@ -222,8 +222,11 @@ export function runChecks(root, { config, checks, continueOnFail = false } = {})
     head: git.head(root),
     checks: results,
     lastJson: normalizePath(join(dir, 'last.json')),
+    // last.json is shared by every session in this checkout; the per-run file is what a caller cites later.
+    resultFile: normalizePath(join(dir, `${at}-result.json`)),
     summary,
   };
+  writeJsonAtomic(join(dir, `${at}-result.json`), result);
   writeJsonAtomic(join(dir, 'last.json'), result);
   try { prune(dir); } catch {}
   return result;

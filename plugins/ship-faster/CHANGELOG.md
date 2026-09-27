@@ -14,6 +14,10 @@ versions follow semver.
 ### Changed
 - `ship` pushes and opens the PR without asking first: starting `/ship-faster:ship` is the yes. Merge still asks, and an unattended run still prints the commands instead.
 
+### Fixed
+- Two sessions shipping from the same repository no longer overwrite each other's commit message, PR body, or PR comment: `ship` writes them under `ship/<session id>/` in the data directory. Every session started in one checkout shares that data directory, even after `ship` moves it to a worktree.
+- `checks.mjs run` writes a result file per run (`resultFile`, pruned with the logs), and the preflight report's `Result file` names it, so the PR body's verification table comes from this session's preflight rather than from `last.json`, which the latest run in the checkout replaces.
+
 ## [0.3.0] - 2026-09-18
 
 ### Added

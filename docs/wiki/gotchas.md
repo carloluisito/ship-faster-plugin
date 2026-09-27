@@ -3,8 +3,8 @@ title: Gotchas
 summary: Hook stdin hangs, Windows renames and 8.3 temp paths, BOM shebangs, long-history staleness, tag pushes, test state leaks, and eval sandbox traps, with evidence.
 read_when: Something behaves in a way the code does not explain, or before touching the areas listed in covers.
 covers: [plugins/ship-faster/tests/validate.mjs, plugins/ship-faster/evals/routing/prompt.md, plugins/ship-faster/scripts/lib/cli.mjs, plugins/ship-faster/scripts/lib/state.mjs, plugins/ship-faster/scripts/lib/root.mjs, plugins/ship-faster/evals/*/scaffold.sh, plugins/ship-faster/evals/*/graders/*.md, plugins/ship-faster/scripts/stale.mjs, plugins/ship-faster/scripts/hook-ship-guard.mjs, plugins/ship-faster/tests/run.mjs, plugins/ship-faster/tests/helpers.mjs]
-verified: d8a378230d683ecc251a6a7e68bb27da4c3f49fd
-updated: 2026-09-24
+verified: fc39b166b1f6d9198b4258b168d47d394228af64
+updated: 2026-09-27
 ---
 # Gotchas
 
@@ -51,10 +51,10 @@ Rule: Every `evals/*/scaffold.sh` commits a `.gitignore` naming those paths with
 Evidence: `plugins/ship-faster/evals/release/scaffold.sh:7`, `plugins/ship-faster/scripts/review.mjs:60`, 2026-09-17.
 
 ### Non-interactive runs deny writes under .git, .claude, and the plugin data directory <!-- id: g-20260917-denied-writes -->
-Symptom: In an eval or a `claude -p` run, the Write tool fails on `<dataDir>/ship/commit-msg.txt`, `.git/SHIP_COMMIT_MSG`, and `.claude/rules/<area>.md`, while the plugin's own scripts write to the data directory without trouble.
+Symptom: In an eval or a `claude -p` run, the Write tool fails on `<dataDir>/ship/<session>/commit-msg.txt`, `.git/SHIP_COMMIT_MSG`, and `.claude/rules/<area>.md`, while the plugin's own scripts write to the data directory without trouble.
 Cause: Claude Code's permission settings deny the model's tools those paths when nobody can answer a prompt; scripts spawned through Bash are not subject to the tool-level rule.
 Rule: Skills that need a scratch file fall back to the system temp directory and then to stdin (`git commit -F -`), and a skill that cannot write a rules file prints the rule line instead of failing.
-Evidence: `plugins/ship-faster/skills/ship/reference/commit-and-pr.md:7`, `plugins/ship-faster/skills/lesson/SKILL.md:59`, 2026-09-17.
+Evidence: `plugins/ship-faster/skills/ship/reference/commit-and-pr.md:9`, `plugins/ship-faster/skills/lesson/SKILL.md:59`, 2026-09-17.
 
 ### GitHub's Windows runners hand out an 8.3 temp path <!-- id: g-20260917-short-temp-path -->
 Symptom: Six tests pass on every developer machine and on the Ubuntu jobs but fail on `windows-latest` with paths like `c:/users/runner~1/appdata/local/temp/...` where `c:/users/runneradmin/...` was expected, or with session records that cannot be found.
@@ -91,3 +91,9 @@ Symptom: A case whose fixture CLAUDE.md held the Workflow section scored the sam
 Cause: `claude plugin eval` runs the model without loading CLAUDE.md from the workspace, which is also the sandbox home; skills under `.claude/skills/` do load there.
 Rule: Test behaviour that CLAUDE.md drives, such as the Workflow section's routing, with local `claude -p` runs in a fixture directory, and keep eval cases to what skills, hooks, and the prompt decide.
 Evidence: `plugins/ship-faster/evals/routing/prompt.md:2`, 2026-09-24.
+
+### Every session started in one checkout shares its data directory <!-- id: g-20260927-shared-data-dir -->
+Symptom: Two sessions ship from the same repository at once and one commits, or opens its PR with, the other's message or body; a PR's verification table shows another session's preflight.
+Cause: `<dataDir>` comes from the facts injected when the skill starts, keyed by that checkout's path, and stays the same after `ship` moves the session to a worktree; `preflight/last.json` is replaced by whichever run in the checkout finished last.
+Rule: A scratch file a skill writes and reads back later goes under a folder named with the session id (`<dataDir>/ship/<session>/`), and a caller cites a run's own result file (`resultFile`), never `last.json`.
+Evidence: `plugins/ship-faster/skills/ship/reference/commit-and-pr.md:3`, `plugins/ship-faster/scripts/checks.mjs:226`, 2026-09-27.
