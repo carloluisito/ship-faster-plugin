@@ -3,8 +3,8 @@ title: Overview
 summary: ship-faster is a Claude Code plugin that writes a router CLAUDE.md and a verified wiki, keeps them true, and ships changes through repo-aware skills.
 read_when: You are new to the repository or need the domain vocabulary and system boundaries.
 covers: [README.md, plugins/ship-faster/README.md, plugins/ship-faster/.claude-plugin/plugin.json, .claude-plugin/marketplace.json, plugins/ship-faster/templates/claude-md.md]
-verified: d8a378230d683ecc251a6a7e68bb27da4c3f49fd
-updated: 2026-09-24
+verified: d425bb9fc51f23cfdb3e4acd126f36dc2f0813af
+updated: 2026-09-27
 ---
 # Overview
 
@@ -31,7 +31,7 @@ Claude Code users install it with `/plugin marketplace add carloluisito/ship-fas
 | guard | PreToolUse hook that denies risky git commands and tells Claude when a PR is opened without `ship` | `plugins/ship-faster/scripts/hook-ship-guard.mjs` |
 | lesson | gotcha, decision, or convention with symptom, cause, rule, and evidence | `plugins/ship-faster/skills/lesson/SKILL.md` |
 | inventory | branch, base, ahead/behind, uncommitted files with risk flags and owner, and commit style that `ship` and `release` start from | `plugins/ship-faster/scripts/changes.mjs` |
-| claim | a session's record that it changed a file through Edit, Write, MultiEdit, or NotebookEdit; `ship` uses claims to ship only its own session's files when other sessions share the checkout (`solo` or `shared` mode) | `plugins/ship-faster/scripts/lib/ownership.mjs` |
+| claim | a session's record that it changed a file through Edit, Write, MultiEdit, or NotebookEdit; `ship` uses claims to ship only its own session's files and ask about the rest (`solo` or `shared` mode) | `plugins/ship-faster/scripts/lib/ownership.mjs` |
 | finding | a coded result: `R1..Rn` from review (severity `block`, `warn`, `nit`), `F1..Fn` from health | `plugins/ship-faster/skills/review/SKILL.md`, `plugins/ship-faster/skills/health/SKILL.md` |
 | version source | where a repository's version lives (plugin manifests, package manifests, project files, `version.txt`, or tags) | `plugins/ship-faster/scripts/version.mjs` |
 

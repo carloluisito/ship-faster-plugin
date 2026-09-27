@@ -69,7 +69,7 @@ export function changes(root, { config, base, session = null, include = [], here
   const others = owned.others.map((o) => `${o.branch || 'unknown branch'}${o.files.length ? `, ${o.files.length} file(s)` : ''}`).join('; ');
   result.summary = [
     `${branch ? `branch ${branch}` : 'detached HEAD'} vs ${result.base || '(no base)'}: ${ahead} ahead, ${result.behind} behind, ${dirty.length} uncommitted file(s)${excluded.length ? `, ${excluded.length} excluded (${excluded.slice(0, 3).join(', ')}${excluded.length > 3 ? ', …' : ''})` : ''}`,
-    `ownership: ${owned.mode} (${owned.reason})${owned.mode === 'shared' ? `: ship ${owned.ship.length}, ask ${owned.ask.length}, leave ${owned.leave.length}; others: ${others}` : ''}`,
+    `ownership: ${owned.mode} (${owned.reason})${owned.mode === 'shared' ? `: ship ${owned.ship.length}, ask ${owned.ask.length}, leave ${owned.leave.length}; others: ${others}` : owned.ask.length ? `: ship ${owned.ship.length}, ask ${owned.ask.length}` : ''}`,
     `commit style: ${result.commitStyle.kind} (${Math.round(result.commitStyle.share * 100)}% of ${result.commitStyle.sampled})`,
   ];
   return result;

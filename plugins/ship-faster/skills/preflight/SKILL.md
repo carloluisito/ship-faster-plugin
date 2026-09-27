@@ -29,7 +29,7 @@ Note `source` (`wiki`, `ci`, `detect`, or `none`) and the `excluded` list. When 
 node "${CLAUDE_PLUGIN_ROOT}/scripts/checks.mjs" run --json
 ```
 
-Append `--continue` only when the arguments contain it. Without it the script stops at the first failure. It writes one log per check and `preflight/last.json` under the plugin's data directory (`lastJson` in the output), and returns each check's `status`, `exitCode`, `durationMs`, `tail`, and `log` (`null` when the log could not be written).
+Append `--continue` only when the arguments contain it. Without it the script stops at the first failure. It writes one log per check, a result file of this run's own (`resultFile` in the output), and `preflight/last.json` under the plugin's data directory, and returns each check's `status`, `exitCode`, `durationMs`, `tail`, and `log` (`null` when the log could not be written).
 
 ## 3. Diagnose
 
@@ -51,5 +51,5 @@ Failure: <check> exit <code>             (only on FAIL)
 <last 20 lines of the tail in a fenced block>
 Log: <path or "not written">
 Diagnosis: <the five sentences>
-Result file: <lastJson path>
+Result file: <resultFile path, or lastJson when resultFile is null>
 ```

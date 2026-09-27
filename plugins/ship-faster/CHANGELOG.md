@@ -14,6 +14,15 @@ versions follow semver.
 ### Changed
 - `ship` pushes and opens the PR without asking first: starting `/ship-faster:ship` is the yes. Merge still asks, and an unattended run still prints the commands instead.
 
+### Changed
+- `ship` builds the commit in a worktree whenever it needs a new branch, not only when another session shares the checkout. The checkout never switches branch, so a session started there during or after a ship is not moved onto the ship's branch. On a feature branch it still ships in place, and `--here` still switches the checkout's branch.
+- Alone in a checkout, `ship` no longer commits every uncommitted file once this session has changed some: it ships this session's files plus `--include`, and asks once about files no open session's edits explain (left by an ended session, a Bash command, or an editor), as shared mode does. A session that changed none of the files still ships them all, and `--here` still ships everything. Files Claude changed itself through Bash are added without asking.
+- When its arguments describe work not done yet, `ship` does the work and then takes the inventory again, so ownership reflects the files it just changed.
+
+### Fixed
+- Two sessions shipping from the same repository no longer overwrite each other's commit message, PR body, or PR comment: `ship` writes them under `ship/<session id>/` in the data directory. Every session started in one checkout shares that data directory, even after `ship` moves it to a worktree.
+- `checks.mjs run` writes a result file per run (`resultFile`, pruned with the logs), and the preflight report's `Result file` names it, so the PR body's verification table comes from this session's preflight rather than from `last.json`, which the latest run in the checkout replaces.
+
 ## [0.3.0] - 2026-09-18
 
 ### Added
